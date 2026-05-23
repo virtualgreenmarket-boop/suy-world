@@ -14,6 +14,7 @@ import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemote
 import { initMultiplayer, updateMultiplayer, sendChat, getSocket }
   from './systems/multiplayer.js';
 import { initEconomy } from './systems/economy.js';
+import { preloadCharacter } from './player/characterLoader.js';
 import { updateStores }      from './systems/stores.js';
 import { initCollision }     from './systems/collision.js';
 
@@ -74,6 +75,9 @@ initCats(scene);
 initDogs(scene);
 initDecor(scene);
 initCollision();
+
+// Kick off GLTF model download immediately so it's ready before players join
+preloadCharacter();
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();

@@ -1,13 +1,8 @@
 import * as THREE from 'three';
-import { buildCharacter } from './localPlayer.js';
+import { spawnCharacter } from './characterLoader.js';
 
 const LERP_POS = 0.18;
 const LERP_ROT = 0.22;
-
-const SHIRT_COLORS = [
-  0xE53935, 0x8E24AA, 0x1E88E5, 0x43A047,
-  0xF4511E, 0x00897B, 0xFFB300, 0x6D4C41,
-];
 
 const remotePlayers = {};
 
@@ -20,8 +15,7 @@ export function initRemotePlayers(scene) {
 export function addRemotePlayer(id, data) {
   if (remotePlayers[id]) return;
 
-  const color = SHIRT_COLORS[hashId(id) % SHIRT_COLORS.length];
-  const group = buildCharacter(color);
+  const group = new THREE.Group();
   group.position.set(data.x || 0, data.y || 0, data.z || 0);
   group.rotation.y = data.rotY || 0;
 
@@ -33,6 +27,8 @@ export function addRemotePlayer(id, data) {
     group,
     target: { x: data.x || 0, y: data.y || 0, z: data.z || 0, rotY: data.rotY || 0 },
   };
+
+  spawnCharacter(group); // async; model appears once loaded
 }
 
 export function updateRemotePlayerTarget(id, x, y, z, rotY) {
@@ -85,12 +81,6 @@ function createNameTag(name) {
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(2.6, 0.65, 1);
-  sprite.position.y = 3.1;
+  sprite.position.y = 2.1; // just above 1.82 m model head
   return sprite;
-}
-
-function hashId(id) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h;
 }

@@ -6,7 +6,7 @@ export function bindSendChat(fn) { _sendChat = fn; }
 
 const MAX_MESSAGES    = 60;
 const BUBBLE_DURATION = 5000;
-const HEAD_Y_OFFSET   = 3.4;   // world-units above player origin to anchor bubbles
+const HEAD_Y_OFFSET   = 2.1;   // world-units above player origin to anchor bubbles
 
 let chatBox, inputEl, listEl;
 let localBubbleEl, typingEl;
