@@ -11,8 +11,9 @@ import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPla
 import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemotePlayerPosition }
   from './player/remotePlayer.js';
 
-import { initMultiplayer, updateMultiplayer, sendChat }
+import { initMultiplayer, updateMultiplayer, sendChat, getSocket }
   from './systems/multiplayer.js';
+import { initEconomy } from './systems/economy.js';
 import { updateStores }      from './systems/stores.js';
 import { initCollision }     from './systems/collision.js';
 
@@ -21,7 +22,7 @@ import { initDogs, updateDogs } from './world/dogs.js';
 
 import { initDecor } from './world/decor.js';
 
-import { initHud, updateOnlineCount } from './ui/hud.js';
+import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initChatUI, bindSendChat, updateBubbles } from './ui/chatUI.js';
 
 // ── Scene ──────────────────────────────────────────────────────────────
@@ -83,8 +84,9 @@ bindSendChat(sendChat);
 initRemotePlayers(scene);
 
 // ── Multiplayer ────────────────────────────────────────────────────────
-initMultiplayer(({ name }) => {
+initMultiplayer(({ name, coins }) => {
   initLocalPlayer(scene, camera, name);
+  initEconomy(getSocket(), coins, updateCoinDisplay);
 });
 
 // ── Resize ─────────────────────────────────────────────────────────────
