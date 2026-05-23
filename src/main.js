@@ -8,18 +8,21 @@ import { initMarina }        from './world/marina.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY }
   from './player/localPlayer.js';
-import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount }
+import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemotePlayerPosition }
   from './player/remotePlayer.js';
 
 import { initMultiplayer, updateMultiplayer, sendChat }
   from './systems/multiplayer.js';
 import { updateStores }      from './systems/stores.js';
+import { initCollision }     from './systems/collision.js';
 
 import { initCats, updateCats } from './world/cats.js';
 import { initDogs, updateDogs } from './world/dogs.js';
 
+import { initDecor } from './world/decor.js';
+
 import { initHud, updateOnlineCount } from './ui/hud.js';
-import { initChatUI, bindSendChat }   from './ui/chatUI.js';
+import { initChatUI, bindSendChat, updateBubbles } from './ui/chatUI.js';
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -68,6 +71,8 @@ initHangars(scene);
 initMarina(scene);
 initCats(scene);
 initDogs(scene);
+initDecor(scene);
+initCollision();
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();
@@ -109,6 +114,7 @@ function animate() {
     updateLocalPlayer(delta);
     updateMultiplayer(pos, rotY);
     updateStores(pos);
+    updateBubbles(camera, pos, getRemotePlayerPosition);
   }
 
   updateRemotePlayers();
@@ -116,11 +122,21 @@ function animate() {
   updateCats(delta, npcTime);
   updateDogs(delta, npcTime);
 
-  // NPC waving: oscillate arm forward/back around raised position
+  // Tree-person NPC animations (wave / spin / dance)
   npcs.forEach(npc => {
-    npc.userData.waveArm.rotation.x = Math.sin(npcTime * 3.5) * 0.45;
-    if (npc.userData.npcType === 'mainStore') {
-      npc.rotation.y += delta * 0.35;  // plaza NPC slowly turns
+    const t  = npcTime + (npc.userData.animPhase ?? 0);
+    const wa = npc.userData.waveArm;
+    switch (npc.userData.animType) {
+      case 'spin':
+        npc.rotation.y = t * 1.2;
+        break;
+      case 'dance':
+        npc.rotation.y  = Math.sin(t * 2.2) * 0.6;
+        npc.position.y  = Math.abs(Math.sin(t * 4.5)) * 0.22;
+        wa.rotation.z   = -0.65 + Math.sin(t * 4.5) * 0.5;
+        break;
+      default: // 'wave'
+        wa.rotation.z = -0.65 + Math.sin(t * 3.2) * 0.7;
     }
   });
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-function mat(color, rough = 0.82, metal = 0.04) {
-  return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
+function mat(color, rough = 0.88) {
+  return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.0 });
 }
 
 function add(parent, geo, material, x, y, z) {
@@ -12,96 +12,77 @@ function add(parent, geo, material, x, y, z) {
   return m;
 }
 
+const ANIM_TYPES = ['wave', 'spin', 'dance'];
+
 /**
- * Builds a friendly humanoid NPC with face, hands, legs, and a waving arm.
- * The returned group has:
- *   userData.isNPC    = true
- *   userData.npcType  = npcType string
- *   userData.waveArm  = THREE.Group (pivot at shoulder — animate rotation.x each frame)
+ * Builds a tree-person NPC.
+ *
+ * Appearance: tapered bark trunk, surface roots, two branch arms,
+ * a fluffy leaf-ball head with dark eyes, all using accentColor for the foliage.
+ *
+ * userData:
+ *   isNPC    — true
+ *   npcType  — string
+ *   waveArm  — THREE.Group (right branch pivot, animate rotation.z each frame)
+ *   animType — 'wave' | 'spin' | 'dance'
+ *   animPhase — random offset so NPCs are out of sync
  */
 export function buildNpcCharacter(accentColor, npcType = 'generic') {
-  const skinMat  = mat(0xF5CBA7);
-  const shirtMat = mat(accentColor, 0.78);
-  const pantsMat = mat(0x37474F);
-  const hairMat  = mat(0x3E2723);
-  const eyeMat   = mat(0x1A1A1A, 0.7);
-  const whiteMat = mat(0xFFFFFF, 0.8);
+  const trunkMat = mat(0x5D4037, 0.92);
+  const leafMat  = mat(accentColor, 0.85);
+  const darkMat  = mat(0x1A1A1A, 0.70);
 
   const group = new THREE.Group();
 
-  // ── Head ─────────────────────────────────────────────────────────────
-  add(group, new THREE.SphereGeometry(0.38, 10, 8), skinMat, 0, 2.25, 0);
+  // ── Surface roots ─────────────────────────────────────────────────────
+  for (let i = 0; i < 4; i++) {
+    const a    = (i / 4) * Math.PI * 2;
+    const root = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 0.55, 5), trunkMat);
+    root.position.set(Math.cos(a) * 0.19, 0.13, Math.sin(a) * 0.19);
+    root.rotation.z = Math.cos(a) * 0.5;
+    root.rotation.x = Math.sin(a) * 0.5;
+    root.castShadow = true;
+    group.add(root);
+  }
 
-  // Hair cap (sphere dome slightly larger than head)
-  const hairGeo = new THREE.SphereGeometry(0.41, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.52);
-  add(group, hairGeo, hairMat, 0, 2.30, -0.03);
+  // ── Trunk ─────────────────────────────────────────────────────────────
+  add(group, new THREE.CylinderGeometry(0.14, 0.22, 2.0, 7), trunkMat, 0, 1.0, 0);
 
-  // Eyes: white sclera + dark pupil
-  const scleraGeo = new THREE.SphereGeometry(0.072, 7, 6);
-  const pupilGeo  = new THREE.SphereGeometry(0.036, 6, 5);
-  [-0.13, 0.13].forEach(ex => {
-    add(group, scleraGeo, whiteMat, ex, 2.30, 0.33);
-    add(group, pupilGeo,  eyeMat,   ex, 2.30, 0.39);
-  });
+  // ── Left branch (fixed, angled left-upward) ───────────────────────────
+  const leftBranch = new THREE.Group();
+  leftBranch.position.set(-0.16, 1.45, 0);
+  leftBranch.rotation.z = 0.65;
+  group.add(leftBranch);
+  add(leftBranch, new THREE.CylinderGeometry(0.04, 0.07, 0.85, 5), trunkMat, 0, 0.38, 0);
+  add(leftBranch, new THREE.SphereGeometry(0.17, 6, 5), leafMat, 0, 0.88, 0);
 
-  // Eyebrows
-  const browGeo = new THREE.BoxGeometry(0.12, 0.024, 0.04);
-  [-0.13, 0.13].forEach(ex => {
-    const brow = new THREE.Mesh(browGeo, hairMat);
-    brow.position.set(ex, 2.41, 0.33);
-    brow.rotation.z = ex < 0 ? 0.15 : -0.15;
-    group.add(brow);
-  });
-
-  // Nose
-  add(group, new THREE.SphereGeometry(0.03, 6, 5), mat(0xE0A882), 0, 2.21, 0.37);
-
-  // Smile: half-torus arc in XY plane, rotated.z=π flips to bottom arc (∪ = smile)
-  const smileGeo = new THREE.TorusGeometry(0.09, 0.016, 4, 10, Math.PI);
-  const smile    = new THREE.Mesh(smileGeo, mat(0xC0785A, 0.9));
-  smile.position.set(0, 2.12, 0.37);
-  smile.rotation.z = Math.PI;
-  group.add(smile);
-
-  // ── Body ─────────────────────────────────────────────────────────────
-  add(group, new THREE.CapsuleGeometry(0.25, 0.5, 6, 12), shirtMat, 0, 1.38, 0);
-
-  // ── Left arm (resting, angled slightly outward) ────────────────────
-  const armGeo  = new THREE.CapsuleGeometry(0.09, 0.44, 4, 10);
-  const leftArm = new THREE.Mesh(armGeo, shirtMat);
-  leftArm.position.set(-0.42, 1.35, 0);
-  leftArm.rotation.z = 0.28;
-  leftArm.castShadow = true;
-  group.add(leftArm);
-  add(group, new THREE.SphereGeometry(0.085, 7, 6), skinMat, -0.56, 1.00, 0);
-
-  // ── Right arm — pivot group at shoulder for waving ─────────────────
-  // Pivot sits at shoulder position; arm mesh hangs below it.
-  // Animate waveArm.rotation.x each frame: Math.sin(t) * 0.45
-  // Initial rotation.z raises the arm to roughly horizontal.
+  // ── Right branch — wave pivot (animate rotation.z each frame) ─────────
   const waveArm = new THREE.Group();
-  waveArm.position.set(0.42, 1.66, 0);
-  waveArm.rotation.z = -Math.PI * 0.55;  // arm raised outward (~horizontal)
+  waveArm.position.set(0.16, 1.45, 0);
+  waveArm.rotation.z = -0.65;
   group.add(waveArm);
+  add(waveArm, new THREE.CylinderGeometry(0.04, 0.07, 0.85, 5), trunkMat, 0, 0.38, 0);
+  add(waveArm, new THREE.SphereGeometry(0.17, 6, 5), leafMat, 0, 0.88, 0);
 
-  const rightArmMesh = new THREE.Mesh(armGeo, shirtMat);
-  rightArmMesh.position.set(0, -0.30, 0);
-  rightArmMesh.castShadow = true;
-  waveArm.add(rightArmMesh);
+  // ── Leaf head (central sphere + ring of 5 + top tuft) ─────────────────
+  add(group, new THREE.SphereGeometry(0.32, 8, 6), leafMat, 0, 2.22, 0);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    add(group, new THREE.SphereGeometry(0.18, 6, 5), leafMat,
+      Math.cos(a) * 0.22, 2.18, Math.sin(a) * 0.22);
+  }
+  add(group, new THREE.SphereGeometry(0.20, 6, 5), leafMat, 0, 2.52, 0);
 
-  const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.085, 7, 6), skinMat);
-  rightHand.position.set(0, -0.62, 0);
-  rightHand.castShadow = true;
-  waveArm.add(rightHand);
+  // ── Eyes + mouth on front of head ────────────────────────────────────
+  add(group, new THREE.SphereGeometry(0.036, 5, 4), darkMat, -0.11, 2.27, 0.28);
+  add(group, new THREE.SphereGeometry(0.036, 5, 4), darkMat,  0.11, 2.27, 0.28);
+  add(group, new THREE.SphereGeometry(0.026, 4, 3), darkMat,  0,    2.13, 0.30);
 
-  // ── Legs ─────────────────────────────────────────────────────────────
-  const legGeo = new THREE.CapsuleGeometry(0.11, 0.58, 4, 10);
-  add(group, legGeo, pantsMat, -0.15, 0.49, 0);
-  add(group, legGeo, pantsMat,  0.15, 0.49, 0);
-
-  group.userData.isNPC   = true;
-  group.userData.npcType = npcType;
-  group.userData.waveArm = waveArm;
+  group.userData.isNPC     = true;
+  group.userData.npcType   = npcType;
+  group.userData.waveArm   = waveArm;
+  group.userData.animType  = ANIM_TYPES[Math.floor(Math.random() * ANIM_TYPES.length)];
+  group.userData.animPhase = Math.random() * Math.PI * 2;
 
   return group;
 }

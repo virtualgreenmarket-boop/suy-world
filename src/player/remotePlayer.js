@@ -58,6 +58,10 @@ export function getRemotePlayerCount() {
   return Object.keys(remotePlayers).length;
 }
 
+export function getRemotePlayerPosition(id) {
+  return remotePlayers[id]?.group.position ?? null;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────
 
 function createNameTag(name) {

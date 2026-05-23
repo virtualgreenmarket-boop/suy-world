@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { resolveCollision } from '../systems/collision.js';
 
 const MOVE_SPEED   = 10;
 const CAM_DIST     = 10;
@@ -90,9 +91,10 @@ export function updateLocalPlayer(delta) {
     move.normalize().multiplyScalar(MOVE_SPEED * delta);
     const nx = playerGroup.position.x + move.x;
     const nz = playerGroup.position.z + move.z;
-    if (nx * nx + nz * nz < ISLAND_R * ISLAND_R) {
-      playerGroup.position.x = nx;
-      playerGroup.position.z = nz;
+    const [rx, rz] = resolveCollision(nx, nz, playerGroup.position.x, playerGroup.position.z);
+    if (rx * rx + rz * rz < ISLAND_R * ISLAND_R) {
+      playerGroup.position.x = rx;
+      playerGroup.position.z = rz;
     }
     playerGroup.rotation.y = Math.atan2(move.x, move.z);
   }
