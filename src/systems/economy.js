@@ -20,7 +20,7 @@ export function getCoins() { return _coins; }
 export function initEconomy(socket, initialCoins, onCoinUpdate) {
   _socket   = socket;
   _onUpdate = onCoinUpdate;
-  _coins    = initialCoins;
+  _coins    = initialCoins ?? 25;
   onCoinUpdate(_coins);
 
   socket.on('coinsUpdated', ({ coins }) => {

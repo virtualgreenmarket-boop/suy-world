@@ -1,21 +1,28 @@
 import * as THREE from 'three';
 import { resolveCollision } from '../systems/collision.js';
-import { spawnCharacter } from './characterLoader.js';
+import { spawnCharacter, setAnimState, updateCharacterMixer } from './characterLoader.js';
+import { joystick, consumeJump, consumeCameraMovement, isRunning } from '../ui/touchControls.js';
 
-const MOVE_SPEED  = 10;
-const CAM_DIST    = 10;
-const CAM_LOOK_H  = 1.6;
-const ISLAND_R    = 233;
+const WALK_SPEED = 6;
+const RUN_SPEED  = 14;
+const KB_SPEED   = 10;  // keyboard walk speed
+const CAM_DIST   = 10;
+const CAM_LOOK_H = 1.6;
+const ISLAND_R   = 233;
+const GRAVITY    = -22;
+const JUMP_FORCE = 8;
+const GROUND_Y   = 0;
 
 let _scene, _camera;
 let playerGroup;
 let cameraYaw   = 0;
 let cameraPitch = 0.42;
+let velocityY   = 0;
+let _isJumping  = false;
 
+// Keyboard kept as dev fallback
 const keys = {};
-let isDragging = false;
-let lastMouseX = 0;
-let lastMouseY = 0;
+let isDragging = false, lastMouseX = 0, lastMouseY = 0;
 
 // ── Init ──────────────────────────────────────────────────────────────
 
@@ -27,21 +34,27 @@ export function initLocalPlayer(scene, camera, name) {
   playerGroup.position.set(0, 0, 55);
   scene.add(playerGroup);
 
-  spawnCharacter(playerGroup); // async; model appears once loaded
+  spawnCharacter(playerGroup);
 
-  window.addEventListener('keydown', e => { keys[e.code] = true; });
-  window.addEventListener('keyup',   e => { keys[e.code] = false; });
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'Space' && playerGroup.position.y <= GROUND_Y + 0.05) {
+      e.preventDefault();
+      _triggerJump();
+    }
+  });
+  window.addEventListener('keyup', e => { keys[e.code] = false; });
 
   const canvas = document.querySelector('canvas');
   canvas.addEventListener('mousedown',   e => { isDragging = true;  lastMouseX = e.clientX; lastMouseY = e.clientY; });
-  window.addEventListener('mouseup',     ()  => { isDragging = false; });
-  window.addEventListener('mousemove',   e  => onMouseMove(e));
-  canvas.addEventListener('contextmenu', e  => e.preventDefault());
+  window.addEventListener('mouseup',     () => { isDragging = false; });
+  window.addEventListener('mousemove',   e => _onMouseMove(e));
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
 
   syncCamera();
 }
 
-function onMouseMove(e) {
+function _onMouseMove(e) {
   if (!isDragging) return;
   cameraYaw   -= (e.clientX - lastMouseX) * 0.0045;
   cameraPitch  = Math.max(0.12, Math.min(1.1, cameraPitch - (e.clientY - lastMouseY) * 0.0045));
@@ -49,9 +62,23 @@ function onMouseMove(e) {
   lastMouseY   = e.clientY;
 }
 
+function _triggerJump() {
+  velocityY  = JUMP_FORCE;
+  _isJumping = true;
+  setAnimState(playerGroup, 'jump');
+}
+
 // ── Update ────────────────────────────────────────────────────────────
 
 export function updateLocalPlayer(delta) {
+  // Camera from touch (consumed each frame)
+  const { dx, dy } = consumeCameraMovement();
+  if (dx || dy) {
+    cameraYaw   -= dx * 0.005;
+    cameraPitch  = Math.max(0.12, Math.min(1.1, cameraPitch - dy * 0.005));
+  }
+
+  // Build movement vector (keyboard + joystick combined)
   const fwd   = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
   const right  = new THREE.Vector3( Math.cos(cameraYaw), 0, -Math.sin(cameraYaw));
   const move  = new THREE.Vector3();
@@ -61,8 +88,24 @@ export function updateLocalPlayer(delta) {
   if (keys['KeyA'] || keys['ArrowLeft'])  move.sub(right);
   if (keys['KeyD'] || keys['ArrowRight']) move.add(right);
 
-  if (move.lengthSq() > 0) {
-    move.normalize().multiplyScalar(MOVE_SPEED * delta);
+  if (joystick.magnitude > 0) {
+    move.addScaledVector(right, joystick.x);
+    move.addScaledVector(fwd,  -joystick.y); // screen-Y down = move backward
+  }
+
+  const kbMoving  = keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'] ||
+                    keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
+  const sprint    = (kbMoving && (keys['ShiftLeft'] || keys['ShiftRight'])) || isRunning();
+  const isMoving  = move.lengthSq() > 0;
+
+  if (isMoving) {
+    // Speed scales with joystick magnitude for analogue feel; keyboard is fixed
+    let speed;
+    if (sprint)    speed = RUN_SPEED;
+    else if (kbMoving) speed = KB_SPEED;
+    else speed = WALK_SPEED + (RUN_SPEED - WALK_SPEED) * Math.min(joystick.magnitude / 0.78, 1);
+
+    move.normalize().multiplyScalar(speed * delta);
     const nx = playerGroup.position.x + move.x;
     const nz = playerGroup.position.z + move.z;
     const [rx, rz] = resolveCollision(nx, nz, playerGroup.position.x, playerGroup.position.z);
@@ -73,6 +116,24 @@ export function updateLocalPlayer(delta) {
     playerGroup.rotation.y = Math.atan2(move.x, move.z);
   }
 
+  // Jump input (touch and keyboard Space share this path)
+  if (consumeJump() && playerGroup.position.y <= GROUND_Y + 0.05) _triggerJump();
+
+  // Gravity
+  velocityY += GRAVITY * delta;
+  playerGroup.position.y = Math.max(GROUND_Y, playerGroup.position.y + velocityY * delta);
+  if (playerGroup.position.y <= GROUND_Y) {
+    if (velocityY < 0) velocityY = 0;
+    if (_isJumping) _isJumping = false;
+  }
+
+  // Animation state machine
+  if (!_isJumping) {
+    const target = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
+    setAnimState(playerGroup, target); // no-op if already in this state
+  }
+
+  updateCharacterMixer(playerGroup, delta);
   syncCamera();
 }
 
@@ -93,6 +154,7 @@ export function getLocalPlayerPosition() { return playerGroup?.position; }
 export function getLocalPlayerRotY()     { return playerGroup?.rotation.y ?? 0; }
 
 export function setLocalPlayerPosition(x, z) {
-  playerGroup.position.set(x, 0, z);
+  playerGroup.position.set(x, GROUND_Y, z);
+  velocityY = 0;
   syncCamera();
 }

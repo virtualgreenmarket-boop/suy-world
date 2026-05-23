@@ -1,4 +1,9 @@
 import * as THREE from 'three';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { SSAOPass }        from 'three/addons/postprocessing/SSAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
 
 import { initIsland }        from './world/island.js';
 import { initPlaza }         from './world/plaza.js';
@@ -15,6 +20,7 @@ import { initMultiplayer, updateMultiplayer, sendChat, getSocket }
   from './systems/multiplayer.js';
 import { initEconomy } from './systems/economy.js';
 import { preloadCharacter } from './player/characterLoader.js';
+import { preloadAnimations } from './player/animations.js';
 import { updateStores }      from './systems/stores.js';
 import { initCollision }     from './systems/collision.js';
 
@@ -25,6 +31,7 @@ import { initDecor } from './world/decor.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initChatUI, bindSendChat, updateBubbles } from './ui/chatUI.js';
+import { initTouchControls } from './ui/touchControls.js';
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -43,16 +50,16 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
 renderer.toneMapping       = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-renderer.outputColorSpace  = THREE.SRGBColorSpace;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace  = THREE.LinearSRGBColorSpace; // OutputPass handles sRGB conversion
 document.body.appendChild(renderer.domElement);
 
 // ── Lighting ───────────────────────────────────────────────────────────
 const sun = new THREE.DirectionalLight(0xFFF8F0, 2.2);
 sun.position.set(120, 220, 80);
 sun.castShadow = true;
-sun.shadow.mapSize.width   = 2048;
-sun.shadow.mapSize.height  = 2048;
+sun.shadow.mapSize.width   = 4096;
+sun.shadow.mapSize.height  = 4096;
 sun.shadow.camera.near     = 1;
 sun.shadow.camera.far      = 900;
 sun.shadow.camera.left     = -320;
@@ -65,6 +72,26 @@ scene.add(sun);
 scene.add(new THREE.HemisphereLight(0x87CEEB, 0x8BC34A, 0.7));
 scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 
+// ── Post-processing ────────────────────────────────────────────────────
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
+ssaoPass.kernelRadius = 8;
+ssaoPass.minDistance  = 0.005;
+ssaoPass.maxDistance  = 0.12;
+composer.addPass(ssaoPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.5,   // strength
+  0.5,   // radius
+  0.85   // threshold
+);
+composer.addPass(bloomPass);
+
+composer.addPass(new OutputPass());
+
 // ── World ──────────────────────────────────────────────────────────────
 initIsland(scene);
 initPlaza(scene);
@@ -76,13 +103,15 @@ initDogs(scene);
 initDecor(scene);
 initCollision();
 
-// Kick off GLTF model download immediately so it's ready before players join
-preloadCharacter();
+// Kick off model + animation downloads immediately
+preloadCharacter().catch(err => console.error('[character] model failed to load:', err));
+preloadAnimations().catch(err => console.error('[animations] failed to load:', err));
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();
 initChatUI();
 bindSendChat(sendChat);
+initTouchControls();
 
 // ── Remote players ─────────────────────────────────────────────────────
 initRemotePlayers(scene);
@@ -95,9 +124,13 @@ initMultiplayer(({ name, coins }) => {
 
 // ── Resize ─────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  ssaoPass.setSize(w, h);
 });
 
 // ── Game loop ──────────────────────────────────────────────────────────
@@ -123,7 +156,7 @@ function animate() {
     updateBubbles(camera, pos, getRemotePlayerPosition);
   }
 
-  updateRemotePlayers();
+  updateRemotePlayers(delta);
   updateOnlineCount(1 + getRemotePlayerCount());
   updateCats(delta, npcTime);
   updateDogs(delta, npcTime);
@@ -146,7 +179,7 @@ function animate() {
     }
   });
 
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 animate();

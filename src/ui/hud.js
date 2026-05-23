@@ -1,4 +1,4 @@
-let countEl, slotEl, controlsEl, coinEl;
+let countEl, slotEl, coinEl;
 
 export function initHud() {
   // ── Top-left: bag icon + coin balance ────────────────────────────────
@@ -52,23 +52,10 @@ export function initHud() {
   });
   document.body.appendChild(slotEl);
 
-  // ── Bottom-left: controls hint ────────────────────────────────────────
-  controlsEl = el('div', {
-    position: 'fixed', bottom: '16px', left: '16px',
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: '12px', lineHeight: '1.7',
-    fontFamily: 'Segoe UI, Arial, sans-serif',
-    pointerEvents: 'none', userSelect: 'none',
-  });
-  controlsEl.innerHTML =
-    'WASD / ↑↓←→ &mdash; Move<br>' +
-    'Drag &mdash; Rotate camera<br>' +
-    'T &mdash; Chat';
-  document.body.appendChild(controlsEl);
 }
 
 export function updateCoinDisplay(n) {
-  if (coinEl) coinEl.textContent = `🪙 ${n}`;
+  if (coinEl) coinEl.textContent = `🪙 ${n ?? '–'}`;
 }
 
 export function updateOnlineCount(total) {

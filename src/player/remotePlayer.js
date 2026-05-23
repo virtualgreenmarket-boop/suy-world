@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { spawnCharacter } from './characterLoader.js';
+import { spawnCharacter, setAnimState, updateCharacterMixer } from './characterLoader.js';
 
 const LERP_POS = 0.18;
 const LERP_ROT = 0.22;
@@ -43,10 +43,25 @@ export function removeRemotePlayer(id) {
   delete remotePlayers[id];
 }
 
-export function updateRemotePlayers() {
+export function updateRemotePlayers(delta) {
   for (const { group, target } of Object.values(remotePlayers)) {
+    const prevX = group.position.x;
+    const prevZ = group.position.z;
+
     group.position.lerp(new THREE.Vector3(target.x, target.y, target.z), LERP_POS);
     group.rotation.y += (target.rotY - group.rotation.y) * LERP_ROT;
+
+    const dx = group.position.x - prevX;
+    const dz = group.position.z - prevZ;
+    const speed = Math.sqrt(dx * dx + dz * dz) / delta;
+
+    let animTarget;
+    if (speed < 0.5)  animTarget = 'idle';
+    else if (speed < 10) animTarget = 'walk';
+    else               animTarget = 'run';
+
+    setAnimState(group, animTarget);
+    updateCharacterMixer(group, delta);
   }
 }
 
