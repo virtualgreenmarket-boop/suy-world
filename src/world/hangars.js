@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildNpcCharacter } from './npc.js';
 
 // ── Dimensions ────────────────────────────────────────────────────────
 const W  = 54;   // exterior width  (x: -27..+27)
@@ -55,21 +56,11 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   buildSideSlots(group, 'right', hangarIndex, slotSignMat, counterMat);
   buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
 
-  // ── Entrance NPC orb ──────────────────────────────────────────────
-  const npcOrb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.8, 14, 10),
-    new THREE.MeshStandardMaterial({
-      color: ACCENT[hangarIndex],
-      emissive: ACCENT[hangarIndex],
-      emissiveIntensity: 0.5,
-      roughness: 0.3,
-    })
-  );
-  npcOrb.position.set(0, 2.8, D / 2 - 3);
-  npcOrb.userData.isNPC = true;
-  npcOrb.userData.npcType = 'hangarEntrance';
-  npcOrb.userData.hangarIndex = hangarIndex;
-  group.add(npcOrb);
+  // ── Entrance NPC character ────────────────────────────────────────
+  const npc = buildNpcCharacter(ACCENT[hangarIndex], 'hangarEntrance');
+  npc.position.set(0, 0, D / 2 - 4);  // just inside the entrance columns
+  npc.userData.hangarIndex = hangarIndex;
+  group.add(npc);
 
   scene.add(group);
 

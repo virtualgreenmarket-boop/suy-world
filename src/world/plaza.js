@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildNpcCharacter } from './npc.js';
 
 function mat(color, rough = 0.82) {
   return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.08 });
@@ -62,19 +63,9 @@ function addCentralStructure(scene) {
   col.castShadow = true;
   scene.add(col);
 
-  // Glowing orb — NPC marker (main store)
-  const orbMat = new THREE.MeshStandardMaterial({
-    color: 0xFFE082,
-    emissive: 0xFFB300,
-    emissiveIntensity: 0.7,
-    roughness: 0.3,
-    metalness: 0.1,
-  });
-  const orb = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 12), orbMat);
-  orb.position.y = 9.5;
-  orb.userData.isNPC = true;
-  orb.userData.npcType = 'mainStore';
-  scene.add(orb);
+  const npc = buildNpcCharacter(0xFFB300, 'mainStore');
+  npc.position.set(0, 0, 5.5);  // in front of the central column
+  scene.add(npc);
 }
 
 function addEdgeBenches(scene) {

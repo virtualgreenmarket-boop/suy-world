@@ -15,6 +15,9 @@ import { initMultiplayer, updateMultiplayer, sendChat }
   from './systems/multiplayer.js';
 import { updateStores }      from './systems/stores.js';
 
+import { initCats, updateCats } from './world/cats.js';
+import { initDogs, updateDogs } from './world/dogs.js';
+
 import { initHud, updateOnlineCount } from './ui/hud.js';
 import { initChatUI, bindSendChat }   from './ui/chatUI.js';
 
@@ -63,6 +66,8 @@ initPlaza(scene);
 initPaths(scene);
 initHangars(scene);
 initMarina(scene);
+initCats(scene);
+initDogs(scene);
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();
@@ -87,15 +92,15 @@ window.addEventListener('resize', () => {
 // ── Game loop ──────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
 
-// Gentle orb pulse
-let orbTime = 0;
-const orbs  = [];
-scene.traverse(obj => { if (obj.userData.isNPC) orbs.push(obj); });
+// NPC waving animation
+let npcTime = 0;
+const npcs  = [];
+scene.traverse(obj => { if (obj.userData.isNPC) npcs.push(obj); });
 
 function animate() {
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), 0.05);
-  orbTime += delta;
+  npcTime += delta;
 
   const pos  = getLocalPlayerPosition();
   const rotY = getLocalPlayerRotY();
@@ -108,10 +113,15 @@ function animate() {
 
   updateRemotePlayers();
   updateOnlineCount(1 + getRemotePlayerCount());
+  updateCats(delta, npcTime);
+  updateDogs(delta, npcTime);
 
-  // Pulse NPC orbs
-  orbs.forEach(o => {
-    o.material.emissiveIntensity = 0.45 + Math.sin(orbTime * 2.2) * 0.25;
+  // NPC waving: oscillate arm forward/back around raised position
+  npcs.forEach(npc => {
+    npc.userData.waveArm.rotation.x = Math.sin(npcTime * 3.5) * 0.45;
+    if (npc.userData.npcType === 'mainStore') {
+      npc.rotation.y += delta * 0.35;  // plaza NPC slowly turns
+    }
   });
 
   renderer.render(scene, camera);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildNpcCharacter } from './npc.js';
 
 function mat(color, rough = 0.85, metal = 0.05) {
   return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
@@ -107,17 +108,7 @@ function addHut(group) {
 }
 
 function addNpcOrb(group) {
-  const orb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.75, 14, 10),
-    new THREE.MeshStandardMaterial({
-      color: 0x26C6DA,
-      emissive: 0x0097A7,
-      emissiveIntensity: 0.6,
-      roughness: 0.3,
-    })
-  );
-  orb.position.set(0, 2.5, 14);
-  orb.userData.isNPC = true;
-  orb.userData.npcType = 'fishing';
-  group.add(orb);
+  const npc = buildNpcCharacter(0x26C6DA, 'fishing');
+  npc.position.set(0, 0, 12);  // near marina entrance
+  group.add(npc);
 }

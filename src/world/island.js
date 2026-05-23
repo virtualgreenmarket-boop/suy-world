@@ -54,10 +54,11 @@ function addPalmTrees(scene) {
   const trunkMat = mat(0x8D6E63);
   const leafMat  = mat(0x388E3C, 0.92);
 
+  // Avoid radii: hangars need 58 (diagonal to corner ≈ 54), marina needs 80 (dock extends far)
   const avoid = [
-    { x: 0,    z: -130 }, { x: 130,  z: 0    },
-    { x: 0,    z:  130 }, { x: -150, z: 0    },
-    { x: 0,    z:  0   },
+    { x: 0,    z: -130, r: 58 }, { x: 130,  z: 0,   r: 58 },
+    { x: 0,    z:  130, r: 58 }, { x: -150, z: 0,   r: 80 },
+    { x: 0,    z:  0,   r: 50 },
   ];
 
   const rng = makeRng(17);
@@ -70,7 +71,7 @@ function addPalmTrees(scene) {
       x = Math.cos(a) * r;
       z = Math.sin(a) * r;
       tries++;
-    } while (tries < 50 && avoid.some(a => Math.hypot(a.x - x, a.z - z) < 30));
+    } while (tries < 50 && avoid.some(a => Math.hypot(a.x - x, a.z - z) < a.r));
 
     const scale  = 0.75 + rng() * 0.6;
     const height = 9 + rng() * 5;
