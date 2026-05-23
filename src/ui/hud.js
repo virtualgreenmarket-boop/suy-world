@@ -1,7 +1,35 @@
-let countEl, slotEl, controlsEl;
+let countEl, slotEl, controlsEl, coinEl;
 
 export function initHud() {
-  // Online count (top-right)
+  // ── Top-left: bag icon + coin balance ────────────────────────────────
+  const topLeft = el('div', {
+    position: 'fixed', top: '16px', left: '16px',
+    display: 'flex', gap: '8px', alignItems: 'center',
+    userSelect: 'none',
+  });
+
+  const bagEl = el('div', {
+    background: 'rgba(0,0,0,0.5)', color: '#fff',
+    padding: '6px 14px', borderRadius: '20px',
+    fontSize: '16px', cursor: 'pointer',
+    pointerEvents: 'all',
+  });
+  bagEl.textContent = '🛍';
+  bagEl.title = 'Inventory (coming soon)';
+  topLeft.appendChild(bagEl);
+
+  coinEl = el('div', {
+    background: 'rgba(0,0,0,0.5)', color: '#fff',
+    padding: '6px 14px', borderRadius: '20px',
+    fontSize: '14px', fontFamily: 'Segoe UI, Arial, sans-serif',
+    pointerEvents: 'none',
+  });
+  coinEl.textContent = '🪙 –';
+  topLeft.appendChild(coinEl);
+
+  document.body.appendChild(topLeft);
+
+  // ── Top-right: online count ───────────────────────────────────────────
   countEl = el('div', {
     position: 'fixed', top: '16px', right: '16px',
     background: 'rgba(0,0,0,0.5)', color: '#fff',
@@ -12,7 +40,7 @@ export function initHud() {
   countEl.textContent = '● 1 online';
   document.body.appendChild(countEl);
 
-  // Store slot label (centre-bottom area)
+  // ── Centre: slot label ────────────────────────────────────────────────
   slotEl = el('div', {
     position: 'fixed', bottom: '28%', left: '50%',
     transform: 'translateX(-50%)',
@@ -24,7 +52,7 @@ export function initHud() {
   });
   document.body.appendChild(slotEl);
 
-  // Controls hint (bottom-left)
+  // ── Bottom-left: controls hint ────────────────────────────────────────
   controlsEl = el('div', {
     position: 'fixed', bottom: '16px', left: '16px',
     color: 'rgba(255,255,255,0.7)',
@@ -37,6 +65,10 @@ export function initHud() {
     'Drag &mdash; Rotate camera<br>' +
     'T &mdash; Chat';
   document.body.appendChild(controlsEl);
+}
+
+export function updateCoinDisplay(n) {
+  if (coinEl) coinEl.textContent = `🪙 ${n}`;
 }
 
 export function updateOnlineCount(total) {
@@ -52,8 +84,6 @@ export function showSlotLabel(text) {
 export function hideSlotLabel() {
   slotEl.style.display = 'none';
 }
-
-// ── Helper ────────────────────────────────────────────────────────────
 
 function el(tag, styles) {
   const e = document.createElement(tag);
