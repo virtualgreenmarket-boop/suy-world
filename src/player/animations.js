@@ -70,6 +70,14 @@ export function buildClipsForSkeleton(boneNames) {
 
 export function getClip(name) { return _clips[name] ?? null; }
 
+// Remap a single named FBX clip for an arbitrary skeleton without touching
+// the global _clips (used by NPCs that may have different bone names).
+export function buildClipForSkeleton(clipName, boneNames) {
+  const scene = _fbxScenes[clipName];
+  if (!scene) return null;
+  return remapClip(scene, clipName, boneNames);
+}
+
 // Remap Mixamo animation tracks onto the target skeleton.
 // Priority: exact raw name → normalised name → UE4 mapping → skip.
 function remapClip(fbxScene, name, boneNames) {

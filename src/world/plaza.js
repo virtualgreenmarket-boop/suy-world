@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { buildNpcCharacter } from './npc.js';
 import { spawnTree } from './trees.js';
+import { spawnNpc, updateNpc } from './npcGlb.js';
 
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
 const CENTRAL_TREE_H    = 30;   // TARGET_HEIGHT(15) × scale(2.0) — used for bird orbits
 
-let _birds = [];
+let _birds  = [];
+let _glbNpc = null;
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -17,10 +19,19 @@ export function initPlaza(scene) {
   addEdgeBenches(scene);
   addNpc(scene);
   _birds = createBirds(scene);
+
+  // GLB NPC — place her near the central tree facing the entrance path
+  // Position (10, surface, -5): off to the side of the tree, angled toward
+  // the south path (rotY ≈ PI*0.75 faces her diagonally toward centre).
+  const PLAZA_SURFACE = 0.7;
+  spawnNpc(scene, 10, PLAZA_SURFACE, -5, Math.PI * 0.75)
+    .then(npc => { _glbNpc = npc; })
+    .catch(err => console.error('[plaza] GLB NPC failed:', err));
 }
 
 export function updatePlaza(delta, time) {
   for (const b of _birds) _updateBird(b, delta, time);
+  updateNpc(_glbNpc, delta);
 }
 
 // ── PBR plaza floor ───────────────────────────────────────────────────

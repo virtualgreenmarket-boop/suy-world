@@ -29,6 +29,7 @@ import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
 import { initOceanLife, updateOceanLife } from './world/oceanLife.js';
 import { preloadTrees }                   from './world/trees.js';
+import { preloadNpc }                     from './world/npcGlb.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
@@ -135,6 +136,7 @@ initCollision();
 preloadCharacter().catch(err => console.error('[character] model failed:', err));
 preloadAnimations().catch(err => console.error('[animations] failed:', err));
 preloadTrees().catch(err => console.error('[trees] failed:', err));
+preloadNpc().catch(err => console.error('[npc-glb] failed:', err));
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();
