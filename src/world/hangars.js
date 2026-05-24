@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildNpcCharacter } from './npc.js';
+import { registerInteraction } from '../ui/interactionUI.js';
 
 // ── PBR brick material (shared across all three hangars) ──────────────
 
@@ -62,6 +63,26 @@ export function initHangars(scene) {
   ];
 
   configs.forEach((cfg, i) => buildHangar(scene, cfg, i));
+
+  // Register entrance NPCs as "Shop" interactions
+  // World positions: NPC is at local (0, 0, D/2-4) inside each rotated hangar group
+  const halfD = D / 2 - 4;
+  const sin0 = Math.sin(0),        cos0 = Math.cos(0);
+  const sinNE = Math.sin(-Math.PI/2), cosNE = Math.cos(-Math.PI/2);
+  const sinS = Math.sin(Math.PI),   cosS = Math.cos(Math.PI);
+
+  // North: x=0, z=-130, rotY=0
+  registerInteraction([0 + halfD*sin0, 0, -130 + halfD*cos0], 'Shop', 7, () => {
+    console.log('[hangar] North Hangar — browse store slots');
+  });
+  // East: x=130, z=0, rotY=-PI/2
+  registerInteraction([130 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Shop', 7, () => {
+    console.log('[hangar] East Hangar — browse store slots');
+  });
+  // South: x=0, z=130, rotY=PI
+  registerInteraction([0 + halfD*sinS, 0, 130 + halfD*cosS], 'Shop', 7, () => {
+    console.log('[hangar] South Hangar — browse store slots');
+  });
 }
 
 // ── Build one hangar ──────────────────────────────────────────────────

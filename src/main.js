@@ -29,11 +29,14 @@ import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
 import { initOceanLife, updateOceanLife } from './world/oceanLife.js';
 import { preloadTrees }                   from './world/trees.js';
-import { preloadNpc }                     from './world/npcGlb.js';
+import { preloadAllNpcs }                  from './world/npcGlb.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
+import { initInteractionUI, updateInteractions }         from './ui/interactionUI.js';
+import { initInventoryPanel }                            from './ui/inventoryPanel.js';
+import { initSettingsPanel, applyQualitySettings }       from './ui/settingsPanel.js';
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -51,10 +54,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
-renderer.toneMapping       = THREE.ACESFilmicToneMapping;
+renderer.toneMapping         = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 // LinearSRGBColorSpace → OutputPass handles final sRGB conversion
-renderer.outputColorSpace   = THREE.LinearSRGBColorSpace;
+renderer.outputColorSpace    = THREE.LinearSRGBColorSpace;
+// Match clear colour to sky so early frames are never black
+renderer.setClearColor(0x87CEEB, 1);
 document.body.appendChild(renderer.domElement);
 
 // ── Lighting ───────────────────────────────────────────────────────────
@@ -136,13 +141,17 @@ initCollision();
 preloadCharacter().catch(err => console.error('[character] model failed:', err));
 preloadAnimations().catch(err => console.error('[animations] failed:', err));
 preloadTrees().catch(err => console.error('[trees] failed:', err));
-preloadNpc().catch(err => console.error('[npc-glb] failed:', err));
+preloadAllNpcs().catch(err => console.error('[npc-glb] failed:', err));
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();
 initChatUI();
 bindSendChat(sendChat);
 initTouchControls();
+initInteractionUI();
+initInventoryPanel();
+initSettingsPanel(renderer);
+applyQualitySettings(renderer);
 
 // ── Multiplayer ────────────────────────────────────────────────────────
 initRemotePlayers(scene);
@@ -181,6 +190,7 @@ function animate() {
     updateMultiplayer(pos, rotY);
     updateStores(pos);
     updateBubbles(camera, pos, getRemotePlayerPosition);
+    updateInteractions(camera, pos);
   }
 
   updateRemotePlayers(delta);

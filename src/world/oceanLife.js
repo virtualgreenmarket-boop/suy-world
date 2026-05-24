@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// Ocean life: schools of fish in the shallow zone + a distant whale
+// Ocean life: schools of fish in the shallow zone + a distant orca
 // that surfaces every 2-4 minutes with a water spout.
 
 const SCHOOL_COUNT  = 7;
@@ -12,7 +13,7 @@ let _schools    = [];
 const _dummy    = new THREE.Object3D();
 
 let _whale      = null;
-let _whaleTime  = 0;
+let _whaleMixer = null;
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ export function initOceanLife(scene) {
 export function updateOceanLife(delta, time) {
   updateFish(delta, time);
   updateWhale(delta, time);
+  if (_whaleMixer) _whaleMixer.update(delta);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -108,106 +110,91 @@ function updateFish(delta, time) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// WHALE
+// WHALE (orca4.glb)
 // ─────────────────────────────────────────────────────────────────────
 
 const WHALE_RADIUS      = 420;
 const WHALE_SURFACE_Y   = -0.5;
 const WHALE_DEEP_Y      = -22;
-const SURFACE_INTERVAL  = 150; // seconds between surfaces (base)
+const WHALE_LENGTH      = 20;   // normalise orca to ~20 m body length
+const SURFACE_INTERVAL  = 150;
 
 function initWhale(scene) {
+  // Build a minimal placeholder group immediately so the state machine works
+  // even before the GLB arrives.
   const group = new THREE.Group();
+  group.position.set(WHALE_RADIUS, WHALE_DEEP_Y, 0);
+  scene.add(group);
 
-  // Body
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color:     0x2A4A6A,
-    roughness: 0.55,
-    metalness: 0.08,
+  // Spout mesh (procedural — always needed)
+  const spoutMat = new THREE.MeshStandardMaterial({
+    color: 0xCCEEFF, transparent: true, opacity: 0,
+    depthWrite: false, emissive: 0xAADDFF, emissiveIntensity: 0.4,
   });
-  const bellyMat = new THREE.MeshStandardMaterial({
-    color:     0x7A9AB0,
-    roughness: 0.60,
-    metalness: 0.05,
-  });
+  const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 1.2, 12, 7), spoutMat);
+  spout.position.set(0, 9.5, 10);
+  group.add(spout);
 
-  // Main body capsule (very elongated)
+  _whale = {
+    group, spout, spoutMat,
+    orbitAngle: 0,
+    state: 'deep',
+    timer: SURFACE_INTERVAL * (0.5 + Math.random() * 0.5),
+    stateTime: 0,
+    glbLoaded: false,
+  };
+
+  // Load the orca GLB in the background
+  const loader = new GLTFLoader();
+  loader.load('/models/nature/whale/orca4.glb', gltf => {
+    const orca = gltf.scene;
+
+    // Normalise to WHALE_LENGTH along the longest horizontal axis
+    const box  = new THREE.Box3().setFromObject(orca);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const maxXZ = Math.max(size.x, size.z, 0.01);
+    orca.scale.setScalar(WHALE_LENGTH / maxXZ);
+
+    // Shift base to local origin
+    const box2 = new THREE.Box3().setFromObject(orca);
+    orca.position.y = -box2.min.y;
+
+    orca.traverse(n => {
+      if (!n.isMesh) return;
+      n.castShadow = true;
+    });
+
+    group.add(orca);
+    _whale.glbLoaded = true;
+
+    if (gltf.animations.length > 0) {
+      _whaleMixer = new THREE.AnimationMixer(orca);
+      gltf.animations.forEach(clip => _whaleMixer.clipAction(clip).play());
+      console.log('[oceanLife] orca GLB loaded —', gltf.animations.length, 'animation(s)');
+    } else {
+      console.log('[oceanLife] orca GLB loaded — no animations');
+    }
+  }, undefined, err => {
+    console.warn('[oceanLife] orca4.glb load failed, using procedural whale:', err?.message ?? err);
+    _buildProceduralWhale(group);
+  });
+}
+
+function _buildProceduralWhale(group) {
+  const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x2A4A6A, roughness: 0.55, metalness: 0.08 });
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(3.2, 18, 6, 10), bodyMat);
   body.rotation.x = Math.PI / 2;
   body.castShadow = true;
   group.add(body);
-
-  // Belly (lighter ventral surface)
-  const belly = new THREE.Mesh(new THREE.CapsuleGeometry(2.8, 14, 6, 10), bellyMat);
-  belly.rotation.x = Math.PI / 2;
-  belly.position.set(0, -1.8, 0);
-  belly.scale.set(0.9, 0.5, 0.9);
-  group.add(belly);
-
-  // Tail stock (narrowing cylinder)
-  const tailStock = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 2.0, 6, 8), bodyMat);
-  tailStock.rotation.x = Math.PI / 2;
-  tailStock.position.z = -12;
-  group.add(tailStock);
-
-  // Tail flukes (2 flat lobes)
-  [-1, 1].forEach(side => {
-    const fluke = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.35, 3.0), bodyMat);
-    fluke.position.set(side * 3.2, 0, -16.5);
-    fluke.rotation.y = side * 0.22;
-    fluke.scale.set(1, 1, 1);
-    group.add(fluke);
-  });
-
-  // Pectoral fins
-  [-1, 1].forEach(side => {
+  [-1,1].forEach(s => {
     const fin = new THREE.Mesh(new THREE.BoxGeometry(1.2, 4.5, 0.3), bodyMat);
-    fin.position.set(side * 4.0, -1.0, 2);
-    fin.rotation.z = side * 0.5;
+    fin.position.set(s * 4, -1, 2); fin.rotation.z = s * 0.5;
     group.add(fin);
   });
-
-  // Dorsal fin
-  const dorsalGeo = new THREE.ConeGeometry(0.6, 2.8, 5);
-  const dorsal = new THREE.Mesh(dorsalGeo, bodyMat);
-  dorsal.position.set(0, 3.2, -2);
-  dorsal.rotation.z = 0.3;
+  const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2.8, 5), bodyMat);
+  dorsal.position.set(0, 3.2, -2); dorsal.rotation.z = 0.3;
   group.add(dorsal);
-
-  // Blowhole area bump
-  const blowhole = new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 5), bodyMat);
-  blowhole.position.set(0, 3.0, 10);
-  group.add(blowhole);
-
-  // Spout (animated when surfacing)
-  const spoutGeo = new THREE.CylinderGeometry(0.4, 1.2, 12, 7);
-  const spoutMat = new THREE.MeshStandardMaterial({
-    color:       0xCCEEFF,
-    transparent: true,
-    opacity:     0,
-    depthWrite:  false,
-    emissive:    0xAADDFF,
-    emissiveIntensity: 0.4,
-  });
-  const spout = new THREE.Mesh(spoutGeo, spoutMat);
-  spout.position.set(0, 9.5, 10);
-  group.add(spout);
-
-  // Start far away, deep underwater
-  group.position.set(WHALE_RADIUS, WHALE_DEEP_Y, 0);
-
-  scene.add(group);
-
-  _whale = {
-    group,
-    spout,
-    spoutMat,
-    tailFlukes: group.children.filter((c, i) => i >= 4 && i <= 5),
-    orbitAngle:  0,
-    state:       'deep',
-    timer:       SURFACE_INTERVAL * (0.5 + Math.random() * 0.5),
-    stateTime:   0,
-  };
 }
 
 function updateWhale(delta, time) {

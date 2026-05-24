@@ -1,22 +1,66 @@
-// Shared terrain height query — used by player step-up and animal navigation
+import * as THREE from 'three';
 
-export const PLAZA_HALF     = 41;   // plaza floor extends -41..+41 on both axes
-export const PLAZA_SURFACE  = 0.7;  // top surface of the raised plaza floor
-export const PATH_SURFACE   = 0.2;  // top surface of ground-level stone paths
-export const PATH_HALF_W    = 4.7;  // half-width of each path slab
+// Shared terrain height query — used by player step-up, animal navigation,
+// remote player interpolation, and NPC placement.
 
+export const PLAZA_HALF    = 41;
+export const PLAZA_SURFACE = 0.7;
+export const PATH_SURFACE  = 0.2;
+export const PATH_HALF_W   = 4.7;
+
+const _meshes = [];
+const _cache  = new Map();
+const CELL    = 0.5;   // grid resolution for the height cache (metres)
+
+const _origin = new THREE.Vector3();
+const _down   = new THREE.Vector3(0, -1, 0);
+const _ray    = new THREE.Raycaster();
+
+/**
+ * Register walkable meshes (or Groups) so getSurfaceY can raycast against them.
+ * Call immediately after adding each ground/floor mesh to the scene.
+ * Clears the height cache so stale values are never returned.
+ */
+export function registerGround(...objects) {
+  for (const obj of objects) {
+    obj.updateWorldMatrix(true, true);
+    obj.traverse(n => { if (n.isMesh) _meshes.push(n); });
+  }
+  _cache.clear();
+}
+
+/**
+ * Returns the world-space Y of the topmost walkable surface at (x, z).
+ * Uses a downward raycast against registered meshes, with an analytical
+ * fallback for areas where no mesh has been registered yet.
+ * Results are cached on a 0.5 m grid — safe because terrain is static.
+ */
 export function getSurfaceY(x, z) {
-  // Inside the plaza
+  const key = `${Math.round(x / CELL)},${Math.round(z / CELL)}`;
+  const hit = _cache.get(key);
+  if (hit !== undefined) return hit;
+
+  // Analytical baseline — always correct for the main hardscaped zones
+  let y = _analytical(x, z);
+
+  // Raycast upgrade — picks up any registered mesh (plaza, paths, ground)
+  if (_meshes.length > 0) {
+    _origin.set(x, 200, z);
+    _ray.set(_origin, _down);
+    const hits = _ray.intersectObjects(_meshes, false);
+    // hits are sorted ascending by distance, so hits[0] is the highest surface
+    if (hits.length > 0) y = hits[0].point.y;
+  }
+
+  _cache.set(key, y);
+  return y;
+}
+
+function _analytical(x, z) {
   if (Math.abs(x) <= PLAZA_HALF && Math.abs(z) <= PLAZA_HALF) return PLAZA_SURFACE;
-
-  // North path  (from plaza z=-41 down to hangar z≈-90)
-  if (Math.abs(x) <= PATH_HALF_W && z < -PLAZA_HALF && z > -92) return PATH_SURFACE;
-  // South path
-  if (Math.abs(x) <= PATH_HALF_W && z >  PLAZA_HALF && z < 92)  return PATH_SURFACE;
-  // East path
-  if (Math.abs(z) <= PATH_HALF_W && x >  PLAZA_HALF && x < 92)  return PATH_SURFACE;
-  // West path (to marina)
+  if (Math.abs(x) <= PATH_HALF_W && z < -PLAZA_HALF && z > -92)  return PATH_SURFACE;
+  if (Math.abs(x) <= PATH_HALF_W && z >  PLAZA_HALF && z < 92)   return PATH_SURFACE;
+  if (Math.abs(z) <= PATH_HALF_W && x >  PLAZA_HALF && x < 92)   return PATH_SURFACE;
   if (Math.abs(z) <= PATH_HALF_W && x < -PLAZA_HALF && x > -108) return PATH_SURFACE;
-
   return 0;
 }

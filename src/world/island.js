@@ -1,8 +1,11 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { spawnTree } from './trees.js';
+import { registerGround } from '../systems/terrain.js';
 
-let _waterMesh = null;
-let _waterTime = 0;
+let _waterMesh   = null;
+let _waterTime   = 0;
+let _oceanMixer  = null;
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -11,11 +14,13 @@ export function initIsland(scene) {
   addBeach(scene);
   addWater(scene);
   addTrees(scene);
+  _loadOceanGlb(scene);
 }
 
 export function updateWater(delta) {
   _waterTime += delta;
   if (_waterMesh) _waterMesh.material.uniforms.uTime.value = _waterTime;
+  if (_oceanMixer) _oceanMixer.update(delta);
 }
 
 // ── Ground (grass) ────────────────────────────────────────────────────
@@ -72,85 +77,78 @@ function addGround(scene) {
   mesh.position.y = -1.5;
   mesh.receiveShadow = true;
   scene.add(mesh);
+  registerGround(mesh);
 }
 
-// ── Beach ring ────────────────────────────────────────────────────────
-
-function makeBeachTexture() {
-  const S = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = S;
-  const ctx = canvas.getContext('2d');
-  const rng = seededRng(77);
-
-  // Sandy base with gradient (wetter near water = darker)
-  const grad = ctx.createRadialGradient(S * 0.5, S * 0.5, 0, S * 0.5, S * 0.5, S * 0.5);
-  grad.addColorStop(0.0, '#DEC87A');
-  grad.addColorStop(0.6, '#E8D090');
-  grad.addColorStop(1.0, '#C8B068');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, S, S);
-
-  // Sand ripple patterns (from wave action)
-  for (let i = 0; i < 8; i++) {
-    const y = rng() * S;
-    const cx = ctx.createLinearGradient(0, y - 3, 0, y + 3);
-    cx.addColorStop(0, 'rgba(160,130,60,0)');
-    cx.addColorStop(0.5, 'rgba(160,130,60,0.18)');
-    cx.addColorStop(1, 'rgba(160,130,60,0)');
-    ctx.fillStyle = cx;
-    ctx.fillRect(0, y - 3, S, 6);
-  }
-
-  // Pebble and shell specks
-  for (let i = 0; i < 200; i++) {
-    const x = rng() * S, y = rng() * S, r = 0.8 + rng() * 2.5;
-    const v = 180 + Math.floor(rng() * 50);
-    ctx.fillStyle = `rgba(${v},${v - 20},${v - 40},0.55)`;
-    ctx.beginPath(); ctx.ellipse(x, y, r, r * (0.5 + rng() * 0.5), rng() * Math.PI, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // Wet sand band at inner edge (slightly darker)
-  const innerGrad = ctx.createLinearGradient(0, 0, S * 0.3, 0);
-  innerGrad.addColorStop(0, 'rgba(120,100,50,0.35)');
-  innerGrad.addColorStop(1, 'rgba(120,100,50,0)');
-  ctx.fillStyle = innerGrad;
-  ctx.fillRect(0, 0, S, S);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(18, 18);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
+// ── Beach ring (PBR sand texture) ────────────────────────────────────
 
 function addBeach(scene) {
-  // Flat sandy ring on top of the grass — inner radius 220, outer 238
-  const beachRing = new THREE.Mesh(
-    new THREE.RingGeometry(220, 238, 88),
-    new THREE.MeshStandardMaterial({
-      map:       makeBeachTexture(),
-      roughness: 0.96,
-      metalness: 0.0,
-    })
-  );
+  const loader = new THREE.TextureLoader();
+  const pfx    = 'textures/beach/Ground054_2K-JPG_';
+
+  const colorTex  = loader.load(pfx + 'Color.jpg');
+  const normalTex = loader.load(pfx + 'NormalGL.jpg');
+  const roughTex  = loader.load(pfx + 'Roughness.jpg');
+  const aoTex     = loader.load(pfx + 'AmbientOcclusion.jpg');
+
+  [colorTex, normalTex, roughTex, aoTex].forEach(t => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(20, 4); // 20 tiles around ring, 4 across 18 m width
+    t.anisotropy = 8;
+  });
+  colorTex.colorSpace = THREE.SRGBColorSpace;
+  // Slight offset so tile seam falls in an inconspicuous spot
+  colorTex.offset.set(0.23, 0.17);
+  normalTex.offset.copy(colorTex.offset);
+  roughTex.offset.copy(colorTex.offset);
+  aoTex.offset.copy(colorTex.offset);
+
+  // Extra segments (128 × 12) allow the height displacement to look smooth
+  const geo = new THREE.RingGeometry(220, 238, 128, 12);
+  geo.setAttribute('uv1', geo.attributes.uv);
+
+  // Perturb vertex Z (local) to create natural height variation along shoreline.
+  // After rotation.x = −PI/2, local-Z becomes world-Y.
+  const pos = geo.attributes.position;
+  const rng = seededRng(77);
+  for (let i = 0; i < pos.count; i++) {
+    const lx = pos.getX(i), ly = pos.getY(i);
+    const a  = Math.atan2(ly, lx); // angle around ring
+    const h  = 0.12 * Math.sin(a * 7 + 0.3)
+             + 0.08 * Math.sin(a * 13 + 1.1)
+             + 0.04 * Math.cos(a * 21 - 0.7)
+             + 0.03 * (rng() - 0.5);
+    pos.setZ(i, h);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+
+  const beachRing = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    map:            colorTex,
+    normalMap:      normalTex,
+    roughnessMap:   roughTex,
+    aoMap:          aoTex,
+    aoMapIntensity: 0.85,
+    roughness:      0.94,
+    metalness:      0.0,
+  }));
   beachRing.rotation.x = -Math.PI / 2;
-  beachRing.position.y = 0.02; // just above grass to avoid z-fighting
+  beachRing.position.y = 0.04;
   beachRing.receiveShadow = true;
   scene.add(beachRing);
 
-  // Sloped sand skirt below the beach going down to water level
+  // Sloped sand skirt down to water level
   const skirt = new THREE.Mesh(
-    new THREE.CylinderGeometry(238, 252, 2.2, 88),
-    new THREE.MeshStandardMaterial({ color: 0xD4B86A, roughness: 0.97, metalness: 0.0 })
+    new THREE.CylinderGeometry(238, 252, 2.2, 96),
+    new THREE.MeshStandardMaterial({ color: 0xD4B470, roughness: 0.97, metalness: 0.0 })
   );
   skirt.position.y = -2.2;
   skirt.receiveShadow = true;
   scene.add(skirt);
 
-  // Wet sand surf line
+  // Wet surf band
   const wet = new THREE.Mesh(
-    new THREE.CylinderGeometry(252, 258, 0.6, 88),
+    new THREE.CylinderGeometry(252, 258, 0.6, 96),
     new THREE.MeshStandardMaterial({ color: 0xB8A060, roughness: 0.99, metalness: 0.0 })
   );
   wet.position.y = -3.1;
@@ -292,6 +290,68 @@ function addWater(scene) {
   scene.add(_waterMesh);
 }
 
+// ── Ocean GLB (animated wave mesh) ───────────────────────────────────
+// File found at /models/ocean/ (NOT /models/nature/ocean/ as previously expected).
+// Loaded lazily — the GLSL water shader above remains active while the 63 MB
+// GLB downloads; when the GLB arrives it layers underneath for added depth.
+
+function _loadOceanGlb(scene) {
+  const loader = new GLTFLoader();
+  const url    = '/models/ocean/free_ocean_wave_animation.glb';
+  console.log('[ocean-glb] starting download (63 MB, loading in background)…');
+
+  loader.load(
+    url,
+    gltf => {
+      const ocean = gltf.scene;
+
+      // Scale to match the game's water plane (diameter ~600 m)
+      const box  = new THREE.Box3().setFromObject(ocean);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxXZ = Math.max(size.x, size.z, 0.01);
+      const scale = 600 / maxXZ;
+      ocean.scale.setScalar(scale);
+
+      // Sit the mesh at the water surface level
+      const box2 = new THREE.Box3().setFromObject(ocean);
+      ocean.position.y = -3.4 - box2.min.y; // just below GLSL water plane
+
+      ocean.traverse(n => {
+        if (!n.isMesh) return;
+        n.castShadow    = false;
+        n.receiveShadow = false;
+        // Ensure transparency so the GLSL caustic layer on top shows through
+        if (n.material) {
+          n.material = n.material.clone();
+          n.material.transparent = true;
+          n.material.depthWrite  = false;
+        }
+      });
+
+      scene.add(ocean);
+
+      if (gltf.animations.length > 0) {
+        _oceanMixer = new THREE.AnimationMixer(ocean);
+        gltf.animations.forEach(clip => _oceanMixer.clipAction(clip).play());
+        console.log('[ocean-glb] loaded —', gltf.animations.length,
+                    'animation(s) playing | scale:', scale.toFixed(3));
+      } else {
+        console.log('[ocean-glb] loaded — no animations | scale:', scale.toFixed(3));
+      }
+    },
+    xhr => {
+      if (xhr.total > 0) {
+        const pct = Math.round(xhr.loaded / xhr.total * 100);
+        if (pct % 20 === 0) console.log('[ocean-glb] loading:', pct + '%');
+      }
+    },
+    err => {
+      console.error('[ocean-glb] failed to load from', url, '|', err?.message ?? err);
+    }
+  );
+}
+
 // ── Trees (HighPoly FBX) ──────────────────────────────────────────────
 
 function seededRng(seed) {
@@ -299,14 +359,23 @@ function seededRng(seed) {
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 }
 
+// Returns true if (x,z) falls inside a path corridor between the plaza and hangars/marina.
+function _onPath(x, z) {
+  const PW = 8; // half-width of path exclusion corridor
+  if (Math.abs(x) < PW && z < -40 && z > -95)  return true; // N path
+  if (Math.abs(x) < PW && z >  40 && z <  95)  return true; // S path
+  if (Math.abs(z) < PW && x >  40 && x <  95)  return true; // E path
+  if (Math.abs(z) < PW && x < -40 && x > -115) return true; // W (marina) path
+  return false;
+}
+
 function addTrees(scene) {
   const avoid = [
-    { x:   0, z: -130, r: 60 },
-    { x: 130, z:    0, r: 60 },
-    { x:   0, z:  130, r: 60 },
-    { x:-150, z:    0, r: 82 },
-    { x:   0, z:    0, r: 52 },  // plaza centre
-    { x:   0, z:    0, r: 218 }, // inside beach ring only
+    { x:   0, z: -130, r: 62 }, // N hangar
+    { x: 130, z:    0, r: 62 }, // E hangar
+    { x:   0, z:  130, r: 62 }, // S hangar
+    { x:-150, z:    0, r: 85 }, // marina
+    { x:   0, z:    0, r: 54 }, // plaza
   ];
 
   const rng = seededRng(17);
@@ -314,11 +383,19 @@ function addTrees(scene) {
   for (let i = 0; i < 62; i++) {
     let x, z, tries = 0;
     do {
-      const a = rng() * Math.PI * 2, r = 72 + rng() * 142;
-      x = Math.cos(a) * r; z = Math.sin(a) * r; tries++;
-    } while (tries < 50 && avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r));
+      const a = rng() * Math.PI * 2;
+      const r = 72 + rng() * 145; // stay inside beach ring (r<218)
+      x = Math.cos(a) * r; z = Math.sin(a) * r;
+      tries++;
+    } while (tries < 80 && (
+      Math.hypot(x, z) > 216 ||              // outside beach
+      avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r) ||
+      _onPath(x, z)
+    ));
 
-    const scale = 0.65 + rng() * 0.60;   // 9.75 – 18.75 m tall
+    if (Math.hypot(x, z) > 216) continue;    // give up on this slot
+
+    const scale = 0.65 + rng() * 0.60;
     const rotY  = rng() * Math.PI * 2;
     spawnTree(scene, x, z, scale, rotY);
   }

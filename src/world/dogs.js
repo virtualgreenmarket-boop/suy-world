@@ -1,164 +1,137 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { getSurfaceY } from '../systems/terrain.js';
 
-const ISLAND_R  = 228;
-const DOG_SPEED = 1.5;
+const ISLAND_R   = 228;
+const DOG_SPEED  = 1.3;
 
-const DOG_CONFIGS = [
-  { color: 0xF0EBE0, x: -70, z: -30 },  // cream/white
-  { color: 0xC8A96E, x:  50, z:  85 },  // golden
-  { color: 0x2E2319, x: -80, z:  35 },  // dark brown
+const DOG_SPOTS = [
+  { x: -70, z: -30 },
+  { x:  50, z:  85 },
+  { x: -80, z:  35 },
+  { x:  75, z: -55 },
 ];
 
-const dogs = [];
+const OTHER_SPOTS = [
+  { x: -40, z: -90 },
+  { x:  95, z:  70 },
+];
 
-// ── Public ────────────────────────────────────────────────────────────
+const DOG_URL   = '/models/nature/animals/white_cartoon_dog.glb';
+const OTHER_URL = '/models/nature/animals/source.glb';
+const DOG_H     = 0.70;
+const OTHER_H   = 0.55;
+
+const _loader  = new GLTFLoader();
+const _animals = [];
 
 export function initDogs(scene) {
-  DOG_CONFIGS.forEach(cfg => {
-    const dog = buildDog(cfg.color);
-    dog.group.position.set(cfg.x, getSurfaceY(cfg.x, cfg.z), cfg.z);
-    dog.home.set(cfg.x, 0, cfg.z);
-    scene.add(dog.group);
-    dogs.push(dog);
-  });
+  _loadAndPlace(scene, DOG_URL, DOG_H, DOG_SPOTS, DOG_SPEED);
+  _loadAndPlace(scene, OTHER_URL, OTHER_H, OTHER_SPOTS, 0.8);
 }
 
 export function updateDogs(delta, time) {
-  dogs.forEach(dog => updateDog(dog, delta, time));
+  for (const a of _animals) _updateAnimal(a, delta, time);
 }
 
-// ── Per-dog state machine ─────────────────────────────────────────────
+// ── loader ────────────────────────────────────────────────────────────
 
-function updateDog(dog, delta, time) {
-  dog.tail.rotation.y = Math.sin(time * 4.5 + dog.phase) * 0.7;
+function _loadAndPlace(scene, url, targetH, spots, speed) {
+  _loader.load(url, gltf => {
+    const tmpl = gltf.scene;
+    tmpl.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
 
-  if (dog.state === 'sitting') {
-    dog.sitTimer -= delta;
-    if (dog.sitTimer <= 0) startWalking(dog);
+    const box = new THREE.Box3().setFromObject(tmpl);
+    const h   = Math.max(box.max.y - box.min.y, 0.001);
+    const sc  = targetH / h;
+
+    const clips    = gltf.animations ?? [];
+    const idleClip = clips.find(c => {
+      const n = c.name.toLowerCase();
+      return n.includes('idle') || n.includes('stand') || n.includes('breathe');
+    }) ?? clips[0] ?? null;
+    const walkClip = clips.find(c => {
+      const n = c.name.toLowerCase();
+      return n.includes('walk') || n.includes('run');
+    }) ?? null;
+
+    for (const spot of spots) {
+      const inst = tmpl.clone(true);
+      inst.scale.setScalar(sc);
+      const sy          = getSurfaceY(spot.x, spot.z);
+      const floorOffset = -box.min.y * sc;
+      inst.position.set(spot.x, sy + floorOffset, spot.z);
+      inst.rotation.y = Math.random() * Math.PI * 2;
+      scene.add(inst);
+
+      const mixer = new THREE.AnimationMixer(inst);
+      let idleAction = null, walkAction = null;
+      if (idleClip) { idleAction = mixer.clipAction(idleClip); idleAction.play(); }
+      if (walkClip) { walkAction = mixer.clipAction(walkClip); }
+
+      _animals.push({
+        group: inst,
+        mixer,
+        idleAction, walkAction,
+        floorOffset,
+        home:      new THREE.Vector3(spot.x, 0, spot.z),
+        target:    new THREE.Vector3(spot.x, 0, spot.z),
+        state:     'sitting',
+        sitTimer:  Math.random() * 3,
+        speed,
+        speedMult: 0.85 + Math.random() * 0.55,
+        phase:     Math.random() * Math.PI * 2,
+      });
+    }
+  }, undefined, err => {
+    console.warn('[animals] failed to load', url, err?.message ?? err);
+  });
+}
+
+// ── per-frame ─────────────────────────────────────────────────────────
+
+function _updateAnimal(a, delta, time) {
+  a.mixer.update(delta);
+
+  if (a.state === 'sitting') {
+    a.sitTimer -= delta;
+    if (a.sitTimer <= 0) _startWalking(a);
     return;
   }
 
-  const pos    = dog.group.position;
-  const dx     = dog.target.x - pos.x;
-  const dz     = dog.target.z - pos.z;
+  const pos    = a.group.position;
+  const dx     = a.target.x - pos.x;
+  const dz     = a.target.z - pos.z;
   const distSq = dx * dx + dz * dz;
 
   if (distSq < 1.5) {
-    dog.state    = 'sitting';
-    dog.sitTimer = 1.5 + Math.random() * 4;
+    a.state    = 'sitting';
+    a.sitTimer = 1.5 + Math.random() * 4;
+    if (a.walkAction) a.walkAction.fadeOut(0.3);
+    if (a.idleAction) a.idleAction.reset().fadeIn(0.3).play();
     return;
   }
 
   const dist = Math.sqrt(distSq);
-  pos.x += (dx / dist) * DOG_SPEED * delta * dog.speedMult;
-  pos.z += (dz / dist) * DOG_SPEED * delta * dog.speedMult;
-
-  // Keep dog on the terrain surface
-  pos.y = getSurfaceY(pos.x, pos.z);
-
-  dog.group.rotation.y = Math.atan2(dx, dz);
-
-  const bob = Math.sin(time * 9 * dog.speedMult) * 0.05;
-  dog.legFL.position.y = -0.16 + bob;
-  dog.legBR.position.y = -0.16 + bob;
-  dog.legFR.position.y = -0.16 - bob;
-  dog.legBL.position.y = -0.16 - bob;
-  pos.y += Math.abs(bob) * 0.4;
+  pos.x += (dx / dist) * a.speed * a.speedMult * delta;
+  pos.z += (dz / dist) * a.speed * a.speedMult * delta;
+  pos.y  = getSurfaceY(pos.x, pos.z) + a.floorOffset;
+  a.group.rotation.y = Math.atan2(dx, dz);
 }
 
-function startWalking(dog) {
-  dog.state = 'walking';
+function _startWalking(a) {
+  a.state = 'walking';
   let tx, tz, tries = 0;
   do {
     const angle = Math.random() * Math.PI * 2;
     const r     = 20 + Math.random() * 65;
-    tx = dog.home.x + Math.cos(angle) * r;
-    tz = dog.home.z + Math.sin(angle) * r;
+    tx = a.home.x + Math.cos(angle) * r;
+    tz = a.home.z + Math.sin(angle) * r;
     tries++;
-    // Keep dogs away from the plaza interior
   } while ((tx * tx + tz * tz > ISLAND_R * ISLAND_R ||
-            (Math.abs(tx) < 38 && Math.abs(tz) < 38)) && tries < 20);
-  dog.target.set(tx, 0, tz);
-}
-
-// ── Build dog mesh ────────────────────────────────────────────────────
-
-function buildDog(color) {
-  const bodyMat   = new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0.0 });
-  const eyeMat    = new THREE.MeshStandardMaterial({ color: 0x1A1A1A, roughness: 0.6 });
-  const noseMat   = new THREE.MeshStandardMaterial({ color: 0x2A1A1A, roughness: 0.9 });
-  const tongueMat = new THREE.MeshStandardMaterial({ color: 0xFF6B8A, roughness: 0.9 });
-
-  const group = new THREE.Group();
-
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.19, 0.38, 4, 8), bodyMat);
-  body.rotation.x = Math.PI / 2;
-  body.position.set(0, 0.22, 0);
-  body.castShadow = true;
-  group.add(body);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7), bodyMat);
-  head.scale.set(1.15, 0.9, 1.0);
-  head.position.set(0, 0.34, 0.34);
-  head.castShadow = true;
-  group.add(head);
-
-  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.10, 0.14), bodyMat);
-  snout.position.set(0, 0.28, 0.49);
-  group.add(snout);
-
-  const earGeo = new THREE.BoxGeometry(0.09, 0.17, 0.13);
-  [-0.14, 0.14].forEach(ex => {
-    const ear = new THREE.Mesh(earGeo, bodyMat);
-    ear.position.set(ex, 0.34, 0.29);
-    ear.rotation.z = ex > 0 ? -0.45 : 0.45;
-    ear.castShadow = true;
-    group.add(ear);
-  });
-
-  const eyeGeo = new THREE.SphereGeometry(0.033, 6, 5);
-  [-0.07, 0.07].forEach(ex => {
-    const eye = new THREE.Mesh(eyeGeo, eyeMat);
-    eye.position.set(ex, 0.38, 0.46);
-    group.add(eye);
-  });
-
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.028, 5, 4), noseMat);
-  nose.position.set(0, 0.29, 0.56);
-  group.add(nose);
-
-  const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.025, 0.08), tongueMat);
-  tongue.position.set(0, 0.255, 0.56);
-  tongue.rotation.x = 0.35;
-  group.add(tongue);
-
-  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.05, 0.24, 6), bodyMat);
-  tail.position.set(0, 0.36, -0.38);
-  tail.rotation.x = -1.1;
-  tail.castShadow = true;
-  group.add(tail);
-
-  const legGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.22, 6);
-  const legFL  = mkLeg(group, legGeo, bodyMat,  0.11, -0.16,  0.20);
-  const legFR  = mkLeg(group, legGeo, bodyMat, -0.11, -0.16,  0.20);
-  const legBL  = mkLeg(group, legGeo, bodyMat,  0.11, -0.16, -0.20);
-  const legBR  = mkLeg(group, legGeo, bodyMat, -0.11, -0.16, -0.20);
-
-  return {
-    group, tail, legFL, legFR, legBL, legBR,
-    state:     'sitting',
-    sitTimer:  Math.random() * 3,
-    target:    new THREE.Vector3(),
-    home:      new THREE.Vector3(),
-    speedMult: 0.85 + Math.random() * 0.55,
-    phase:     Math.random() * Math.PI * 2,
-  };
-}
-
-function mkLeg(parent, geo, mat, x, y, z) {
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y, z);
-  parent.add(m);
-  return m;
+            (Math.abs(tx) < 42 && Math.abs(tz) < 42)) && tries < 20);
+  a.target.set(tx, 0, tz);
+  if (a.idleAction) a.idleAction.fadeOut(0.3);
+  if (a.walkAction) a.walkAction.reset().fadeIn(0.3).play();
+  else if (a.idleAction) a.idleAction.reset().fadeIn(0.1).play();
 }

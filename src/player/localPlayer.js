@@ -1,23 +1,27 @@
 import * as THREE from 'three';
 import { resolveCollision } from '../systems/collision.js';
 import { getSurfaceY } from '../systems/terrain.js';
+import { getSettings } from '../ui/settingsPanel.js';
 import { spawnCharacter, setAnimState, updateCharacterMixer } from './characterLoader.js';
-import { joystick, consumeJump, consumeCameraMovement, isRunning } from '../ui/touchControls.js';
+import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
+import { isChatOpen } from '../ui/chatUI.js';
 
 const WALK_SPEED  = 6;
 const RUN_SPEED   = 14;
 const KB_SPEED    = 10;
-const CAM_DIST    = 10;
+const CAM_DIST_MIN = 3;
+const CAM_DIST_MAX = 20;
 const CAM_LOOK_H  = 1.6;
 const ISLAND_R    = 233;
 const GRAVITY     = -22;
 const JUMP_FORCE  = 8;
-const MAX_STEP    = 0.82; // max height the player can step up without jumping
+const MAX_STEP    = 0.82;
 
 let _scene, _camera;
 let playerGroup;
 let cameraYaw   = 0;
 let cameraPitch = 0.42;
+let _camDist    = 10;   // mutable — changed by wheel and pinch-to-zoom
 let velocityY   = 0;
 let _isJumping  = false;
 
@@ -37,6 +41,7 @@ export function initLocalPlayer(scene, camera, name) {
   spawnCharacter(playerGroup);
 
   window.addEventListener('keydown', e => {
+    if (isChatOpen()) return; // swallow all keyboard input while typing
     keys[e.code] = true;
     if (e.code === 'Space') {
       e.preventDefault();
@@ -52,13 +57,20 @@ export function initLocalPlayer(scene, camera, name) {
   window.addEventListener('mousemove',   e => _onMouseMove(e));
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
+  // Mouse-wheel zoom (desktop)
+  window.addEventListener('wheel', e => {
+    e.preventDefault();
+    _camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, _camDist + e.deltaY * 0.01));
+  }, { passive: false });
+
   syncCamera();
 }
 
 function _onMouseMove(e) {
-  if (!isDragging) return;
-  cameraYaw   -= (e.clientX - lastMouseX) * 0.0045;
-  cameraPitch  = Math.max(0.12, Math.min(1.1, cameraPitch - (e.clientY - lastMouseY) * 0.0045));
+  if (!isDragging || isChatOpen()) return;
+  const sens   = getSettings().sensitivity * 0.0045;
+  cameraYaw   -= (e.clientX - lastMouseX) * sens;
+  cameraPitch  = Math.max(-1.45, Math.min(1.55, cameraPitch - (e.clientY - lastMouseY) * sens));
   lastMouseX   = e.clientX;
   lastMouseY   = e.clientY;
 }
@@ -72,10 +84,25 @@ function _triggerJump() {
 // ── Update ────────────────────────────────────────────────────────────
 
 export function updateLocalPlayer(delta) {
+  // Pinch-to-zoom (mobile)
+  const zoomDelta = consumeCameraZoom();
+  if (zoomDelta !== 0) {
+    _camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, _camDist + zoomDelta));
+  }
+
+  // Camera rotation from touch drag (always allowed — lets player look around while typing)
   const { dx, dy } = consumeCameraMovement();
   if (dx || dy) {
-    cameraYaw   -= dx * 0.005;
-    cameraPitch  = Math.max(0.12, Math.min(1.1, cameraPitch - dy * 0.005));
+    const sens = getSettings().sensitivity * 0.005;
+    cameraYaw   -= dx * sens;
+    cameraPitch  = Math.max(-1.45, Math.min(1.55, cameraPitch - dy * sens));
+  }
+
+  // Block all movement while chat is open
+  if (isChatOpen()) {
+    updateCharacterMixer(playerGroup, delta);
+    syncCamera();
+    return;
   }
 
   const fwd   = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
@@ -109,7 +136,6 @@ export function updateLocalPlayer(delta) {
     const [rx, rz] = resolveCollision(nx, nz, playerGroup.position.x, playerGroup.position.z);
 
     if (rx * rx + rz * rz < ISLAND_R * ISLAND_R) {
-      // Step-up: if the destination surface is higher by ≤ MAX_STEP, climb it
       const destGroundY = getSurfaceY(rx, rz);
       const stepDelta   = destGroundY - playerGroup.position.y;
       if (!_isJumping && stepDelta > 0 && stepDelta <= MAX_STEP) {
@@ -148,11 +174,15 @@ export function updateLocalPlayer(delta) {
 function syncCamera() {
   const p  = playerGroup.position;
   const cy = Math.cos(cameraPitch);
-  _camera.position.set(
-    p.x + Math.sin(cameraYaw) * CAM_DIST * cy,
-    p.y + CAM_LOOK_H + Math.sin(cameraPitch) * CAM_DIST,
-    p.z + Math.cos(cameraYaw) * CAM_DIST * cy
-  );
+  const cx = p.x + Math.sin(cameraYaw) * _camDist * cy;
+  const cz = p.z + Math.cos(cameraYaw) * _camDist * cy;
+  let   camY = p.y + CAM_LOOK_H + Math.sin(cameraPitch) * _camDist;
+
+  // Prevent camera clipping through terrain
+  const floorAtCam = getSurfaceY(cx, cz);
+  if (camY < floorAtCam + 0.4) camY = floorAtCam + 0.4;
+
+  _camera.position.set(cx, camY, cz);
   _camera.lookAt(p.x, p.y + CAM_LOOK_H * 0.65, p.z);
 }
 

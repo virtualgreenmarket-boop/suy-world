@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { registerGround } from '../systems/terrain.js';
 
 // Paths sit on the ground (top surface at y=0.20).
 // High-res stone texture with individual blocks, variation, cracks.
@@ -133,6 +134,7 @@ function addPath(scene, ax, az, bx, bz) {
   path.rotation.y = rotY;
   path.receiveShadow = true;
   scene.add(path);
+  registerGround(path);
 
   // Kerb stones (slightly raised edge blocks)
   [-4.65, 4.65].forEach(offset => {

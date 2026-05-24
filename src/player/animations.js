@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 // Mixamo FBX track names arrive as "mixamorig:Hips.quaternion".
-// Normalise to "mixamorigHips" so the table below stays readable.
+// Normalise to "mixamorigHips" so the tables below stay readable.
 function normBone(raw) {
   return raw.replace('mixamorig:', 'mixamorig');
 }
 
-// Fallback table for UE4 / Unreal-style skeletons (old Superhero_Male model).
-// Used only when the skeleton's bone names don't match Mixamo naming directly.
+// ── Bone-name mapping tables ──────────────────────────────────────────
+// Each tier is tried in order until a match is found.
+
+// Tier 3: UE4 / Unreal-style skeletons (old Superhero_Male model)
 const MIXAMO_TO_UE4 = {
   mixamorigHips:          'pelvis',
   mixamorigSpine:         'spine_01',
@@ -34,6 +36,59 @@ const MIXAMO_TO_UE4 = {
   mixamorigRightToeBase:  'ball_r',
 };
 
+// Tier 4: no-prefix Mixamo (Blender → GLB export; bones keep Mixamo names
+// but the "mixamorig" prefix is stripped by the exporter)
+const MIXAMO_TO_NOPFX = {
+  mixamorigHips:          'Hips',
+  mixamorigSpine:         'Spine',
+  mixamorigSpine1:        'Spine1',
+  mixamorigSpine2:        'Spine2',
+  mixamorigNeck:          'Neck',
+  mixamorigHead:          'Head',
+  mixamorigLeftShoulder:  'LeftShoulder',
+  mixamorigLeftArm:       'LeftArm',
+  mixamorigLeftForeArm:   'LeftForeArm',
+  mixamorigLeftHand:      'LeftHand',
+  mixamorigRightShoulder: 'RightShoulder',
+  mixamorigRightArm:      'RightArm',
+  mixamorigRightForeArm:  'RightForeArm',
+  mixamorigRightHand:     'RightHand',
+  mixamorigLeftUpLeg:     'LeftUpLeg',
+  mixamorigLeftLeg:       'LeftLeg',
+  mixamorigLeftFoot:      'LeftFoot',
+  mixamorigLeftToeBase:   'LeftToeBase',
+  mixamorigRightUpLeg:    'RightUpLeg',
+  mixamorigRightLeg:      'RightLeg',
+  mixamorigRightFoot:     'RightFoot',
+  mixamorigRightToeBase:  'RightToeBase',
+};
+
+// Tier 5: Unity Humanoid avatar naming (Unity/ithappy asset store packages)
+const MIXAMO_TO_UNITY = {
+  mixamorigHips:          'Hips',
+  mixamorigSpine:         'Spine',
+  mixamorigSpine1:        'Chest',
+  mixamorigSpine2:        'UpperChest',
+  mixamorigNeck:          'Neck',
+  mixamorigHead:          'Head',
+  mixamorigLeftShoulder:  'LeftShoulder',
+  mixamorigLeftArm:       'LeftUpperArm',
+  mixamorigLeftForeArm:   'LeftLowerArm',
+  mixamorigLeftHand:      'LeftHand',
+  mixamorigRightShoulder: 'RightShoulder',
+  mixamorigRightArm:      'RightUpperArm',
+  mixamorigRightForeArm:  'RightLowerArm',
+  mixamorigRightHand:     'RightHand',
+  mixamorigLeftUpLeg:     'LeftUpperLeg',
+  mixamorigLeftLeg:       'LeftLowerLeg',
+  mixamorigLeftFoot:      'LeftFoot',
+  mixamorigLeftToeBase:   'LeftToes',
+  mixamorigRightUpLeg:    'RightUpperLeg',
+  mixamorigRightLeg:      'RightLowerLeg',
+  mixamorigRightFoot:     'RightFoot',
+  mixamorigRightToeBase:  'RightToes',
+};
+
 const _fbxScenes  = {};
 const _clips      = {};
 let   _loadPromise = null;
@@ -45,7 +100,6 @@ function loadFbx(url) {
 }
 
 // Stage 1: download the FBX files only. Does NOT build clips yet.
-// Safe to call in parallel with the character model download.
 export function preloadAnimations() {
   if (_loadPromise) return _loadPromise;
   const base = '/models/animations/';
@@ -59,13 +113,19 @@ export function preloadAnimations() {
 }
 
 // Stage 2: remap Mixamo tracks onto the skeleton's actual bone names.
-// Called by characterLoader after the character GLB is loaded and bones are known.
 export function buildClipsForSkeleton(boneNames) {
   for (const [name, scene] of Object.entries(_fbxScenes)) {
     _clips[name] = remapClip(scene, name, boneNames);
   }
-  console.log('[animations] clips built —', Object.keys(_clips).length, 'clips,',
-              boneNames.size, 'bones');
+  const trackCounts = Object.entries(_clips)
+    .map(([n, c]) => `${n}:${c.tracks.length}`)
+    .join(' ');
+  console.log('[animations] clips built —', Object.keys(_clips).length,
+              'clips,', boneNames.size, 'bones |', trackCounts);
+  if (Object.values(_clips).every(c => c.tracks.length === 0)) {
+    console.warn('[animations] ALL clips have 0 tracks — bone name mismatch.',
+                 'Skeleton bones:', [...boneNames].slice(0, 12).join(', '));
+  }
 }
 
 export function getClip(name) { return _clips[name] ?? null; }
@@ -79,10 +139,14 @@ export function buildClipForSkeleton(clipName, boneNames) {
 }
 
 // Remap Mixamo animation tracks onto the target skeleton.
-// Priority: exact raw name → normalised name → UE4 mapping → skip.
+// Priority: raw name → normalised → UE4 → no-prefix Mixamo → Unity Humanoid
+//           → case-insensitive bare-name match
 function remapClip(fbxScene, name, boneNames) {
   const src = fbxScene.animations[0];
   if (!src) throw new Error(`No animation in FBX: ${name}`);
+
+  // Pre-compute a lowercase → original-name map for O(1) fuzzy lookup
+  const boneNamesLower = new Map([...boneNames].map(b => [b.toLowerCase(), b]));
 
   const tracks = [];
   for (const track of src.tracks) {
@@ -96,12 +160,40 @@ function remapClip(fbxScene, name, boneNames) {
     let targetBone = null;
 
     if (boneNames.has(rawBone)) {
-      targetBone = rawBone;                         // skeleton uses Mixamo colon naming
+      targetBone = rawBone;                              // tier 1: exact raw
     } else if (boneNames.has(normName)) {
-      targetBone = normName;                        // skeleton uses normalised Mixamo naming
+      targetBone = normName;                             // tier 2: normalised
     } else {
       const ue4 = MIXAMO_TO_UE4[normName];
-      if (ue4 && boneNames.has(ue4)) targetBone = ue4; // UE4 / custom skeleton
+      if (ue4 && boneNames.has(ue4)) {
+        targetBone = ue4;                                // tier 3: UE4
+      } else {
+        const nopfx = MIXAMO_TO_NOPFX[normName];
+        if (nopfx && boneNames.has(nopfx)) {
+          targetBone = nopfx;                            // tier 4: no-prefix Mixamo
+        } else {
+          const unity = MIXAMO_TO_UNITY[normName];
+          if (unity && boneNames.has(unity)) {
+            targetBone = unity;                          // tier 5: Unity Humanoid
+          } else {
+            // Tier 6: case-insensitive match on bare bone name (strips "mixamorig")
+            const bare = normName.slice('mixamorig'.length).toLowerCase();
+            const ci   = boneNamesLower.get(bare);
+            if (ci) {
+              targetBone = ci;
+            } else {
+              // Tier 7: match against the part after any "_" prefix
+              // Catches bones named "chr_Hips", "rig_Spine", "Char_LeftArm", etc.
+              for (const [lower, orig] of boneNamesLower) {
+                const afterUnderscore = lower.includes('_')
+                  ? lower.slice(lower.lastIndexOf('_') + 1)
+                  : lower;
+                if (afterUnderscore === bare) { targetBone = orig; break; }
+              }
+            }
+          }
+        }
+      }
     }
 
     if (!targetBone) continue;
@@ -112,7 +204,7 @@ function remapClip(fbxScene, name, boneNames) {
   }
 
   if (tracks.length === 0) {
-    console.warn(`[animations] zero tracks remapped for "${name}" — bone name mismatch`);
+    console.warn(`[animations] 0 tracks remapped for "${name}" — bone name mismatch`);
   }
   return new THREE.AnimationClip(name, src.duration, tracks);
 }

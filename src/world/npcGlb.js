@@ -2,133 +2,249 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { preloadAnimations, buildClipForSkeleton } from '../player/animations.js';
+import { getSurfaceY } from '../systems/terrain.js';
 
-const NPC_URL      = '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb';
-const TARGET_HEIGHT = 1.75; // desired character height in metres
+// ── NPC catalogue ─────────────────────────────────────────────────────
+// All GLB files in public/models/characters/npcs/.
+// Scale target: 1.75 m × 1.2 = 2.10 m (20% larger than standard height).
+const TARGET_HEIGHT = 2.10;
 
-const loader    = new GLTFLoader();
-let _template   = null;
-let _floorY     = 0;        // amount to lift model so base sits at y = 0
-let _hasSkel    = false;    // does the model have a skinned skeleton?
-let _builtinClips = [];     // animations embedded in the GLB
-let _promise    = null;
+const NPC_URLS = [
+  '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb',
+  '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb',
+  '/models/characters/npcs/texting_while_walking.glb',
+  '/models/characters/npcs/midnight_lace.glb',
+  '/models/characters/npcs/midnight_lace%20(1).glb',
+];
 
-export function preloadNpc() {
-  if (_promise) return _promise;
-  _promise = new Promise((resolve, reject) =>
-    loader.load(NPC_URL, gltf => {
-      _template = gltf.scene;
+// Per-entry NPC template data
+const _templates = []; // { scene, floorY, hasSkel, builtinClips, hasWalk }
+let _allLoaded   = false;
+let _loadPromise = null;
 
-      // Collect bones and enable shadows
-      _template.traverse(n => {
-        if (n.isMesh)       { n.castShadow = true; n.receiveShadow = true; }
-        if (n.isBone)         _hasSkel = true;
-        if (n.isSkinnedMesh)  _hasSkel = true;
-      });
+const _loader = new GLTFLoader();
 
-      // Normalise height if the model is at a wildly wrong scale
-      const box1 = new THREE.Box3().setFromObject(_template);
-      const h    = Math.max(box1.max.y - box1.min.y, 0.01);
-      if (h < 0.5 || h > 4.0) _template.scale.setScalar(TARGET_HEIGHT / h);
+// ── Preload ───────────────────────────────────────────────────────────
 
-      // Compute floor offset from the (possibly rescaled) bounding box
-      const box2 = new THREE.Box3().setFromObject(_template);
-      _floorY = -box2.min.y;
-
-      _builtinClips = gltf.animations ?? [];
-
-      console.log('[npc-glb] loaded — h:', h.toFixed(2),
-                  '| built-in anims:', _builtinClips.length,
-                  '| skeleton:', _hasSkel);
-      resolve();
-    }, undefined, reject)
-  );
-  return _promise;
+export function preloadAllNpcs() {
+  if (_loadPromise) return _loadPromise;
+  _loadPromise = Promise.all(NPC_URLS.map((url, i) => _loadOne(url, i)))
+    .then(() => { _allLoaded = true; console.log('[npc-glb] all', NPC_URLS.length, 'NPCs loaded'); });
+  return _loadPromise;
 }
 
-/**
- * Spawn the GLB NPC into the scene.
- *   surfaceY — world Y of the surface she stands on (e.g. 0.7 for the plaza)
- *   rotY     — Y-axis rotation in radians
- *
- * Returns an object suitable for an update loop:
- *   { mixer, group, mode, idlePhase, baseY, idleTime }
- *
- * Modes:
- *   'builtin'   — AnimationMixer playing an embedded clip
- *   'retarget'  — AnimationMixer playing a remapped Mixamo idle
- *   'procedural'— no skeleton; handled by a gentle sway in the update helper
- */
-export async function spawnNpc(scene, x, surfaceY, z, rotY = 0) {
-  await preloadNpc();
+// backward compat: loads the first NPC (skylar_breeze)
+export function preloadNpc() { return preloadAllNpcs(); }
 
-  const clone = skeletonClone(_template);
-  clone.position.set(x, _floorY + surfaceY, z);
+function _loadOne(url, i) {
+  return new Promise((resolve, reject) => {
+    _loader.load(url, gltf => {
+      const tmpl = gltf.scene;
+      let hasSkel = false, hasWalkAnim = false, hasIdleAnim = false;
+
+      tmpl.traverse(n => {
+        if (n.isMesh)       { n.castShadow = true; n.receiveShadow = true; }
+        if (n.isBone || n.isSkinnedMesh) hasSkel = true;
+      });
+
+      const box1 = new THREE.Box3().setFromObject(tmpl);
+      const h    = Math.max(box1.max.y - box1.min.y, 0.01);
+      tmpl.scale.setScalar(TARGET_HEIGHT / h);
+
+      const box2 = new THREE.Box3().setFromObject(tmpl);
+      const floorY = -box2.min.y;
+
+      const clips = gltf.animations ?? [];
+      clips.forEach(c => {
+        const n = c.name.toLowerCase();
+        if (n.includes('walk') || n.includes('run')) hasWalkAnim = true;
+        if (n.includes('idle') || n.includes('stand') || n.includes('breathing')) hasIdleAnim = true;
+      });
+
+      _templates[i] = { tmpl, floorY, hasSkel, builtinClips: clips, hasWalkAnim, hasIdleAnim };
+      console.log('[npc-glb]', i, url.split('/').pop(), '| h:', h.toFixed(2),
+                  '| anims:', clips.map(c => c.name).join(', ') || 'none',
+                  '| walk:', hasWalkAnim);
+      resolve();
+    }, undefined, err => {
+      console.warn('[npc-glb] failed to load', url, err?.message ?? err);
+      _templates[i] = null;
+      resolve(); // don't fail the whole Promise.all
+    });
+  });
+}
+
+// ── Spawn one NPC by catalogue index ─────────────────────────────────
+
+export async function spawnNpcByIndex(scene, npcIndex, x, z, rotY = 0) {
+  await preloadAllNpcs();
+  const entry = _templates[npcIndex % _templates.length];
+  if (!entry) return null;
+  return _spawnFromEntry(scene, entry, x, z, rotY);
+}
+
+// backward compat: spawn first NPC
+export async function spawnNpc(scene, x, z, rotY = 0) {
+  return spawnNpcByIndex(scene, 0, x, z, rotY);
+}
+
+// ── Spawn all NPCs spread across the plaza ────────────────────────────
+
+const PLAZA_POSITIONS = [
+  { x:  10, z:  -5, rot: Math.PI * 0.75 },
+  { x: -12, z:   8, rot: Math.PI * 1.5  },
+  { x:  18, z:  18, rot: Math.PI * 0.25 },
+  { x: -20, z: -12, rot: Math.PI * 0.1  },
+  { x:   6, z: -22, rot: Math.PI * 1.2  },
+];
+
+const _plazaNpcs = [];
+
+export async function spawnAllPlazaNpcs(scene) {
+  await preloadAllNpcs();
+  for (let i = 0; i < _templates.length; i++) {
+    const entry = _templates[i];
+    if (!entry) continue;
+    const cfg = PLAZA_POSITIONS[i % PLAZA_POSITIONS.length];
+    const npc = await _spawnFromEntry(scene, entry, cfg.x, cfg.z, cfg.rot);
+    if (!npc) continue;
+    // Wandering state
+    npc.walkCenter  = new THREE.Vector3(cfg.x, 0, cfg.z);
+    npc.walkRadius  = 7;
+    npc.walkTarget  = new THREE.Vector3(cfg.x, 0, cfg.z);
+    npc.walkState   = 'idle';
+    npc.walkTimer   = 2 + Math.random() * 4;
+    npc.canWalk     = entry.hasWalkAnim || entry.hasSkel;
+    _plazaNpcs.push(npc);
+  }
+}
+
+export function updateAllPlazaNpcs(delta) {
+  for (const npc of _plazaNpcs) updateNpc(npc, delta);
+}
+
+// ── Internal spawn helper ─────────────────────────────────────────────
+
+async function _spawnFromEntry(scene, entry, x, z, rotY) {
+  const { tmpl, floorY, hasSkel, builtinClips, hasWalkAnim } = entry;
+
+  const surfaceY = getSurfaceY(x, z);
+  const clone    = skeletonClone(tmpl);
+  clone.position.set(x, floorY + surfaceY, z);
   clone.rotation.y = rotY;
   scene.add(clone);
 
   const mixer = new THREE.AnimationMixer(clone);
-  let mode = 'procedural';
+  let mode = 'procedural', idleAction = null, walkAction = null;
 
-  if (_builtinClips.length > 0) {
-    // Priority 1: play the first embedded animation (usually idle / walk)
-    const action = mixer.clipAction(_builtinClips[0]);
-    action.play();
-    mode = 'builtin';
-    console.log('[npc-glb] using built-in anim:', _builtinClips[0].name || '(unnamed)');
-
-  } else if (_hasSkel) {
-    // Priority 2: retarget the Mixamo idle clip onto this skeleton
-    await preloadAnimations();
-
-    const boneNames = new Set();
-    clone.traverse(n => {
-      if (n.isBone)         boneNames.add(n.name);
-      if (n.isSkinnedMesh)  n.skeleton.bones.forEach(b => boneNames.add(b.name));
+  if (builtinClips.length > 0) {
+    // Use built-in animations — find idle + walk by name
+    const findClip = (...keywords) => builtinClips.find(c => {
+      const n = c.name.toLowerCase();
+      return keywords.some(k => n.includes(k));
     });
 
+    const idleClip = findClip('idle', 'stand', 'breathing', 'tpose', 't-pose') ?? builtinClips[0];
+    const walkClip = findClip('walk', 'run') ?? null;
+
+    idleAction = mixer.clipAction(idleClip);
+    idleAction.play();
+    if (walkClip) walkAction = mixer.clipAction(walkClip);
+    mode = 'builtin';
+
+  } else if (hasSkel) {
+    await preloadAnimations();
+    const boneNames = new Set();
+    clone.traverse(n => {
+      if (n.isBone)        boneNames.add(n.name);
+      if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
+    });
     if (boneNames.size > 0) {
-      const clip = buildClipForSkeleton('idle', boneNames);
-      if (clip && clip.tracks.length > 0) {
-        mixer.clipAction(clip).play();
+      const idleClip = buildClipForSkeleton('idle', boneNames);
+      const walkClip = buildClipForSkeleton('walk', boneNames);
+      if (idleClip?.tracks.length > 0) {
+        idleAction = mixer.clipAction(idleClip);
+        idleAction.play();
         mode = 'retarget';
-        console.log('[npc-glb] retargeted Mixamo idle —', boneNames.size, 'bones,',
-                    clip.tracks.length, 'tracks');
-      } else {
-        console.warn('[npc-glb] retarget yielded 0 tracks, falling back to procedural idle');
+      }
+      if (walkClip?.tracks.length > 0) {
+        walkAction = mixer.clipAction(walkClip);
       }
     }
   }
 
-  if (mode === 'procedural') {
-    console.log('[npc-glb] no skeleton — using procedural idle sway');
-  }
-
   return {
-    mixer,
-    group: clone,
-    mode,
+    mixer, group: clone, mode,
+    idleAction, walkAction,
     idlePhase: Math.random() * Math.PI * 2,
-    baseY:     _floorY + surfaceY,
+    baseY:     floorY + surfaceY,
+    floorOffset: floorY,
     idleTime:  0,
+    walkCenter: new THREE.Vector3(x, 0, z),
+    walkRadius: 0,
+    walkTarget: new THREE.Vector3(x, 0, z),
+    walkState: 'idle',
+    walkTimer: 0,
+    canWalk: false,
   };
 }
 
-/**
- * Call this every frame. Works for all three modes.
- */
+// ── Per-frame update ──────────────────────────────────────────────────
+
 export function updateNpc(npc, delta) {
   if (!npc) return;
 
+  // Animation mixer
   if (npc.mode === 'builtin' || npc.mode === 'retarget') {
     npc.mixer.update(delta);
   } else {
-    // Procedural idle: gentle breathing sway
     npc.idleTime += delta;
     const t = npc.idleTime;
     npc.group.rotation.z = Math.sin(t * 0.7  + npc.idlePhase) * 0.012;
     npc.group.position.y = npc.baseY
       + Math.sin(t * 1.1 + npc.idlePhase) * 0.006
       + Math.sin(t * 2.3 + npc.idlePhase * 1.3) * 0.003;
+    return; // no walking for procedural mode
+  }
+
+  // Wandering behaviour
+  if (!npc.canWalk || npc.walkRadius === 0) return;
+
+  if (npc.walkState === 'idle') {
+    npc.walkTimer -= delta;
+    if (npc.walkTimer <= 0) {
+      const a    = Math.random() * Math.PI * 2;
+      const dist = 2 + Math.random() * npc.walkRadius;
+      npc.walkTarget.set(
+        npc.walkCenter.x + Math.cos(a) * dist,
+        npc.baseY,
+        npc.walkCenter.z + Math.sin(a) * dist
+      );
+      // Clamp inside plaza (r=38)
+      const lr = Math.sqrt(npc.walkTarget.x ** 2 + npc.walkTarget.z ** 2);
+      if (lr > 38) { npc.walkTarget.x *= 38 / lr; npc.walkTarget.z *= 38 / lr; }
+
+      npc.walkState = 'walking';
+      npc.idleAction?.fadeOut(0.3);
+      npc.walkAction?.reset().fadeIn(0.3).play();
+    }
+  } else {
+    const dx   = npc.walkTarget.x - npc.group.position.x;
+    const dz   = npc.walkTarget.z - npc.group.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 0.35) {
+      npc.walkState = 'idle';
+      npc.walkTimer = 3 + Math.random() * 6;
+      npc.walkAction?.fadeOut(0.3);
+      npc.idleAction?.reset().fadeIn(0.3).play();
+    } else {
+      const speed = 1.4;
+      const nx = npc.group.position.x + (dx / dist) * speed * delta;
+      const nz = npc.group.position.z + (dz / dist) * speed * delta;
+      npc.group.position.x = nx;
+      npc.group.position.z = nz;
+      npc.group.position.y = getSurfaceY(nx, nz) + npc.floorOffset;
+      npc.group.rotation.y = Math.atan2(dx, dz);
+    }
   }
 }

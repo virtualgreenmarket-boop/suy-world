@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { spawnCharacter, setAnimState, updateCharacterMixer } from './characterLoader.js';
+import { getSurfaceY } from '../systems/terrain.js';
 
 const LERP_POS = 0.18;
 const LERP_ROT = 0.22;
@@ -48,7 +49,8 @@ export function updateRemotePlayers(delta) {
     const prevX = group.position.x;
     const prevZ = group.position.z;
 
-    group.position.lerp(new THREE.Vector3(target.x, target.y, target.z), LERP_POS);
+    const clampedY = Math.max(target.y, getSurfaceY(target.x, target.z));
+    group.position.lerp(new THREE.Vector3(target.x, clampedY, target.z), LERP_POS);
     group.rotation.y += (target.rotY - group.rotation.y) * LERP_ROT;
 
     const dx = group.position.x - prevX;

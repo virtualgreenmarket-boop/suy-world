@@ -1,8 +1,11 @@
 import * as THREE from 'three';
+import { setInputEnabled } from './touchControls.js';
 
 // sendChat injected by main.js to avoid circular imports
 let _sendChat = (_msg) => {};
 export function bindSendChat(fn) { _sendChat = fn; }
+
+export function isChatOpen() { return _isTyping; }
 
 const MAX_MESSAGES    = 60;
 const BUBBLE_DURATION = 5000;
@@ -228,6 +231,7 @@ function projectBubble(el, x, y, z, camera) {
 
 function openChat() {
   _isTyping = true;
+  setInputEnabled(false); // disable touch joystick/jump while typing
   inputEl.style.display = 'block';
   inputEl.focus();
   chatBox.style.pointerEvents = 'all';
@@ -235,6 +239,7 @@ function openChat() {
 
 function closeChat() {
   _isTyping = false;
+  setInputEnabled(true);
   inputEl.style.display = 'none';
   inputEl.value = '';
   chatBox.style.pointerEvents = 'none';

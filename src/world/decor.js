@@ -16,10 +16,20 @@ const AVOID = [
   { x: -150, z:   0, r: 84 },
   { x:   0, z:    0, r: 52 },
 ];
-const BEACH_R = 220;
+const BEACH_R = 218;
+const PATH_HW = 8; // path half-width exclusion corridor
+
+function _onPath(x, z) {
+  if (Math.abs(x) < PATH_HW && z < -40 && z > -95)  return true;
+  if (Math.abs(x) < PATH_HW && z >  40 && z <  95)  return true;
+  if (Math.abs(z) < PATH_HW && x >  40 && x <  95)  return true;
+  if (Math.abs(z) < PATH_HW && x < -40 && x > -115) return true;
+  return false;
+}
 
 function clear(x, z) {
   if (x * x + z * z > BEACH_R * BEACH_R) return false;
+  if (_onPath(x, z)) return false;
   return !AVOID.some(a => Math.hypot(a.x - x, a.z - z) < a.r);
 }
 

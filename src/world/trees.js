@@ -31,43 +31,90 @@ export function preloadTrees() {
     side: THREE.DoubleSide, roughness: 0.9, metalness: 0.0,
   });
 
+  console.log('[trees] starting FBX download:', BASE + 'Model/SM_HP_Tree.FBX');
+
   _promise = new Promise((resolve, reject) =>
     _fbxLoader.load(
       BASE + 'Model/SM_HP_Tree.FBX',
       fbx => {
+        // ── Convert any SkinnedMesh → Mesh so clone(true) works correctly ──
+        // FBX "static" meshes sometimes still carry a skeleton; clone() won't
+        // copy the skeleton correctly, so we extract the geometry and apply
+        // the bind pose by simply using the geometry as-is in a plain Mesh.
+        const toConvert = [];
+        fbx.traverse(n => { if (n.isSkinnedMesh) toConvert.push(n); });
+        if (toConvert.length > 0) {
+          console.log('[trees] converting', toConvert.length, 'SkinnedMesh(es) to Mesh for correct cloning');
+        }
+        toConvert.forEach(sm => {
+          const mesh = new THREE.Mesh(sm.geometry, sm.material);
+          mesh.name         = sm.name;
+          mesh.castShadow   = sm.castShadow;
+          mesh.receiveShadow = sm.receiveShadow;
+          mesh.position.copy(sm.position);
+          mesh.quaternion.copy(sm.quaternion);
+          mesh.scale.copy(sm.scale);
+          sm.parent.add(mesh);
+          sm.parent.remove(sm);
+        });
+
+        // ── Apply our PBR materials based on mesh name ──
+        let leafCount = 0, trunkCount = 0;
         fbx.traverse(n => {
           if (!n.isMesh) return;
-          // Detect leaf vs trunk by mesh name and existing material name
           const existingName = (Array.isArray(n.material)
             ? n.material[0] : n.material)?.name ?? '';
           const combined = (n.name + existingName).toLowerCase();
           const isLeaf   = combined.includes('leaf') || combined.includes('leaves')
-                        || combined.includes('foliage');
+                        || combined.includes('foliage') || combined.includes('canopy')
+                        || combined.includes('frond') || combined.includes('needle');
           n.material      = isLeaf ? leafMat : trunkMat;
           n.castShadow    = true;
           n.receiveShadow = !isLeaf;
+          if (isLeaf) leafCount++; else trunkCount++;
         });
 
-        // Normalise so the model's bounding-box height equals TARGET_HEIGHT
+        // Log all mesh names for diagnostics
+        const meshNames = [];
+        fbx.traverse(n => { if (n.isMesh) meshNames.push(n.name || '(unnamed)'); });
+        console.log('[trees] meshes:', meshNames.join(', '),
+                    '| trunk:', trunkCount, '| leaf:', leafCount);
+
+        if (trunkCount + leafCount === 0) {
+          console.error('[trees] FBX loaded but contains 0 mesh nodes — check file integrity');
+          reject(new Error('No mesh nodes found in tree FBX'));
+          return;
+        }
+
+        // ── Normalise so the bounding-box height equals TARGET_HEIGHT ──
         const box1 = new THREE.Box3().setFromObject(fbx);
         const h    = Math.max(box1.max.y - box1.min.y, 0.01);
         fbx.scale.setScalar(TARGET_HEIGHT / h);
 
-        // Shift the FBX inside the container so its base is at local y = 0.
-        // This keeps the base planted at y=0 regardless of per-instance scale.
+        // Shift the FBX so its base is at local y=0 inside the container.
         const box2 = new THREE.Box3().setFromObject(fbx);
         fbx.position.y = -box2.min.y;
 
-        // Wrap in a Group — scaling the Group scales everything uniformly
-        // while preserving the base-at-zero offset on the inner FBX.
+        // Wrap in a Group — scaling the Group scales uniformly while
+        // preserving the base-at-zero offset on the inner FBX.
         _template = new THREE.Group();
         _template.add(fbx);
 
-        console.log('[trees] loaded — norm scale:', (TARGET_HEIGHT / h).toFixed(4));
+        console.log('[trees] ready — normalised scale:', (TARGET_HEIGHT / h).toFixed(4),
+                    '| height:', h.toFixed(2), 'units before scale');
         resolve();
       },
-      undefined,
-      err => { console.error('[trees] FBX load failed:', err); reject(err); }
+      xhr => {
+        if (xhr.total > 0 && xhr.loaded > 0) {
+          const pct = Math.round(xhr.loaded / xhr.total * 100);
+          if (pct % 25 === 0) console.log('[trees] loading:', pct + '%');
+        }
+      },
+      err => {
+        console.error('[trees] FBX load failed. URL tried:', BASE + 'Model/SM_HP_Tree.FBX',
+                      '| Error:', err.message ?? err);
+        reject(err);
+      }
     )
   );
   return _promise;
@@ -75,7 +122,7 @@ export function preloadTrees() {
 
 /**
  * Place a tree at world (x, z).
- *   scale    — multiplier on TARGET_HEIGHT (1.0 = 15 m, 2.0 = 30 m, etc.)
+ *   scale    — multiplier on TARGET_HEIGHT (1.0 = 15 m, 2.0 = 30 m)
  *   rotY     — Y-axis rotation; random if omitted
  */
 export function spawnTree(scene, x, z, scale = 1.0, rotY) {
@@ -90,8 +137,8 @@ export function spawnTree(scene, x, z, scale = 1.0, rotY) {
   if (_template) {
     place();
   } else {
-    preloadTrees().then(place).catch(() => {
-      console.warn('[trees] spawn skipped — model unavailable', x, z);
+    preloadTrees().then(place).catch(err => {
+      console.warn('[trees] spawn skipped — model unavailable at', x, z, '|', err?.message ?? err);
     });
   }
 }

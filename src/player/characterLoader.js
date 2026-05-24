@@ -12,14 +12,19 @@ let _template    = null;
 let _modelFloorY = 0;
 let _promise     = null;
 
-// ensureLoaded performs three steps in sequence:
-//   1. Download the character GLB
-//   2. Wait for FBX animation files (may already be downloading from main.js)
-//   3. Remap Mixamo tracks onto the skeleton's detected bone names
+// Clip name mapping for built-in GLB animations
+const BUILTIN_MAP = {
+  idle: ['idle', 'stand', 'breathe', 'breathing', 'tpose', 't-pose', 't_pose'],
+  walk: ['walk'],
+  run:  ['run', 'jog', 'sprint'],
+  jump: ['jump', 'leap'],
+};
+
+let _builtinClips = null;   // non-null when GLB has its own animations
+
 async function ensureLoaded() {
   if (_promise) return _promise;
   _promise = (async () => {
-    // Step 1 — load GLB
     const gltf = await new Promise((resolve, reject) =>
       loader.load(MODEL_URL, resolve, undefined, reject)
     );
@@ -28,49 +33,98 @@ async function ensureLoaded() {
       if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; }
     });
 
-    // Step 2 — collect every bone name so we can auto-detect the rig convention
-    const boneNames = new Set();
-    _template.traverse(n => {
-      if (n.isBone) boneNames.add(n.name);
-      // Also capture bones referenced by skinned meshes (covers some exporters)
-      if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
-    });
-    console.log('[character] loaded — bones:', boneNames.size,
-                '| sample:', [...boneNames].slice(0, 8).join(', '));
-
     const box = new THREE.Box3().setFromObject(_template);
     _modelFloorY = -box.min.y;
 
-    // Step 3 — wait for FBX downloads then remap tracks onto this skeleton
+    // ── Check for built-in animations first ──────────────────────────
+    const embedded = gltf.animations ?? [];
+    if (embedded.length > 0) {
+      console.log('[character] GLB has', embedded.length, 'built-in animation(s):',
+                  embedded.map(c => c.name).join(', '));
+      _builtinClips = _mapBuiltinClips(embedded);
+      const found = Object.entries(_builtinClips).filter(([,v]) => v).map(([k]) => k);
+      console.log('[character] built-in clips mapped:', found.join(', ') || 'none');
+      if (found.length >= 2) {
+        // Enough built-in animations — skip Mixamo retargeting
+        return;
+      }
+    }
+
+    // ── Fall back: Mixamo FBX retargeting ────────────────────────────
+    const boneNames = new Set();
+    _template.traverse(n => {
+      if (n.isBone) boneNames.add(n.name);
+      if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
+    });
+    console.log('[character] skeleton bones (' + boneNames.size + '):',
+                [...boneNames].join(', '));
+
     await preloadAnimations();
     buildClipsForSkeleton(boneNames);
   })();
   return _promise;
 }
 
+function _mapBuiltinClips(clips) {
+  const result = { idle: null, walk: null, run: null, jump: null };
+  for (const [key, keywords] of Object.entries(BUILTIN_MAP)) {
+    result[key] = clips.find(c => {
+      const n = c.name.toLowerCase();
+      return keywords.some(k => n.includes(k));
+    }) ?? null;
+  }
+  // Fallback: if no idle found, use first clip as idle
+  if (!result.idle && clips.length > 0) result.idle = clips[0];
+  return result;
+}
+
 export function preloadCharacter() { return ensureLoaded(); }
 
 export async function spawnCharacter(parentGroup) {
-  await ensureLoaded(); // ensures model + clips are ready before continuing
+  await ensureLoaded();
 
   const clone = skeletonClone(_template);
   clone.scale.setScalar(MODEL_SCALE);
-  clone.rotation.y = 0; // only override facing; preserve any loader axis transforms
+  clone.rotation.y = 0;
   clone.position.y = _modelFloorY;
   parentGroup.add(clone);
 
   const mixer   = new THREE.AnimationMixer(clone);
   const actions = {};
 
-  for (const name of ['idle', 'walk', 'run', 'jump']) {
-    const clip = getClip(name);
-    if (!clip) continue;
-    const action = mixer.clipAction(clip);
-    if (name === 'jump') {
-      action.setLoop(THREE.LoopOnce, 1);
-      action.clampWhenFinished = true;
+  if (_builtinClips) {
+    // Use embedded GLB animations directly — they're already wired to this skeleton
+    for (const [name, clip] of Object.entries(_builtinClips)) {
+      if (!clip) continue;
+      const action = mixer.clipAction(clip);
+      if (name === 'jump') {
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+      }
+      actions[name] = action;
     }
-    actions[name] = action;
+    // If there's no separate walk/run clip, alias idle so setAnimState doesn't warn
+    if (!actions.walk && actions.idle) actions.walk = actions.idle;
+    if (!actions.run  && actions.idle) actions.run  = actions.idle;
+  } else {
+    // Mixamo retargeted clips
+    for (const name of ['idle', 'walk', 'run', 'jump']) {
+      const clip = getClip(name);
+      if (!clip) continue;
+      const action = mixer.clipAction(clip);
+      if (name === 'jump') {
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+      }
+      actions[name] = action;
+    }
+  }
+
+  const clipCount = Object.keys(actions).length;
+  console.log('[character] spawned — actions:', Object.keys(actions).join(', '),
+              '| built-in:', !!_builtinClips);
+  if (clipCount === 0) {
+    console.warn('[character] WARNING: no animation clips found. Check bone names or GLB animations.');
   }
 
   parentGroup.userData.mixer   = mixer;

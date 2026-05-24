@@ -63,11 +63,14 @@ function mkEl(tag, styles) {
 // ── Input state ───────────────────────────────────────────────────────
 export const joystick = { x: 0, y: 0, magnitude: 0 };
 
-let _inputEnabled = true;
-let _joyTouch     = null;   // { id, ox, oy }
-let _camTouch     = null;   // { id, lx, ly }
-let _jumpTouchId  = null;
-let _jumpQueued   = false;
+let _inputEnabled  = true;
+let _joyTouch      = null;   // { id, ox, oy }
+let _camTouch1     = null;   // { id, lx, ly } — primary camera touch (rotation)
+let _camTouch2     = null;   // { id, lx, ly } — secondary camera touch (pinch-zoom)
+let _prevPinchDist = 0;      // finger distance at previous frame
+let _zoomDelta     = 0;      // accumulated zoom this frame (positive = zoom out)
+let _jumpTouchId   = null;
+let _jumpQueued    = false;
 let _camDx = 0, _camDy = 0;
 
 // ── Init ──────────────────────────────────────────────────────────────
@@ -138,8 +141,16 @@ function _onStart(e) {
       _jumpQueued  = true;
       jumpBtnEl.style.background = 'rgba(255,255,255,0.30)';
       e.preventDefault();
-    } else if (!_camTouch) {
-      _camTouch = { id: t.identifier, lx: t.clientX, ly: t.clientY };
+    } else if (!_camTouch1) {
+      _camTouch1 = { id: t.identifier, lx: t.clientX, ly: t.clientY };
+      e.preventDefault();
+    } else if (!_camTouch2) {
+      // Second free finger = start pinch-to-zoom
+      _camTouch2 = { id: t.identifier, lx: t.clientX, ly: t.clientY };
+      _prevPinchDist = Math.hypot(
+        _camTouch2.lx - _camTouch1.lx,
+        _camTouch2.ly - _camTouch1.ly
+      );
       e.preventDefault();
     }
   }
@@ -147,6 +158,8 @@ function _onStart(e) {
 
 function _onMove(e) {
   e.preventDefault();
+
+  // Update all touch positions first, then compute pinch once
   for (const t of e.changedTouches) {
     if (_joyTouch && t.identifier === _joyTouch.id) {
       const dx  = t.clientX - _joyTouch.ox;
@@ -166,12 +179,34 @@ function _onMove(e) {
       joystickKnobEl.style.left = (jR - 20 + kx) + 'px';
       joystickKnobEl.style.top  = (jR - 20 + ky) + 'px';
     }
-    if (_camTouch && t.identifier === _camTouch.id) {
-      _camDx += t.clientX - _camTouch.lx;
-      _camDy += t.clientY - _camTouch.ly;
-      _camTouch.lx = t.clientX;
-      _camTouch.ly = t.clientY;
+
+    if (_camTouch1 && t.identifier === _camTouch1.id) {
+      if (!_camTouch2) {
+        // Single finger on camera area → rotate camera
+        _camDx += t.clientX - _camTouch1.lx;
+        _camDy += t.clientY - _camTouch1.ly;
+      }
+      _camTouch1.lx = t.clientX;
+      _camTouch1.ly = t.clientY;
     }
+
+    if (_camTouch2 && t.identifier === _camTouch2.id) {
+      _camTouch2.lx = t.clientX;
+      _camTouch2.ly = t.clientY;
+    }
+  }
+
+  // Compute pinch zoom once per touchmove event (after both positions updated)
+  if (_camTouch1 && _camTouch2) {
+    const dist = Math.hypot(
+      _camTouch2.lx - _camTouch1.lx,
+      _camTouch2.ly - _camTouch1.ly
+    );
+    if (_prevPinchDist > 0) {
+      // positive delta = fingers closer together = zoom out (increase cam distance)
+      _zoomDelta += (_prevPinchDist - dist) * 0.04;
+    }
+    _prevPinchDist = dist;
   }
 }
 
@@ -189,7 +224,15 @@ function _onEnd(e) {
       _jumpTouchId = null;
       jumpBtnEl.style.background = 'rgba(255,255,255,0.13)';
     }
-    if (_camTouch && t.identifier === _camTouch.id) _camTouch = null;
+    if (_camTouch1 && t.identifier === _camTouch1.id) {
+      // Promote second touch to first so single-finger rotation resumes
+      _camTouch1     = _camTouch2;
+      _camTouch2     = null;
+      _prevPinchDist = 0;
+    } else if (_camTouch2 && t.identifier === _camTouch2.id) {
+      _camTouch2     = null;
+      _prevPinchDist = 0;
+    }
   }
 }
 
@@ -207,13 +250,21 @@ export function consumeCameraMovement() {
   return { dx, dy };
 }
 
+/** Returns accumulated zoom delta this frame; positive = zoom out, negative = zoom in */
+export function consumeCameraZoom() {
+  const z = _zoomDelta;
+  _zoomDelta = 0;
+  return z;
+}
+
 export function isRunning() { return joystick.magnitude >= RUN_MAG; }
 
 export function setInputEnabled(v) {
   _inputEnabled = v;
   if (!v) {
     joystick.x = 0; joystick.y = 0; joystick.magnitude = 0;
-    _joyTouch = null; _camTouch = null; _jumpTouchId = null;
+    _joyTouch = null; _camTouch1 = null; _camTouch2 = null; _jumpTouchId = null;
+    _prevPinchDist = 0; _zoomDelta = 0;
     if (joystickBaseEl) {
       const jR = _layout.joystick.sizePx / 2;
       joystickKnobEl.style.left = (jR - 20) + 'px';
