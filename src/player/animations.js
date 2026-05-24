@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
-// Mixamo FBX bones use "mixamorig:BoneName" (colon-prefixed).
-// Three.js FBXLoader preserves the colon, so track names arrive as
-// "mixamorig:Hips.quaternion".  We normalise them to "mixamorigHips"
-// so the map below stays readable.
+// Mixamo FBX track names arrive as "mixamorig:Hips.quaternion".
+// Normalise to "mixamorigHips" so the table below stays readable.
 function normBone(raw) {
   return raw.replace('mixamorig:', 'mixamorig');
 }
 
+// Fallback table for UE4 / Unreal-style skeletons (old Superhero_Male model).
+// Used only when the skeleton's bone names don't match Mixamo naming directly.
 const MIXAMO_TO_UE4 = {
   mixamorigHips:          'pelvis',
   mixamorigSpine:         'spine_01',
@@ -34,16 +34,45 @@ const MIXAMO_TO_UE4 = {
   mixamorigRightToeBase:  'ball_r',
 };
 
-const _clips  = {};
-let   _promise = null;
-const _loader  = new FBXLoader();
+const _fbxScenes  = {};
+const _clips      = {};
+let   _loadPromise = null;
+const _loader     = new FBXLoader();
 
 function loadFbx(url) {
   return new Promise((resolve, reject) =>
     _loader.load(url, resolve, undefined, reject));
 }
 
-function remapClip(fbxScene, name) {
+// Stage 1: download the FBX files only. Does NOT build clips yet.
+// Safe to call in parallel with the character model download.
+export function preloadAnimations() {
+  if (_loadPromise) return _loadPromise;
+  const base = '/models/animations/';
+  _loadPromise = Promise.all([
+    loadFbx(base + 'Remy@Idle.fbx').then(s    => { _fbxScenes.idle = s; }),
+    loadFbx(base + 'Remy@Walking.fbx').then(s  => { _fbxScenes.walk = s; }),
+    loadFbx(base + 'Remy@Running.fbx').then(s  => { _fbxScenes.run  = s; }),
+    loadFbx(base + 'Remy@Jump.fbx').then(s     => { _fbxScenes.jump = s; }),
+  ]).then(() => console.log('[animations] FBX files loaded'));
+  return _loadPromise;
+}
+
+// Stage 2: remap Mixamo tracks onto the skeleton's actual bone names.
+// Called by characterLoader after the character GLB is loaded and bones are known.
+export function buildClipsForSkeleton(boneNames) {
+  for (const [name, scene] of Object.entries(_fbxScenes)) {
+    _clips[name] = remapClip(scene, name, boneNames);
+  }
+  console.log('[animations] clips built —', Object.keys(_clips).length, 'clips,',
+              boneNames.size, 'bones');
+}
+
+export function getClip(name) { return _clips[name] ?? null; }
+
+// Remap Mixamo animation tracks onto the target skeleton.
+// Priority: exact raw name → normalised name → UE4 mapping → skip.
+function remapClip(fbxScene, name, boneNames) {
   const src = fbxScene.animations[0];
   if (!src) throw new Error(`No animation in FBX: ${name}`);
 
@@ -51,40 +80,31 @@ function remapClip(fbxScene, name) {
   for (const track of src.tracks) {
     const dot  = track.name.lastIndexOf('.');
     const prop = track.name.slice(dot + 1);
-    if (prop !== 'quaternion') continue; // drop position/scale (no root motion)
+    if (prop !== 'quaternion') continue; // drop position/scale — no root motion
 
-    const rawBone = track.name.slice(0, dot);
-    const bone    = normBone(rawBone);
-    const mapped  = MIXAMO_TO_UE4[bone];
-    if (!mapped) continue;
+    const rawBone  = track.name.slice(0, dot); // "mixamorig:Hips"
+    const normName = normBone(rawBone);          // "mixamorigHips"
 
-    const t  = track.clone();
-    t.name   = `${mapped}.${prop}`;
+    let targetBone = null;
+
+    if (boneNames.has(rawBone)) {
+      targetBone = rawBone;                         // skeleton uses Mixamo colon naming
+    } else if (boneNames.has(normName)) {
+      targetBone = normName;                        // skeleton uses normalised Mixamo naming
+    } else {
+      const ue4 = MIXAMO_TO_UE4[normName];
+      if (ue4 && boneNames.has(ue4)) targetBone = ue4; // UE4 / custom skeleton
+    }
+
+    if (!targetBone) continue;
+
+    const t = track.clone();
+    t.name  = `${targetBone}.${prop}`;
     tracks.push(t);
   }
 
   if (tracks.length === 0) {
-    console.warn(`[animations] zero tracks remapped for "${name}" — check bone names`);
+    console.warn(`[animations] zero tracks remapped for "${name}" — bone name mismatch`);
   }
   return new THREE.AnimationClip(name, src.duration, tracks);
 }
-
-export function preloadAnimations() {
-  if (_promise) return _promise;
-  const base = '/models/animations/';
-  _promise = Promise.all([
-    loadFbx(base + 'Remy@Idle.fbx'),
-    loadFbx(base + 'Remy@Walking.fbx'),
-    loadFbx(base + 'Remy@Running.fbx'),
-    loadFbx(base + 'Remy@Jump.fbx'),
-  ]).then(([idle, walk, run, jump]) => {
-    _clips.idle = remapClip(idle, 'idle');
-    _clips.walk = remapClip(walk, 'walk');
-    _clips.run  = remapClip(run,  'run');
-    _clips.jump = remapClip(jump, 'jump');
-    console.log('[animations] 4 clips loaded and remapped');
-  }).catch(err => console.error('[animations] FBX load failed:', err));
-  return _promise;
-}
-
-export function getClip(name) { return _clips[name] ?? null; }
