@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
-// Mixamo (Remy) bone names → UE4 Mannequin bone names
+// Mixamo FBX bones use "mixamorig:BoneName" (colon-prefixed).
+// Three.js FBXLoader preserves the colon, so track names arrive as
+// "mixamorig:Hips.quaternion".  We normalise them to "mixamorigHips"
+// so the map below stays readable.
+function normBone(raw) {
+  return raw.replace('mixamorig:', 'mixamorig');
+}
+
 const MIXAMO_TO_UE4 = {
   mixamorigHips:          'pelvis',
   mixamorigSpine:         'spine_01',
@@ -39,17 +46,25 @@ function loadFbx(url) {
 function remapClip(fbxScene, name) {
   const src = fbxScene.animations[0];
   if (!src) throw new Error(`No animation in FBX: ${name}`);
+
   const tracks = [];
   for (const track of src.tracks) {
     const dot  = track.name.lastIndexOf('.');
-    const bone = track.name.slice(0, dot);
     const prop = track.name.slice(dot + 1);
-    if (prop !== 'quaternion') continue; // drop position/scale (root motion)
-    const mapped = MIXAMO_TO_UE4[bone];
+    if (prop !== 'quaternion') continue; // drop position/scale (no root motion)
+
+    const rawBone = track.name.slice(0, dot);
+    const bone    = normBone(rawBone);
+    const mapped  = MIXAMO_TO_UE4[bone];
     if (!mapped) continue;
-    const t = track.clone();
-    t.name  = `${mapped}.${prop}`;
+
+    const t  = track.clone();
+    t.name   = `${mapped}.${prop}`;
     tracks.push(t);
+  }
+
+  if (tracks.length === 0) {
+    console.warn(`[animations] zero tracks remapped for "${name}" — check bone names`);
   }
   return new THREE.AnimationClip(name, src.duration, tracks);
 }

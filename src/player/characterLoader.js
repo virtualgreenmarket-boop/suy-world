@@ -4,9 +4,8 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { preloadAnimations, getClip } from './animations.js';
 
 const MALE_URL      = '/models/Base%20Characters/Godot%20-%20UE/Superhero_Male_FullBody.gltf';
-const MODEL_FACE_Y  = 0;
 const MODEL_SCALE   = 1.0;
-const FADE_DURATION = 0.2; // seconds for crossfade between states
+const FADE_DURATION = 0.2;
 
 const loader = new GLTFLoader();
 let _template    = null;
@@ -19,10 +18,17 @@ function ensureLoaded() {
     loader.load(MALE_URL, gltf => {
       _template = gltf.scene;
       _template.traverse(n => {
-        if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; }
+        if (n.isMesh) {
+          n.castShadow    = true;
+          n.receiveShadow = false;
+        }
       });
+
+      // Floor offset: compute from the bind-pose bounding box before any
+      // rotation is applied, so we get the actual foot position.
       const box = new THREE.Box3().setFromObject(_template);
       _modelFloorY = -box.min.y;
+
       resolve();
     }, undefined, reject)
   );
@@ -36,11 +42,13 @@ export async function spawnCharacter(parentGroup) {
 
   const clone = skeletonClone(_template);
   clone.scale.setScalar(MODEL_SCALE);
-  clone.rotation.y = MODEL_FACE_Y;
+  // Explicitly zero all rotations — some UE4 GLTF exports carry a bind-pose
+  // rotation on the root node that would cause the character to lie down.
+  clone.rotation.set(0, 0, 0);
   clone.position.y = _modelFloorY;
   parentGroup.add(clone);
 
-  // Non-fatal: character still appears even if animations fail to load
+  // Non-fatal: character still appears (bind pose) if animations fail
   await preloadAnimations().catch(() => {});
 
   const mixer   = new THREE.AnimationMixer(clone);
