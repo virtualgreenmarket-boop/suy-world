@@ -21,101 +21,35 @@ export function updatePlaza(delta, time) {
   for (const b of _birds) _updateBird(b, delta, time);
 }
 
-// ── High-res medieval mosaic floor ───────────────────────────────────
-
-function makeMosaicTexture() {
-  const S = 1024, T = 48;      // 48-px tiles → 21×21 tiles in texture
-  const cols = Math.ceil(S / T);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = S;
-  const ctx = canvas.getContext('2d');
-  const rng = seededRng(77);
-
-  const palettes = {
-    light:  ['#D4C9A8', '#C8BB96', '#DCCEA8', '#CCBF9A'],
-    mid:    ['#A89880', '#B0A088', '#9E9278', '#AAAAAA'],  // slight grey
-    golden: ['#C4A050', '#B89040', '#D0AA58', '#BC9848'],
-    dark:   ['#787060', '#6E6858', '#747068', '#7A7462'],
-    accent: ['#8C3820', '#984028', '#A04430', '#882C1C'],  // terracotta accent
-  };
-
-  function pick(pal) { return pal[Math.floor(rng() * pal.length)]; }
-
-  for (let row = 0; row < cols; row++) {
-    for (let col = 0; col < cols; col++) {
-      const cx = (col + 0.5) / cols - 0.5;
-      const cz = (row + 0.5) / cols - 0.5;
-      const d  = Math.sqrt(cx * cx + cz * cz);
-      const dia = Math.abs(cx) + Math.abs(cz); // diamond distance
-
-      let color;
-      if (d < 0.07) {
-        // Central medallion — golden spokes radiating
-        const a  = Math.atan2(cz, cx);
-        const seg = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 12) % 2;
-        color = seg === 0 ? '#D4A84C' : '#B88A38';
-      } else if (d < 0.12) {
-        // Ring around medallion — terracotta accent
-        color = (row + col) % 2 === 0 ? '#9C4030' : '#884030';
-      } else if (dia > 0.72) {
-        // Outer border ring (two rows) — dark contrasting stone
-        color = (row + col) % 2 === 0 ? pick(palettes.dark) : '#6A6258';
-      } else if (Math.floor(d * 14) % 2 === 0 && d > 0.18 && d < 0.42) {
-        // Radial accent ring — golden diagonal diamond pattern
-        color = dia % (1 / 7) < (1 / 14) ? pick(palettes.golden) : pick(palettes.light);
-      } else {
-        // Main field — checkerboard with texture variation
-        color = (row + col) % 2 === 0 ? pick(palettes.light) : pick(palettes.mid);
-      }
-
-      ctx.fillStyle = color;
-      ctx.fillRect(col * T, row * T, T, T);
-
-      // Surface texture per stone (slight brightness variation)
-      const noise = (rng() - 0.5) * 22;
-      const hex   = parseInt(color.replace('#', ''), 16);
-      const r2 = clamp((hex >> 16) + noise), g2 = clamp(((hex >> 8) & 0xff) + noise), b2 = clamp(hex & 0xff + noise);
-      ctx.fillStyle = `rgba(${Math.floor(r2)},${Math.floor(g2)},${Math.floor(b2)},0.28)`;
-      ctx.fillRect(col * T + 3, row * T + 3, T - 6, T - 6);
-
-      // Micro-crack detail on some stones
-      if (rng() < 0.08) {
-        ctx.strokeStyle = 'rgba(50,40,28,0.22)';
-        ctx.lineWidth = 0.7;
-        ctx.beginPath();
-        const cx2 = col * T + T * 0.25 + rng() * T * 0.5;
-        const cy2 = row * T + T * 0.25 + rng() * T * 0.5;
-        ctx.moveTo(cx2, cy2);
-        ctx.lineTo(cx2 + (rng() - 0.5) * T * 0.55, cy2 + (rng() - 0.5) * T * 0.55);
-        ctx.stroke();
-      }
-
-      // Grout lines (1-2 px, dark)
-      ctx.fillStyle = 'rgba(52,42,30,0.88)';
-      ctx.fillRect(col * T, row * T, T, 2);
-      ctx.fillRect(col * T, row * T, 2, T);
-    }
-  }
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(14, 14);  // ~14 repetitions → each tile ≈ 0.58 m
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
-}
-
-function clamp(v) { return Math.min(255, Math.max(0, v)); }
+// ── PBR plaza floor ───────────────────────────────────────────────────
 
 function addFloor(scene) {
-  const mosaic = makeMosaicTexture();
-  const floor = new THREE.Mesh(
-    new THREE.BoxGeometry(PLAZA_SIZE, 0.7, PLAZA_SIZE),
-    new THREE.MeshStandardMaterial({
-      map: mosaic, roughness: 0.78, metalness: 0.05, color: 0xffffff,
-    })
-  );
+  const loader = new THREE.TextureLoader();
+  const pfx    = 'textures/plaza/PavingStones150_2K-JPG_';
+
+  const colorTex  = loader.load(`${pfx}Color.jpg`);
+  const normalTex = loader.load(`${pfx}NormalGL.jpg`);
+  const roughTex  = loader.load(`${pfx}Roughness.jpg`);
+  const aoTex     = loader.load(`${pfx}AmbientOcclusion.jpg`);
+
+  [colorTex, normalTex, roughTex, aoTex].forEach(t => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(8, 8);
+    t.anisotropy = 8;
+  });
+  colorTex.colorSpace = THREE.SRGBColorSpace;
+
+  const geo = new THREE.BoxGeometry(PLAZA_SIZE, 0.7, PLAZA_SIZE);
+  // aoMap reads from UV channel 1 — copy UV0 to supply it
+  geo.setAttribute('uv1', geo.attributes.uv);
+
+  const floor = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    map:              colorTex,
+    normalMap:        normalTex,
+    roughnessMap:     roughTex,
+    aoMap:            aoTex,
+    aoMapIntensity:   1.0,
+  }));
   floor.position.y = FLOOR_Y;
   floor.receiveShadow = true;
   scene.add(floor);
