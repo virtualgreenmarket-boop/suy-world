@@ -1,6 +1,38 @@
 import * as THREE from 'three';
 import { buildNpcCharacter } from './npc.js';
 
+// ── PBR brick material (shared across all three hangars) ──────────────
+
+let _brickMat = null;
+
+function getBrickMat() {
+  if (_brickMat) return _brickMat;
+  const loader = new THREE.TextureLoader();
+  const pfx    = 'textures/hangars/Bricks066_2K-JPG_';
+
+  const color  = loader.load(pfx + 'Color.jpg');
+  const normal = loader.load(pfx + 'NormalGL.jpg');
+  const rough  = loader.load(pfx + 'Roughness.jpg');
+  const ao     = loader.load(pfx + 'AmbientOcclusion.jpg');
+
+  // repeat.set(16, 5): side walls 94 m long / 14 m tall → ~5.9 m × 2.8 m per tile
+  [color, normal, rough, ao].forEach(t => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(16, 5);
+    t.anisotropy = 8;
+  });
+  color.colorSpace = THREE.SRGBColorSpace;
+
+  _brickMat = new THREE.MeshStandardMaterial({
+    map:            color,
+    normalMap:      normal,
+    roughnessMap:   rough,
+    aoMap:          ao,
+    aoMapIntensity: 0.9,
+  });
+  return _brickMat;
+}
+
 // ── Dimensions ────────────────────────────────────────────────────────
 const W  = 54;   // exterior width  (x: -27..+27)
 const D  = 94;   // exterior depth  (z: -47..+47)
@@ -39,11 +71,11 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   group.position.set(x, 0, z);
   group.rotation.y = rotY;
 
-  const wallMat = stdMat(0xEDE8E0);
-  const roofMat = stdMat(0xD4CEC6, 0.9);
+  const wallMat   = getBrickMat();
+  const roofMat   = stdMat(0xD4CEC6, 0.9);
   const accentMat = stdMat(ACCENT[hangarIndex], 0.7, 0.1);
-  const floorMat = stdMat(0xD8D2C8, 0.92);
-  const colMat   = stdMat(0xF0EBE3, 0.78, 0.05);
+  const floorMat  = stdMat(0xD8D2C8, 0.92);
+  const colMat    = stdMat(0xF0EBE3, 0.78, 0.05);
 
   // ── Shell ─────────────────────────────────────────────────────────
   buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat);
@@ -75,14 +107,14 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat) {
   add(group, new THREE.BoxGeometry(W - 1, 0.3, D - 1), floorMat, 0, 0.15, 0);
 
   // Left wall
-  add(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);
+  addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);
   // Right wall
-  add(group, new THREE.BoxGeometry(0.6, H, D), wallMat,  W / 2, H / 2, 0);
-  // Far wall (with door opening for visual interest — 10 m opening)
+  addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat,  W / 2, H / 2, 0);
+  // Far wall (with door opening — 10 m gap)
   const fwSide = (W - 12) / 2;
-  add(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat, -(W / 2 - fwSide / 2), H / 2, -D / 2);
-  add(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat,  W / 2 - fwSide / 2,   H / 2, -D / 2);
-  add(group, new THREE.BoxGeometry(12, H * 0.35, 0.6), wallMat, 0, H - H * 0.35 / 2, -D / 2);
+  addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat, -(W / 2 - fwSide / 2), H / 2, -D / 2);
+  addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat,  W / 2 - fwSide / 2,   H / 2, -D / 2);
+  addWall(group, new THREE.BoxGeometry(12, H * 0.35, 0.6), wallMat, 0, H - H * 0.35 / 2, -D / 2);
 
   // Entrance: four columns instead of wall
   [-(W / 2 - 1.5), -10, 10, W / 2 - 1.5].forEach(cx => {
@@ -235,4 +267,10 @@ function add(group, geo, mat, x, y, z, castShadow = false) {
   if (castShadow) m.castShadow = true;
   group.add(m);
   return m;
+}
+
+// Like add() but copies uv → uv1 so aoMap works on BoxGeometry walls
+function addWall(group, geo, mat, x, y, z) {
+  geo.setAttribute('uv1', geo.attributes.uv);
+  return add(group, geo, mat, x, y, z);
 }

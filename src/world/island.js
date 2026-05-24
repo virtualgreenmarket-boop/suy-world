@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { spawnTree } from './trees.js';
 
 let _waterMesh = null;
 let _waterTime = 0;
@@ -9,7 +10,7 @@ export function initIsland(scene) {
   addGround(scene);
   addBeach(scene);
   addWater(scene);
-  addPalmTrees(scene);
+  addTrees(scene);
 }
 
 export function updateWater(delta) {
@@ -291,21 +292,21 @@ function addWater(scene) {
   scene.add(_waterMesh);
 }
 
-// ── Palm trees ────────────────────────────────────────────────────────
+// ── Trees (HighPoly FBX) ──────────────────────────────────────────────
 
 function seededRng(seed) {
   let s = seed;
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 }
 
-function addPalmTrees(scene) {
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63, roughness: 0.92 });
-  const leafMat  = new THREE.MeshStandardMaterial({ color: 0x388E3C, roughness: 0.92 });
-
+function addTrees(scene) {
   const avoid = [
-    {x:0,z:-130,r:60},{x:130,z:0,r:60},{x:0,z:130,r:60},{x:-150,z:0,r:82},{x:0,z:0,r:52},
-    // avoid beach strip inner edge — looks more natural inside grass
-    {x:0,z:0,r:218},  // too close to edge = {place: grass interior only}
+    { x:   0, z: -130, r: 60 },
+    { x: 130, z:    0, r: 60 },
+    { x:   0, z:  130, r: 60 },
+    { x:-150, z:    0, r: 82 },
+    { x:   0, z:    0, r: 52 },  // plaza centre
+    { x:   0, z:    0, r: 218 }, // inside beach ring only
   ];
 
   const rng = seededRng(17);
@@ -315,29 +316,10 @@ function addPalmTrees(scene) {
     do {
       const a = rng() * Math.PI * 2, r = 72 + rng() * 142;
       x = Math.cos(a) * r; z = Math.sin(a) * r; tries++;
-    } while (tries < 50 && avoid.some(a => Math.hypot(a.x - x, a.z - z) < a.r));
+    } while (tries < 50 && avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r));
 
-    const scale = 0.75 + rng() * 0.65, height = 9 + rng() * 5;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.30, height, 7), trunkMat);
-    trunk.castShadow = true;
-
-    const leafGroup = new THREE.Group();
-    const lc = 5 + Math.floor(rng() * 4);
-    for (let l = 0; l < lc; l++) {
-      const leaf = new THREE.Mesh(new THREE.ConeGeometry(2.4, 4.8, 5), leafMat);
-      leaf.rotation.z = Math.PI * 0.40;
-      leaf.rotation.y = (l / lc) * Math.PI * 2;
-      leaf.position.y = 0.5;
-      leaf.castShadow = true;
-      leafGroup.add(leaf);
-    }
-    leafGroup.position.y = height * 0.5 + 0.8;
-
-    const tree = new THREE.Group();
-    tree.add(trunk, leafGroup);
-    tree.position.set(x, 0, z);
-    tree.rotation.y = rng() * Math.PI * 2;
-    tree.scale.setScalar(scale);
-    scene.add(tree);
+    const scale = 0.65 + rng() * 0.60;   // 9.75 – 18.75 m tall
+    const rotY  = rng() * Math.PI * 2;
+    spawnTree(scene, x, z, scale, rotY);
   }
 }

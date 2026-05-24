@@ -23,11 +23,12 @@ import { preloadAnimations } from './player/animations.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision }    from './systems/collision.js';
 
-import { initCats, updateCats }         from './world/cats.js';
-import { initDogs, updateDogs }         from './world/dogs.js';
-import { initDecor }                    from './world/decor.js';
-import { initBeach, updateBeach }       from './world/beach.js';
+import { initCats, updateCats }           from './world/cats.js';
+import { initDogs, updateDogs }           from './world/dogs.js';
+import { initDecor }                      from './world/decor.js';
+import { initBeach, updateBeach }         from './world/beach.js';
 import { initOceanLife, updateOceanLife } from './world/oceanLife.js';
+import { preloadTrees }                   from './world/trees.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
@@ -130,9 +131,10 @@ initBeach(scene);
 initOceanLife(scene);
 initCollision();
 
-// Kick off model + animation downloads immediately
+// Kick off model + animation downloads immediately (all in parallel)
 preloadCharacter().catch(err => console.error('[character] model failed:', err));
 preloadAnimations().catch(err => console.error('[animations] failed:', err));
+preloadTrees().catch(err => console.error('[trees] failed:', err));
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();

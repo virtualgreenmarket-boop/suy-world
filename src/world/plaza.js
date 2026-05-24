@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { buildNpcCharacter } from './npc.js';
+import { spawnTree } from './trees.js';
 
-const PLAZA_SIZE = 82;
-const FLOOR_Y    = 0.35;
+const PLAZA_SIZE        = 82;
+const FLOOR_Y           = 0.35;
+const CENTRAL_TREE_H    = 30;   // TARGET_HEIGHT(15) × scale(2.0) — used for bird orbits
 
 let _birds = [];
 
@@ -11,7 +13,7 @@ let _birds = [];
 export function initPlaza(scene) {
   addFloor(scene);
   addCornerBenches(scene);
-  addOakTree(scene);
+  addCentralTree(scene);
   addEdgeBenches(scene);
   addNpc(scene);
   _birds = createBirds(scene);
@@ -106,77 +108,21 @@ function addCornerBenches(scene) {
   });
 }
 
-// ── Ancient oak tree ──────────────────────────────────────────────────
+// ── Central landmark tree (HighPoly FBX at 2× scale = 30 m) ───────────
 
-const OAK_X = 0, OAK_Z = 0;
-const TREE_HEIGHT = 26;
+function addCentralTree(scene) {
+  // 2.0 × TARGET_HEIGHT(15 m) = 30 m tall centrepiece
+  spawnTree(scene, 0, 0, 2.0, 0);
 
-function addOakTree(scene) {
-  const barkMat  = new THREE.MeshStandardMaterial({ color: 0x3D2B1A, roughness: 0.97 });
-  const bark2Mat = new THREE.MeshStandardMaterial({ color: 0x4E3520, roughness: 0.95 });
-  const rootMat  = new THREE.MeshStandardMaterial({ color: 0x352515, roughness: 0.98 });
-  const leafCols = [0x1B4A10, 0x1E5C14, 0x255E18, 0x2D6B1A, 0x1A4210, 0x173D0E];
-
-  // Buttress roots
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2;
-    const root = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.55, 1.4), rootMat);
-    root.position.set(Math.cos(a) * 1.4, 0.8, Math.sin(a) * 1.4);
-    root.rotation.y = -a;
-    root.rotation.z = Math.sign(Math.cos(a)) * 0.28;
-    root.castShadow = true;
-    scene.add(root);
-  }
-
-  // Multi-section trunk
-  [
-    {y:2,h:4,rb:1.80,rt:1.50},{y:6,h:4,rb:1.50,rt:1.20},
-    {y:10,h:4,rb:1.20,rt:0.90},{y:14,h:4,rb:0.90,rt:0.70},
-  ].forEach(({y,h,rb,rt},i) => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 10), i%2===0?barkMat:bark2Mat);
-    m.position.set(OAK_X, y, OAK_Z); m.castShadow = true; scene.add(m);
-  });
-
-  // Branches
-  [
-    [8,14,0,5,20,0,.5],[- 8,14,0,-5,20,0,.5],[0,12,8,0,19,5,.45],[0,12,-8,0,19,-5,.45],
-    [6,10,6,4,16,4,.38],[-6,10,-6,-4,16,-4,.38],[10,17,5,7,22,3,.32],[-9,17,-4,-6,22,-2,.32],
-  ].forEach(([ax,ay,az,bx,by,bz,r],i) => {
-    const start = new THREE.Vector3(OAK_X+ax,ay,OAK_Z+az);
-    const end   = new THREE.Vector3(OAK_X+bx,by,OAK_Z+bz);
-    const dir   = end.clone().sub(start); const len = dir.length();
-    const branch = new THREE.Mesh(new THREE.CylinderGeometry(r*0.7,r,len,8), i%2===0?barkMat:bark2Mat);
-    branch.position.copy(start.clone().add(end).multiplyScalar(0.5));
-    branch.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize());
-    branch.castShadow = true; scene.add(branch);
-  });
-
-  // Foliage clusters
-  [
-    [0,22,0,4.0],[6,19,3,3.2],[-7,19,-2,3.0],[3,18,-7,2.8],[-4,20,5,2.8],
-    [9,16,2,2.4],[-8,16,-5,2.4],[0,15,9,2.2],[5,23,-4,2.0],[-5,22,3,2.0],
-    [2,25,1,1.8],[-2,24,-1,1.6],[10,13,8,1.6],[-10,13,-7,1.6],[0,12,-10,1.5],[8,12,-8,1.4],
-  ].forEach(([fx,fy,fz,radius],i) => {
-    const lm = new THREE.MeshStandardMaterial({ color: leafCols[i%leafCols.length], roughness: 0.90 });
-    const s  = new THREE.Mesh(new THREE.SphereGeometry(radius,8,7), lm);
-    s.position.set(OAK_X+fx,fy,OAK_Z+fz);
-    s.castShadow = s.receiveShadow = true; scene.add(s);
-    if (radius > 2.0) {
-      const lobe = new THREE.Mesh(new THREE.SphereGeometry(radius*0.68,7,6),
-        new THREE.MeshStandardMaterial({color:leafCols[(i+1)%leafCols.length],roughness:0.92}));
-      lobe.position.set(OAK_X+fx+1.2, fy-0.8, OAK_Z+fz+0.8);
-      lobe.castShadow = true; scene.add(lobe);
-    }
-  });
-
-  // Circular bench ring around base
+  // Circular bench ring around the trunk base
   const bm = mat(0x7A6248, 0.88);
   for (let i = 0; i < 4; i++) {
-    const a = (i/4)*Math.PI*2+Math.PI/8;
+    const a     = (i / 4) * Math.PI * 2 + Math.PI / 8;
     const bench = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.22, 0.9), bm);
-    bench.position.set(OAK_X+Math.cos(a)*3.8, 0.81, OAK_Z+Math.sin(a)*3.8);
+    bench.position.set(Math.cos(a) * 3.8, 0.81, Math.sin(a) * 3.8);
     bench.rotation.y = -a;
-    bench.castShadow = bench.receiveShadow = true; scene.add(bench);
+    bench.castShadow = bench.receiveShadow = true;
+    scene.add(bench);
   }
 }
 
@@ -233,7 +179,8 @@ function createBirds(scene) {
     scene.add(group);
     birds.push({
       group,lw,rw,
-      orbitR:  5+rng()*11, orbitH: TREE_HEIGHT*0.42+rng()*TREE_HEIGHT*0.40,
+      orbitR:  5+rng()*11,
+      orbitH:  CENTRAL_TREE_H*0.42 + rng()*CENTRAL_TREE_H*0.40,
       speed:   (0.35+rng()*0.55)*(rng()<0.5?1:-1),
       angle:   rng()*Math.PI*2, bobAmp: 0.5+rng()*0.8, bobFreq: 1.2+rng()*0.8,
       bobPhase:rng()*Math.PI*2, flapSpeed:5+rng()*5, flapPhase:rng()*Math.PI*2,
@@ -245,9 +192,9 @@ function createBirds(scene) {
 function _updateBird(b, delta, time) {
   b.angle += b.speed * delta;
   b.group.position.set(
-    OAK_X+Math.cos(b.angle)*b.orbitR,
-    b.orbitH+Math.sin(time*b.bobFreq+b.bobPhase)*b.bobAmp,
-    OAK_Z+Math.sin(b.angle)*b.orbitR
+    Math.cos(b.angle) * b.orbitR,
+    b.orbitH + Math.sin(time * b.bobFreq + b.bobPhase) * b.bobAmp,
+    Math.sin(b.angle) * b.orbitR
   );
   b.group.rotation.y = b.angle+(b.speed>0?Math.PI/2:-Math.PI/2);
   b.group.rotation.z = b.speed>0?-0.18:0.18;
