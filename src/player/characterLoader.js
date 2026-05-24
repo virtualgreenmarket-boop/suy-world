@@ -18,17 +18,10 @@ function ensureLoaded() {
     loader.load(MALE_URL, gltf => {
       _template = gltf.scene;
       _template.traverse(n => {
-        if (n.isMesh) {
-          n.castShadow    = true;
-          n.receiveShadow = false;
-        }
+        if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; }
       });
-
-      // Floor offset: compute from the bind-pose bounding box before any
-      // rotation is applied, so we get the actual foot position.
       const box = new THREE.Box3().setFromObject(_template);
       _modelFloorY = -box.min.y;
-
       resolve();
     }, undefined, reject)
   );
@@ -42,13 +35,23 @@ export async function spawnCharacter(parentGroup) {
 
   const clone = skeletonClone(_template);
   clone.scale.setScalar(MODEL_SCALE);
-  // Explicitly zero all rotations — some UE4 GLTF exports carry a bind-pose
-  // rotation on the root node that would cause the character to lie down.
-  clone.rotation.set(0, 0, 0);
+
+  // Only set Y (facing direction). The GLTF loader applies an X-axis rotation
+  // to convert from the exporter's Z-up coordinate system to Three.js Y-up.
+  // Zeroing rotation.x removes that transform and makes the character lie flat.
+  clone.rotation.y = 0;
+
   clone.position.y = _modelFloorY;
   parentGroup.add(clone);
 
-  // Non-fatal: character still appears (bind pose) if animations fail
+  // Reset all root-level bone quaternions to identity so the bind pose is
+  // clean and animations start from a defined baseline.
+  clone.traverse(node => {
+    if (node.isBone && !(node.parent?.isBone)) {
+      node.quaternion.identity();
+    }
+  });
+
   await preloadAnimations().catch(() => {});
 
   const mixer   = new THREE.AnimationMixer(clone);

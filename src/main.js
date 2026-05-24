@@ -23,9 +23,11 @@ import { preloadAnimations } from './player/animations.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision }    from './systems/collision.js';
 
-import { initCats, updateCats } from './world/cats.js';
-import { initDogs, updateDogs } from './world/dogs.js';
-import { initDecor }            from './world/decor.js';
+import { initCats, updateCats }         from './world/cats.js';
+import { initDogs, updateDogs }         from './world/dogs.js';
+import { initDecor }                    from './world/decor.js';
+import { initBeach, updateBeach }       from './world/beach.js';
+import { initOceanLife, updateOceanLife } from './world/oceanLife.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
@@ -124,6 +126,8 @@ initMarina(scene);
 initCats(scene);
 initDogs(scene);
 initDecor(scene);
+initBeach(scene);
+initOceanLife(scene);
 initCollision();
 
 // Kick off model + animation downloads immediately
@@ -181,6 +185,8 @@ function animate() {
   updateDogs(delta, npcTime);
   updateWater(delta);
   updatePlaza(delta, npcTime);
+  updateBeach(delta, npcTime);
+  updateOceanLife(delta, npcTime);
 
   // NPC animations (wave / spin / dance)
   npcs.forEach(npc => {
