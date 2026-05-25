@@ -50,7 +50,7 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 // ── Quality tier ──────────────────────────────────────────────────────
-const isMobile = ('ontouchstart' in window) || window.innerWidth < 768;
+const isMobile = true; // force mobile quality tier for testing
 
 // ── Renderer ───────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
