@@ -344,7 +344,6 @@ function addWater(scene) {
 
   _waterMesh = new THREE.Mesh(geo, mat);
   _waterMesh.position.y = 0;
-  _waterMesh.renderOrder = -1;
   scene.add(_waterMesh);
 }
 
