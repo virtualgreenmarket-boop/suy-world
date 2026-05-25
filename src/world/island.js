@@ -1,10 +1,9 @@
 import * as THREE from 'three';
+import { Water } from 'three/addons/objects/Water.js';
 import { spawnTree } from './trees.js';
 import { registerGround } from '../systems/terrain.js';
 
-let _waterMesh   = null;
-let _waterTime   = 0;
-let _waterShader = null;
+let _water = null;
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -17,8 +16,7 @@ export function initIsland(scene, opts = {}) {
 }
 
 export function updateWater(delta) {
-  _waterTime += delta;
-  if (_waterShader) _waterShader.uniforms.uTime.value = _waterTime;
+  if (_water) _water.material.uniforms['time'].value += delta;
 }
 
 // ── Sky sphere ───────────────────────────────────────────────────────
@@ -204,42 +202,26 @@ function addBeach(scene) {
   scene.add(wet);
 }
 
-// ── Water ─────────────────────────────────────────────────────────────
+// ── Water (Three.js built-in Water shader) ────────────────────────────
 
 function addWater(scene) {
-  const mat = new THREE.MeshStandardMaterial({
-    color:       0x006994,
-    transparent: true,
-    opacity:     0.85,
-    roughness:   0.15,
-    metalness:   0.10,
-    side:        THREE.FrontSide,
-    depthWrite:  false,
+  const waterNormals = new THREE.TextureLoader().load('textures/waternormals.jpg');
+  waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
+
+  _water = new Water(new THREE.PlaneGeometry(2000, 2000), {
+    textureWidth:   512,
+    textureHeight:  512,
+    waterNormals,
+    sunDirection:   new THREE.Vector3(120, 220, 80).normalize(),
+    sunColor:       0xffffff,
+    waterColor:     0x006994,
+    distortionScale: 3.7,
+    fog:            !!scene.fog,
   });
 
-  // Inject a simple vertex-displacement pass into MeshStandardMaterial's
-  // compiled shader so we keep full PBR lighting without writing a full shader.
-  mat.onBeforeCompile = shader => {
-    shader.uniforms.uTime = { value: 0 };
-    shader.vertexShader   = 'uniform float uTime;\n' + shader.vertexShader;
-    shader.vertexShader   = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-      transformed.y +=
-        sin(position.x * 0.05 + uTime * 1.2) * 0.4 +
-        cos(position.z * 0.04 + uTime * 0.9) * 0.3 +
-        sin((position.x + position.z) * 0.03 + uTime * 0.7) * 0.2;`
-    );
-    _waterShader = shader;
-  };
-
-  _waterMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(2000, 2000, 48, 48),
-    mat
-  );
-  _waterMesh.rotation.x = -Math.PI / 2;
-  _waterMesh.position.y = -0.5;
-  scene.add(_waterMesh);
+  _water.rotation.x = -Math.PI / 2;
+  _water.position.y = -0.5;
+  scene.add(_water);
 }
 
 // ── Trees (HighPoly FBX) ──────────────────────────────────────────────
