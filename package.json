@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
+    "jsdom": "^29.1.1",
     "vite": "^6.3.5"
   }
 }
