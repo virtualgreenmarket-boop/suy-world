@@ -287,8 +287,7 @@ function addShallowWater(scene) {
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -10;
-  console.log('[water] shallow ring y position:', mesh.position.y);
+  mesh.position.y = -2;
   scene.add(mesh);
 }
 
@@ -298,7 +297,7 @@ function addWater(scene) {
   const waterNormals = new THREE.TextureLoader().load('textures/waternormals.jpg');
   waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
 
-  _water = new Water(new THREE.PlaneGeometry(2000, 2000), {
+  _water = new Water(new THREE.RingGeometry(120, 1000, 80), {
     textureWidth:   512,
     textureHeight:  512,
     waterNormals,
@@ -310,8 +309,7 @@ function addWater(scene) {
   });
 
   _water.rotation.x = -Math.PI / 2;
-  _water.position.y = -10;
-  console.log('[water] Water.js y position:', _water.position.y);
+  _water.position.y = -2;
   scene.add(_water);
 }
 
