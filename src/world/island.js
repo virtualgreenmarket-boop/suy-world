@@ -3,9 +3,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { spawnTree } from './trees.js';
 import { registerGround } from '../systems/terrain.js';
 
-let _waterMesh   = null;
-let _waterTime   = 0;
-let _oceanMixer  = null;
+let _waterMesh    = null;
+let _waterTime    = 0;
+const _shoreMixers = [];
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -15,12 +15,13 @@ export function initIsland(scene, opts = {}) {
   addBeach(scene);
   addWater(scene);
   addTrees(scene, opts.maxTrees ?? 62);
+  if (!opts.lowQuality) _spawnShorelineWaves(scene);
 }
 
 export function updateWater(delta) {
   _waterTime += delta;
   if (_waterMesh) _waterMesh.material.uniforms.uTime.value = _waterTime;
-  if (_oceanMixer) _oceanMixer.update(delta);
+  for (const m of _shoreMixers) m.update(delta);
 }
 
 // ── Sky sphere ───────────────────────────────────────────────────────
@@ -347,66 +348,85 @@ function addWater(scene) {
   scene.add(_waterMesh);
 }
 
-// ── Ocean GLB (animated wave mesh) ───────────────────────────────────
-// File found at /models/ocean/ (NOT /models/nature/ocean/ as previously expected).
-// Loaded lazily — the GLSL water shader above remains active while the 63 MB
-// GLB downloads; when the GLB arrives it layers underneath for added depth.
+// ── Shoreline breaking waves (decorative GLB instances) ──────────────
+// The ocean GLB is one wave mesh — we clone it N times around the beach
+// edge so it looks like continuous surf rolling in from all directions.
+// Each clone gets its own AnimationMixer started at a different phase so
+// the waves don't all crest simultaneously.
 
-function _loadOceanGlb(scene) {
+const SHORE_R      = 244;   // just outside beach outer edge (r≈238)
+const SHORE_COUNT  = 14;    // instances around the full circumference
+const SHORE_WAVE_W = 42;    // target width in world metres per instance
+
+function _spawnShorelineWaves(scene) {
   const loader = new GLTFLoader();
   const url    = '/models/ocean/free_ocean_wave_animation.glb';
-  console.log('[ocean-glb] starting download (63 MB, loading in background)…');
 
-  loader.load(
-    url,
-    gltf => {
-      const ocean = gltf.scene;
+  loader.load(url, gltf => {
+    const tmpl  = gltf.scene;
+    const clips = gltf.animations;
 
-      // Scale to match the game's water plane (diameter ~600 m)
-      const box  = new THREE.Box3().setFromObject(ocean);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      const maxXZ = Math.max(size.x, size.z, 0.01);
-      const scale = 600 / maxXZ;
-      ocean.scale.setScalar(scale);
+    // Measure natural XZ footprint of the GLB
+    const box  = new THREE.Box3().setFromObject(tmpl);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const naturalW = Math.max(size.x, size.z, 0.01);
+    const scale    = SHORE_WAVE_W / naturalW;
 
-      // Sit the mesh at the water surface level
-      const box2 = new THREE.Box3().setFromObject(ocean);
-      ocean.position.y = -3.4 - box2.min.y; // just below GLSL water plane
+    // Duration of first animation clip (for phase offsetting)
+    const clipDur  = clips.length > 0 ? (clips[0].duration ?? 2.0) : 2.0;
 
-      ocean.traverse(n => {
+    const rng = seededRng(31415);
+
+    for (let i = 0; i < SHORE_COUNT; i++) {
+      // Slightly irregular angular spacing so it doesn't look mechanical
+      const baseAngle   = (i / SHORE_COUNT) * Math.PI * 2;
+      const jitter      = (rng() - 0.5) * (Math.PI * 2 / SHORE_COUNT) * 0.55;
+      const angle       = baseAngle + jitter;
+
+      const inst = tmpl.clone(true);
+      inst.scale.setScalar(scale);
+
+      // Align the wave's base to y = 0 (sea surface)
+      const ibox = new THREE.Box3().setFromObject(inst);
+      const yOff = -ibox.min.y;
+
+      inst.position.set(
+        Math.cos(angle) * SHORE_R,
+        yOff,
+        Math.sin(angle) * SHORE_R
+      );
+
+      // Face the crest toward the island centre (wave "rolling in")
+      inst.rotation.y = angle + Math.PI + (rng() - 0.5) * 0.35;
+
+      inst.traverse(n => {
         if (!n.isMesh) return;
         n.castShadow    = false;
         n.receiveShadow = false;
-        // Ensure transparency so the GLSL caustic layer on top shows through
         if (n.material) {
-          n.material = n.material.clone();
+          n.material             = n.material.clone();
           n.material.transparent = true;
           n.material.depthWrite  = false;
         }
       });
 
-      scene.add(ocean);
+      scene.add(inst);
 
-      if (gltf.animations.length > 0) {
-        _oceanMixer = new THREE.AnimationMixer(ocean);
-        gltf.animations.forEach(clip => _oceanMixer.clipAction(clip).play());
-        console.log('[ocean-glb] loaded —', gltf.animations.length,
-                    'animation(s) playing | scale:', scale.toFixed(3));
-      } else {
-        console.log('[ocean-glb] loaded — no animations | scale:', scale.toFixed(3));
+      if (clips.length > 0) {
+        const mixer = new THREE.AnimationMixer(inst);
+        clips.forEach(clip => mixer.clipAction(clip).play());
+        // Start each instance at a different point in its cycle
+        mixer.setTime((i / SHORE_COUNT) * clipDur);
+        _shoreMixers.push(mixer);
       }
-    },
-    xhr => {
-      if (xhr.total > 0) {
-        const pct = Math.round(xhr.loaded / xhr.total * 100);
-        if (pct % 20 === 0) console.log('[ocean-glb] loading:', pct + '%');
-      }
-    },
-    err => {
-      console.error('[ocean-glb] failed to load from', url, '|', err?.message ?? err);
     }
-  );
+
+    console.log('[shore-waves]', SHORE_COUNT, 'instances | scale:', scale.toFixed(3),
+                '| anims:', clips.length);
+  }, undefined, err => {
+    console.warn('[shore-waves] failed to load GLB:', err?.message ?? err);
+  });
 }
 
 // ── Trees (HighPoly FBX) ──────────────────────────────────────────────
