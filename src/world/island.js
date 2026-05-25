@@ -287,7 +287,8 @@ function addShallowWater(scene) {
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -2.8;
+  mesh.position.y = -10;
+  console.log('[water] shallow ring y position:', mesh.position.y);
   scene.add(mesh);
 }
 
@@ -309,7 +310,8 @@ function addWater(scene) {
   });
 
   _water.rotation.x = -Math.PI / 2;
-  _water.position.y = -3.0;
+  _water.position.y = -10;
+  console.log('[water] Water.js y position:', _water.position.y);
   scene.add(_water);
 }
 
