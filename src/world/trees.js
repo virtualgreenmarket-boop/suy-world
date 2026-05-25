@@ -69,7 +69,7 @@ export function preloadTrees() {
                         || combined.includes('foliage') || combined.includes('canopy')
                         || combined.includes('frond') || combined.includes('needle');
           n.material      = isLeaf ? leafMat : trunkMat;
-          n.castShadow    = true;
+          n.castShadow    = !isLeaf; // leaf alpha-test shadows are very expensive
           n.receiveShadow = !isLeaf;
           if (isLeaf) leafCount++; else trunkCount++;
         });

@@ -49,17 +49,19 @@ const camera = new THREE.PerspectiveCamera(
   68, window.innerWidth / window.innerHeight, 0.2, 900
 );
 
+// ── Quality tier ──────────────────────────────────────────────────────
+const isMobile = ('ontouchstart' in window) || window.innerWidth < 768;
+
 // ── Renderer ───────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(isMobile ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type    = isMobile ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
 renderer.toneMapping         = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 // LinearSRGBColorSpace → OutputPass handles final sRGB conversion
 renderer.outputColorSpace    = THREE.LinearSRGBColorSpace;
-// Match clear colour to sky so early frames are never black
 renderer.setClearColor(0x87CEEB, 1);
 document.body.appendChild(renderer.domElement);
 
@@ -69,14 +71,16 @@ document.body.appendChild(renderer.domElement);
 const sun = new THREE.DirectionalLight(0xFFF4D6, 2.8);
 sun.position.set(120, 220, 80);
 sun.castShadow = true;
-sun.shadow.mapSize.width   = 4096;
-sun.shadow.mapSize.height  = 4096;
+// Tight shadow frustum — covers the playable area, not the whole island
+const shadowSize = isMobile ? 80 : 160;
+sun.shadow.mapSize.width   = isMobile ? 1024 : 2048;
+sun.shadow.mapSize.height  = isMobile ? 1024 : 2048;
 sun.shadow.camera.near     = 1;
-sun.shadow.camera.far      = 900;
-sun.shadow.camera.left     = -340;
-sun.shadow.camera.right    =  340;
-sun.shadow.camera.top      =  340;
-sun.shadow.camera.bottom   = -340;
+sun.shadow.camera.far      = 350;
+sun.shadow.camera.left     = -shadowSize;
+sun.shadow.camera.right    =  shadowSize;
+sun.shadow.camera.top      =  shadowSize;
+sun.shadow.camera.bottom   = -shadowSize;
 sun.shadow.bias            = -0.0008;
 sun.shadow.normalBias      = 0.04;
 scene.add(sun);
@@ -98,35 +102,40 @@ plazaLight.position.set(0, 8, 0);
 plazaLight.castShadow = false; // perf: no shadow from area fill
 scene.add(plazaLight);
 
-// Hangar interior fill lights (one per hangar)
-[
-  {x:   0, y: 8, z: -130},
-  {x: 130, y: 8, z:   0 },
-  {x:   0, y: 8, z:  130},
-].forEach(({ x, y, z }) => {
-  const l = new THREE.PointLight(0xF0E8D8, 1.2, 70, 1.5);
-  l.position.set(x, y, z);
-  scene.add(l);
-});
+// Hangar interior fill lights — skip on mobile (saves 3 light calculations)
+if (!isMobile) {
+  [
+    {x:   0, y: 8, z: -130},
+    {x: 130, y: 8, z:   0 },
+    {x:   0, y: 8, z:  130},
+  ].forEach(({ x, y, z }) => {
+    const l = new THREE.PointLight(0xF0E8D8, 1.2, 70, 1.5);
+    l.position.set(x, y, z);
+    scene.add(l);
+  });
+}
 
 // ── Post-processing ────────────────────────────────────────────────────
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
-// Subtle bloom — brightens highlights and sun reflections on water
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.45,   // strength
-  0.55,   // radius
-  0.82    // threshold — only bright highlights bloom
-);
-composer.addPass(bloomPass);
+// Bloom — disabled on mobile (too expensive); half-res on desktop
+let bloomPass = null;
+if (!isMobile) {
+  bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2)),
+    0.40,   // strength
+    0.50,   // radius
+    0.84    // threshold
+  );
+  composer.addPass(bloomPass);
+}
 
 // Final colour-space conversion (linear → sRGB) + tone mapping output
 composer.addPass(new OutputPass());
 
 // ── World ──────────────────────────────────────────────────────────────
-initIsland(scene);
+initIsland(scene, { lowQuality: isMobile, maxTrees: isMobile ? 28 : 55 });
 initPlaza(scene);
 initPaths(scene);
 initHangars(scene);
@@ -170,7 +179,7 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
-  bloomPass.resolution.set(w, h);
+  if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
 });
 
 // ── Game loop ──────────────────────────────────────────────────────────

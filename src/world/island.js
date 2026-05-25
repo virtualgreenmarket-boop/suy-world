@@ -9,13 +9,13 @@ let _oceanMixer  = null;
 
 // ── Public ────────────────────────────────────────────────────────────
 
-export function initIsland(scene) {
+export function initIsland(scene, opts = {}) {
   addSky(scene);
   addGround(scene);
   addBeach(scene);
   addWater(scene);
-  addTrees(scene);
-  _loadOceanGlb(scene);
+  addTrees(scene, opts.maxTrees ?? 62);
+  if (!opts.lowQuality) _loadOceanGlb(scene);
 }
 
 export function updateWater(delta) {
@@ -28,7 +28,7 @@ export function updateWater(delta) {
 
 function addSky(scene) {
   const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(850, 32, 16),
+    new THREE.SphereGeometry(850, 16, 8),
     new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthTest:  false,
@@ -104,7 +104,7 @@ function makeGrassTexture() {
 
 function addGround(scene) {
   const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(238, 250, 3, 88),
+    new THREE.CylinderGeometry(238, 250, 3, 36),
     new THREE.MeshStandardMaterial({
       map: makeGrassTexture(), color: 0x5DA44A, roughness: 0.92, metalness: 0.0,
     })
@@ -138,8 +138,7 @@ function addBeach(scene) {
   roughTex.offset.copy(colorTex.offset);
   aoTex.offset.copy(colorTex.offset);
 
-  // Extra segments (128 × 12) allow the height displacement to look smooth
-  const geo = new THREE.RingGeometry(220, 238, 128, 12);
+  const geo = new THREE.RingGeometry(220, 238, 64, 8);
   geo.setAttribute('uv1', geo.attributes.uv);
 
   // Perturb vertices for an organic shoreline:
@@ -192,7 +191,7 @@ function addBeach(scene) {
 
   // Sloped sand skirt down to water level
   const skirt = new THREE.Mesh(
-    new THREE.CylinderGeometry(238, 252, 2.2, 96),
+    new THREE.CylinderGeometry(238, 252, 2.2, 32),
     new THREE.MeshStandardMaterial({ color: 0xD4B470, roughness: 0.97, metalness: 0.0 })
   );
   skirt.position.y = -2.2;
@@ -201,7 +200,7 @@ function addBeach(scene) {
 
   // Wet surf band
   const wet = new THREE.Mesh(
-    new THREE.CylinderGeometry(252, 258, 0.6, 96),
+    new THREE.CylinderGeometry(252, 258, 0.6, 32),
     new THREE.MeshStandardMaterial({ color: 0xB8A060, roughness: 0.99, metalness: 0.0 })
   );
   wet.position.y = -3.1;
@@ -314,13 +313,18 @@ const WATER_FRAG = /* glsl */`
     float alpha = mix(0.50, 0.94, vDepth);
     // Extra transparency right at the waterline
     alpha = mix(alpha * 0.35, alpha, smoothstep(238.0, 244.0, dist));
+    // Fade out before plane edge so it never projects into the sky
+    alpha *= smoothstep(420.0, 360.0, dist);
 
     gl_FragColor = vec4(col, alpha);
   }
 `;
 
 function addWater(scene) {
-  const geo = new THREE.PlaneGeometry(2000, 2000, 56, 56);
+  // 900×900 plane covers ~450m from origin — well beyond shore (r≈238) but
+  // never reaches far enough to project into sky pixels. Frag shader fades
+  // alpha to 0 at r=360-420 so there is no hard-edge cutoff.
+  const geo = new THREE.PlaneGeometry(900, 900, 28, 28);
   // Bake rotation into geometry so vertex shader pos.x/pos.z are the horizontal
   // axes and pos.y += h correctly displaces vertices upward in world space.
   geo.rotateX(-Math.PI / 2);
@@ -424,7 +428,7 @@ function _onPath(x, z) {
   return false;
 }
 
-function addTrees(scene) {
+function addTrees(scene, maxTrees = 62) {
   const avoid = [
     { x:   0, z: -130, r: 62 }, // N hangar
     { x: 130, z:    0, r: 62 }, // E hangar
@@ -435,7 +439,7 @@ function addTrees(scene) {
 
   const rng = seededRng(17);
 
-  for (let i = 0; i < 62; i++) {
+  for (let i = 0; i < maxTrees; i++) {
     let x, z, tries = 0;
     do {
       const a = rng() * Math.PI * 2;
