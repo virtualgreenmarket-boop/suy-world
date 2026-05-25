@@ -15,7 +15,6 @@ export function initIsland(scene, opts = {}) {
   addBeach(scene);
   addWater(scene);
   addTrees(scene, opts.maxTrees ?? 62);
-  if (!opts.lowQuality) _loadOceanGlb(scene);
 }
 
 export function updateWater(delta) {
@@ -313,29 +312,28 @@ const WATER_FRAG = /* glsl */`
     float alpha = mix(0.50, 0.94, vDepth);
     // Extra transparency right at the waterline
     alpha = mix(alpha * 0.35, alpha, smoothstep(238.0, 244.0, dist));
-    // Fade out before plane edge so it never projects into the sky
-    alpha *= smoothstep(420.0, 360.0, dist);
+    // Fade out near the ring's outer edge (500) so there's no hard cutoff
+    alpha *= smoothstep(490.0, 420.0, dist);
 
     gl_FragColor = vec4(col, alpha);
   }
 `;
 
 function addWater(scene) {
-  // 900×900 plane covers ~450m from origin — well beyond shore (r≈238) but
-  // never reaches far enough to project into sky pixels. Frag shader fades
-  // alpha to 0 at r=360-420 so there is no hard-edge cutoff.
-  const geo = new THREE.PlaneGeometry(900, 900, 28, 28);
-  // Bake rotation into geometry so vertex shader pos.x/pos.z are the horizontal
-  // axes and pos.y += h correctly displaces vertices upward in world space.
+  // RingGeometry spans only the actual ocean area: inner radius = beach outer
+  // edge (238), outer radius = 500. This ensures the mesh never reaches the
+  // horizon/sky regardless of camera angle. Baked rotation so the ring lies
+  // flat (XZ plane) and vertex shader pos.y displacement works correctly.
+  const geo = new THREE.RingGeometry(238, 500, 72, 20);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       uTime:    { value: 0 },
-      uSand:    { value: new THREE.Color(0xB0C890) }, // sandy-green seabed tint
-      uShallow: { value: new THREE.Color(0x28A898) }, // turquoise
-      uMid:     { value: new THREE.Color(0x0070A0) }, // teal-blue
-      uDeep:    { value: new THREE.Color(0x00405A) }, // deep ocean
-      uFoam:    { value: new THREE.Color(0xE8F6FF) }, // white foam
+      uSand:    { value: new THREE.Color(0xB0C890) },
+      uShallow: { value: new THREE.Color(0x28A898) },
+      uMid:     { value: new THREE.Color(0x0070A0) },
+      uDeep:    { value: new THREE.Color(0x00405A) },
+      uFoam:    { value: new THREE.Color(0xE8F6FF) },
     },
     vertexShader:   WATER_VERT,
     fragmentShader: WATER_FRAG,
@@ -345,7 +343,8 @@ function addWater(scene) {
   });
 
   _waterMesh = new THREE.Mesh(geo, mat);
-  _waterMesh.position.y = -3.2;
+  _waterMesh.position.y = 0;
+  _waterMesh.renderOrder = -1;
   scene.add(_waterMesh);
 }
 
