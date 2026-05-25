@@ -114,10 +114,10 @@ function addTerrain(scene) {
 
   // ── Island body: open tapered cylinder (visible cliff edge) ──────────
   const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(238, 256, 6, 48, 1, true),
+    new THREE.CylinderGeometry(238, 258, 8, 48, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x8B7040, roughness: 0.97, metalness: 0.0 })
   );
-  body.position.y = -3;  // top at 0, bottom at -6
+  body.position.y = -4;  // top at 0, bottom at -8
   body.receiveShadow = true;
   scene.add(body);
 
@@ -127,7 +127,7 @@ function addTerrain(scene) {
     new THREE.MeshStandardMaterial({ color: 0x6B5030, roughness: 0.97 })
   );
   bottom.rotation.x = Math.PI / 2;
-  bottom.position.y = -6;
+  bottom.position.y = -8;
   scene.add(bottom);
 
   // ── Terrain disc: flat top surface with 5-zone blended shader ────────
@@ -287,7 +287,7 @@ function addShallowWater(scene) {
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.15;
+  mesh.position.y = -2.8;
   scene.add(mesh);
 }
 
@@ -309,7 +309,7 @@ function addWater(scene) {
   });
 
   _water.rotation.x = -Math.PI / 2;
-  _water.position.y = -0.5;
+  _water.position.y = -3.0;
   scene.add(_water);
 }
 

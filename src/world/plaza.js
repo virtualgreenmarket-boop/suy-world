@@ -52,20 +52,19 @@ function _loadBenches(scene) {
     const tmpl = gltf.scene;
     tmpl.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
 
+    // Scale to 1.8 m total height (full bench + backrest)
     const box = new THREE.Box3().setFromObject(tmpl);
     const h   = Math.max(box.max.y - box.min.y, 0.001);
-    // Normalize to 0.52m seat height
-    const sc  = 0.52 / h;
+    const sc  = 1.8 / h;
     tmpl.scale.setScalar(sc);
 
-    // After scaling, the bounding box bottom might not be at y=0; record floor offset
-    const box2 = new THREE.Box3().setFromObject(tmpl);
+    // Record Y offset so base sits exactly on the floor surface
+    const box2   = new THREE.Box3().setFromObject(tmpl);
     const floorY = -box2.min.y;
 
     _benchTmpl = { tmpl, floorY };
-    console.log('[plaza] bench GLB ready — scale:', sc.toFixed(3));
+    console.log('[plaza] bench GLB ready — scale:', sc.toFixed(3), '| floorOffset:', floorY.toFixed(3));
 
-    // Flush any placements that were queued before template was ready
     for (const fn of _pendingFns) fn();
     _pendingFns = [];
 
@@ -82,8 +81,10 @@ function _loadBenches(scene) {
 
 function _placeBench(scene, tmpl, x, y, z, rotY) {
   const inst = tmpl.tmpl.clone(true);
+  // y argument is already world Y; add floorY so the model base sits on the surface
   inst.position.set(x, y + tmpl.floorY, z);
   inst.rotation.y = rotY;
+  inst.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
   scene.add(inst);
 }
 
@@ -103,10 +104,10 @@ function addCornerBenches(scene, tmpl) {
     scene.add(cap);
 
     [
-      { ox: Math.sign(cx) * -5.5, oz: 0,                     ry: Math.sign(cx) * Math.PI / 2 },
-      { ox: 0,                    oz: Math.sign(cz) * -5.5,  ry: 0                            },
+      { ox: Math.sign(cx) * -5.5, oz: 0,                    ry: Math.sign(cx) * Math.PI / 2 },
+      { ox: 0,                    oz: Math.sign(cz) * -5.5, ry: 0                            },
     ].forEach(({ ox, oz, ry }) => {
-      _placeBench(scene, tmpl, cx + ox, 0, cz + oz, ry);
+      _placeBench(scene, tmpl, cx + ox, FLOOR_Y, cz + oz, ry);
     });
   });
 }
