@@ -124,8 +124,8 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
 // ── Hangar exterior shell ─────────────────────────────────────────────
 
 function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat) {
-  // Floor
-  add(group, new THREE.BoxGeometry(W - 1, 0.3, D - 1), floorMat, 0, 0.15, 0);
+  // Floor — extend downward to avoid z-fighting with grass (y=0)
+  add(group, new THREE.BoxGeometry(W - 1, 1.0, D - 1), floorMat, 0, -0.2, 0);
 
   // Left wall
   addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);

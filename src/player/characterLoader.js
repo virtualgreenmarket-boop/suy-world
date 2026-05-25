@@ -4,6 +4,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { preloadAnimations, buildClipsForSkeleton, getClip } from './animations.js';
 
 const MODEL_URL     = '/models/characters/ithappy/Creative_Character_free.glb';
+const ASSETS_BASE   = '/models/characters/ithappy/Separate_assets_glb/';
 const MODEL_SCALE   = 1.0;
 const FADE_DURATION = 0.2;
 
@@ -152,4 +153,29 @@ export function setAnimState(group, state, immediate = false) {
 
 export function updateCharacterMixer(group, delta) {
   group.userData.mixer?.update(delta);
+}
+
+// ── Accessory equip ───────────────────────────────────────────────────
+
+export async function equipItem(group, category, filename) {
+  if (!group) return;
+  if (!group.userData._equipped) group.userData._equipped = {};
+
+  const prev = group.userData._equipped[category];
+  if (prev) { group.remove(prev); group.userData._equipped[category] = null; }
+  if (!filename) return;
+
+  try {
+    const gltf = await new Promise((res, rej) =>
+      new GLTFLoader().load(ASSETS_BASE + filename, res, undefined, rej)
+    );
+    const item = gltf.scene;
+    item.scale.setScalar(MODEL_SCALE);
+    item.position.y = _modelFloorY;
+    item.traverse(n => { if (n.isMesh) n.castShadow = true; });
+    group.add(item);
+    group.userData._equipped[category] = item;
+  } catch (err) {
+    console.warn('[character] equip failed:', filename, err?.message ?? err);
+  }
 }

@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toggleInventoryPanel } from './inventoryPanel.js';
 import { toggleSettingsPanel }  from './settingsPanel.js';
 
@@ -32,6 +34,7 @@ export function initHud() {
   coinEl = el('div', { id: 'hud-coin' });
   coinEl.innerHTML = '<span class="hud-coin-icon">🪙</span><span class="hud-coin-val">–</span>';
   document.body.appendChild(coinEl);
+  _init3DCoin(coinEl.querySelector('.hud-coin-icon'));
 
   // ── Centre: slot label ────────────────────────────────────────────────
   slotEl = el('div', { id: 'hud-slot' });
@@ -93,6 +96,56 @@ function _injectStyles() {
     }
   `;
   document.head.appendChild(s);
+}
+
+function _init3DCoin(iconEl) {
+  const W = 56, H = 56;
+  const cvs = document.createElement('canvas');
+  cvs.width = W; cvs.height = H;
+  cvs.style.cssText = 'width:28px;height:28px;display:block;border-radius:4px;';
+
+  const rndr = new THREE.WebGLRenderer({ canvas: cvs, alpha: true, antialias: true });
+  rndr.setSize(W, H, false);
+  rndr.setClearColor(0, 0);
+  rndr.toneMapping = THREE.ACESFilmicToneMapping;
+  rndr.toneMappingExposure = 1.4;
+  rndr.outputColorSpace = THREE.SRGBColorSpace;
+
+  const coinScene = new THREE.Scene();
+  const coinCam   = new THREE.PerspectiveCamera(44, 1, 0.1, 20);
+  coinCam.position.set(0, 0.4, 3.8);
+  coinCam.lookAt(0, 0, 0);
+
+  coinScene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  const sun = new THREE.DirectionalLight(0xFFD060, 3.5);
+  sun.position.set(2, 3, 4);
+  coinScene.add(sun);
+  const fill = new THREE.DirectionalLight(0xC8E8FF, 0.8);
+  fill.position.set(-2, 1, -2);
+  coinScene.add(fill);
+
+  new GLTFLoader().load('/models/ui/coin.glb', gltf => {
+    const coin = gltf.scene;
+    const box  = new THREE.Box3().setFromObject(coin);
+    const ctr  = box.getCenter(new THREE.Vector3());
+    const sz   = box.getSize(new THREE.Vector3());
+    const sc   = 1.8 / Math.max(sz.x, sz.y, sz.z, 0.01);
+    coin.scale.setScalar(sc);
+    coin.position.copy(ctr.multiplyScalar(-sc));
+    coinScene.add(coin);
+
+    let t = 0;
+    (function loop() {
+      requestAnimationFrame(loop);
+      t += 0.016;
+      coin.rotation.y = t * 1.6;
+      coin.rotation.x = Math.sin(t * 0.5) * 0.12;
+      rndr.render(coinScene, coinCam);
+    })();
+
+    iconEl.innerHTML = '';
+    iconEl.appendChild(cvs);
+  }, undefined, () => { /* keep emoji fallback */ });
 }
 
 export function updateCoinDisplay(n) {

@@ -136,16 +136,6 @@ function addPath(scene, ax, az, bx, bz) {
   scene.add(path);
   registerGround(path);
 
-  // Kerb stones (slightly raised edge blocks)
-  [-4.65, 4.65].forEach(offset => {
-    const kerb = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, length), EDGE_MAT);
-    kerb.position.set(cx, 0.16, cz);
-    kerb.rotation.y = rotY;
-    kerb.position.x += Math.cos(rotY) * offset;
-    kerb.position.z -= Math.sin(rotY) * offset;
-    kerb.castShadow = true;
-    scene.add(kerb);
-  });
 }
 
 function seededRng(seed) {

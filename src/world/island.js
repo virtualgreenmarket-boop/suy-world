@@ -10,6 +10,7 @@ let _oceanMixer  = null;
 // ── Public ────────────────────────────────────────────────────────────
 
 export function initIsland(scene) {
+  addSky(scene);
   addGround(scene);
   addBeach(scene);
   addWater(scene);
@@ -21,6 +22,40 @@ export function updateWater(delta) {
   _waterTime += delta;
   if (_waterMesh) _waterMesh.material.uniforms.uTime.value = _waterTime;
   if (_oceanMixer) _oceanMixer.update(delta);
+}
+
+// ── Sky sphere ───────────────────────────────────────────────────────
+
+function addSky(scene) {
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(850, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthTest:  false,
+      depthWrite: false,
+      vertexShader: /* glsl */`
+        varying float vY;
+        void main() {
+          vY = normalize(position).y;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */`
+        varying float vY;
+        void main() {
+          float t = pow(max(vY, 0.0), 0.52);
+          vec3 zenith  = vec3(0.18, 0.44, 0.88);
+          vec3 horizon = vec3(0.68, 0.86, 0.98);
+          vec3 col = mix(horizon, zenith, t);
+          float glow = max(0.0, 1.0 - vY * 5.5);
+          col = mix(col, vec3(1.0, 0.88, 0.68), glow * 0.22);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    })
+  );
+  sky.renderOrder = -1;
+  scene.add(sky);
 }
 
 // ── Ground (grass) ────────────────────────────────────────────────────
@@ -107,18 +142,36 @@ function addBeach(scene) {
   const geo = new THREE.RingGeometry(220, 238, 128, 12);
   geo.setAttribute('uv1', geo.attributes.uv);
 
-  // Perturb vertex Z (local) to create natural height variation along shoreline.
-  // After rotation.x = −PI/2, local-Z becomes world-Y.
+  // Perturb vertices for an organic shoreline:
+  //   Z → world Y (height) after rotation.x = -PI/2
+  //   XY → radial variation makes inner/outer boundaries irregular
   const pos = geo.attributes.position;
   const rng = seededRng(77);
   for (let i = 0; i < pos.count; i++) {
     const lx = pos.getX(i), ly = pos.getY(i);
-    const a  = Math.atan2(ly, lx); // angle around ring
+    const a  = Math.atan2(ly, lx);
+    const r  = Math.sqrt(lx * lx + ly * ly);
+    const t  = Math.max(0, Math.min(1, (r - 220) / 18)); // 0=inner, 1=outer
+
+    // Height variation
     const h  = 0.12 * Math.sin(a * 7 + 0.3)
              + 0.08 * Math.sin(a * 13 + 1.1)
              + 0.04 * Math.cos(a * 21 - 0.7)
              + 0.03 * (rng() - 0.5);
     pos.setZ(i, h);
+
+    // Radial variation — organic boundary, no perfect circles
+    const radNoise = 4.2 * Math.sin(a * 3 + 0.4)
+                   + 2.5 * Math.sin(a * 7 + 1.7)
+                   + 1.4 * Math.cos(a * 13 - 0.8)
+                   + 0.9 * Math.sin(a * 19 + 2.1);
+    const radPush = radNoise * (1.0 - t * 0.65);
+    const newR    = r + radPush;
+    if (newR > 0.01) {
+      const ratio = newR / r;
+      pos.setX(i, lx * ratio);
+      pos.setY(i, ly * ratio);
+    }
   }
   pos.needsUpdate = true;
   geo.computeVertexNormals();
@@ -268,6 +321,9 @@ const WATER_FRAG = /* glsl */`
 
 function addWater(scene) {
   const geo = new THREE.PlaneGeometry(2000, 2000, 56, 56);
+  // Bake rotation into geometry so vertex shader pos.x/pos.z are the horizontal
+  // axes and pos.y += h correctly displaces vertices upward in world space.
+  geo.rotateX(-Math.PI / 2);
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       uTime:    { value: 0 },
@@ -285,7 +341,6 @@ function addWater(scene) {
   });
 
   _waterMesh = new THREE.Mesh(geo, mat);
-  _waterMesh.rotation.x = -Math.PI / 2;
   _waterMesh.position.y = -3.2;
   scene.add(_waterMesh);
 }

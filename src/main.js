@@ -10,7 +10,7 @@ import { initPaths }                 from './world/paths.js';
 import { initHangars }               from './world/hangars.js';
 import { initMarina }                from './world/marina.js';
 
-import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY }
+import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem }
   from './player/localPlayer.js';
 import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemotePlayerPosition }
   from './player/remotePlayer.js';
@@ -35,13 +35,14 @@ import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
 import { initInteractionUI, updateInteractions }         from './ui/interactionUI.js';
-import { initInventoryPanel }                            from './ui/inventoryPanel.js';
+import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
 import { initSettingsPanel, applyQualitySettings }       from './ui/settingsPanel.js';
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.FogExp2(0x87CEEB, 0.0016);
+// Background is a sky sphere added in initIsland; keep a dark fallback only
+scene.background = null;
+scene.fog = new THREE.FogExp2(0xB8E0FA, 0.0014);
 
 // ── Camera ─────────────────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(
@@ -150,6 +151,7 @@ bindSendChat(sendChat);
 initTouchControls();
 initInteractionUI();
 initInventoryPanel();
+onEquipChange((cat, file) => equipLocalPlayerItem(cat, file));
 initSettingsPanel(renderer);
 applyQualitySettings(renderer);
 

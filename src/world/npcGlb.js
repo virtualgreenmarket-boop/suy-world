@@ -106,15 +106,30 @@ export async function spawnAllPlazaNpcs(scene) {
     const entry = _templates[i];
     if (!entry) continue;
     const cfg = PLAZA_POSITIONS[i % PLAZA_POSITIONS.length];
-    const npc = await _spawnFromEntry(scene, entry, cfg.x, cfg.z, cfg.rot);
+
+    // Phone-woman (index 2) starts on her circle path
+    const startX = i === 2 ? 18 : cfg.x;
+    const startZ = i === 2 ? 0  : cfg.z;
+    const npc = await _spawnFromEntry(scene, entry, startX, startZ, cfg.rot);
     if (!npc) continue;
-    // Wandering state
-    npc.walkCenter  = new THREE.Vector3(cfg.x, 0, cfg.z);
-    npc.walkRadius  = 7;
-    npc.walkTarget  = new THREE.Vector3(cfg.x, 0, cfg.z);
-    npc.walkState   = 'idle';
-    npc.walkTimer   = 2 + Math.random() * 4;
-    npc.canWalk     = entry.hasWalkAnim || entry.hasSkel;
+
+    if (i === 2) {
+      // Walks in a continuous loop around the plaza
+      npc.walkMode     = 'circle';
+      npc.circleRadius = 18;
+      npc.circleAngle  = 0;
+      npc.circleSpeed  = 0.30; // rad/s
+      npc.circleCenter = new THREE.Vector3(0, 0, 0);
+      npc.canWalk      = false; // disable wandering
+      if (npc.walkAction) { npc.idleAction?.stop(); npc.walkAction.reset().play(); }
+    } else {
+      npc.walkCenter = new THREE.Vector3(cfg.x, 0, cfg.z);
+      npc.walkRadius = 7;
+      npc.walkTarget = new THREE.Vector3(cfg.x, 0, cfg.z);
+      npc.walkState  = 'idle';
+      npc.walkTimer  = 2 + Math.random() * 4;
+      npc.canWalk    = entry.hasWalkAnim || entry.hasSkel;
+    }
     _plazaNpcs.push(npc);
   }
 }
@@ -125,11 +140,26 @@ export function updateAllPlazaNpcs(delta) {
 
 // ── Internal spawn helper ─────────────────────────────────────────────
 
+function _cloneMat(m) {
+  return m.clone(); // each NPC instance gets its own material so shared refs don't bleed
+}
+
 async function _spawnFromEntry(scene, entry, x, z, rotY) {
   const { tmpl, floorY, hasSkel, builtinClips, hasWalkAnim } = entry;
 
   const surfaceY = getSurfaceY(x, z);
   const clone    = skeletonClone(tmpl);
+
+  // Clone materials per instance — prevents black/missing textures from shared refs
+  clone.traverse(n => {
+    if (!n.isMesh) return;
+    if (Array.isArray(n.material)) {
+      n.material = n.material.map(_cloneMat);
+    } else if (n.material) {
+      n.material = _cloneMat(n.material);
+    }
+  });
+
   clone.position.set(x, floorY + surfaceY, z);
   clone.rotation.y = rotY;
   scene.add(clone);
@@ -193,6 +223,19 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
 
 export function updateNpc(npc, delta) {
   if (!npc) return;
+
+  // Circular walk (phone-woman)
+  if (npc.walkMode === 'circle') {
+    npc.circleAngle += npc.circleSpeed * delta;
+    const nx = npc.circleCenter.x + Math.cos(npc.circleAngle) * npc.circleRadius;
+    const nz = npc.circleCenter.z + Math.sin(npc.circleAngle) * npc.circleRadius;
+    npc.group.position.x = nx;
+    npc.group.position.z = nz;
+    npc.group.position.y = getSurfaceY(nx, nz) + npc.floorOffset;
+    npc.group.rotation.y = npc.circleAngle + Math.PI / 2;
+    npc.mixer.update(delta);
+    return;
+  }
 
   // Animation mixer
   if (npc.mode === 'builtin' || npc.mode === 'retarget') {

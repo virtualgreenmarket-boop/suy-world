@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { resolveCollision } from '../systems/collision.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { getSettings } from '../ui/settingsPanel.js';
-import { spawnCharacter, setAnimState, updateCharacterMixer } from './characterLoader.js';
+import { spawnCharacter, setAnimState, updateCharacterMixer, equipItem } from './characterLoader.js';
+import { getLoadout } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
 
@@ -38,7 +39,12 @@ export function initLocalPlayer(scene, camera, name) {
   playerGroup.position.set(0, 0, 55);
   scene.add(playerGroup);
 
-  spawnCharacter(playerGroup);
+  spawnCharacter(playerGroup).then(() => {
+    const saved = getLoadout();
+    for (const [cat, file] of Object.entries(saved)) {
+      if (file) equipItem(playerGroup, cat, file);
+    }
+  });
 
   window.addEventListener('keydown', e => {
     if (isChatOpen()) return; // swallow all keyboard input while typing
@@ -190,6 +196,10 @@ function syncCamera() {
 
 export function getLocalPlayerPosition() { return playerGroup?.position; }
 export function getLocalPlayerRotY()     { return playerGroup?.rotation.y ?? 0; }
+
+export function equipLocalPlayerItem(category, filename) {
+  if (playerGroup) equipItem(playerGroup, category, filename);
+}
 
 export function setLocalPlayerPosition(x, z) {
   const y = getSurfaceY(x, z);
