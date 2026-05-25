@@ -3,20 +3,24 @@ import { Water } from 'three/addons/objects/Water.js';
 import { spawnTree } from './trees.js';
 import { registerGround } from '../systems/terrain.js';
 
-let _water = null;
+let _water       = null;
+let _shoreShader = null;
+let _shoreTime   = 0;
 
 // ── Public ────────────────────────────────────────────────────────────
 
 export function initIsland(scene, opts = {}) {
   addSky(scene);
-  addGround(scene);
-  addBeach(scene);
+  addTerrain(scene);
+  addShallowWater(scene);
   addWater(scene);
   addTrees(scene, opts.maxTrees ?? 62);
 }
 
 export function updateWater(delta) {
   if (_water) _water.material.uniforms['time'].value += delta;
+  _shoreTime += delta;
+  if (_shoreShader) _shoreShader.uniforms.uTime.value = _shoreTime; // ShaderMaterial: direct uniform access
 }
 
 // ── Sky sphere ───────────────────────────────────────────────────────
@@ -53,7 +57,7 @@ function addSky(scene) {
   scene.add(sky);
 }
 
-// ── Ground (grass) ────────────────────────────────────────────────────
+// ── Terrain (grass → sand → wet sand → shallow water gradient) ────────
 
 function makeGrassTexture() {
   const S = 512;
@@ -97,109 +101,194 @@ function makeGrassTexture() {
   return tex;
 }
 
-function addGround(scene) {
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(238, 250, 3, 36),
-    new THREE.MeshStandardMaterial({
-      map: makeGrassTexture(), color: 0x5DA44A, roughness: 0.92, metalness: 0.0,
-    })
+function addTerrain(scene) {
+  const tl  = new THREE.TextureLoader();
+  const pfx = 'textures/beach/Ground054_2K-JPG_';
+
+  // Sand PBR textures — world-space tiled in shader
+  const sandTex  = tl.load(pfx + 'Color.jpg');
+  const sandRough = tl.load(pfx + 'Roughness.jpg');
+  [sandTex, sandRough].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; });
+  sandTex.colorSpace  = THREE.SRGBColorSpace;
+  sandTex.anisotropy  = 8;
+
+  // ── Island body: open tapered cylinder (visible cliff edge) ──────────
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(238, 256, 6, 48, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x8B7040, roughness: 0.97, metalness: 0.0 })
   );
-  mesh.position.y = -1.5;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-  registerGround(mesh);
+  body.position.y = -3;  // top at 0, bottom at -6
+  body.receiveShadow = true;
+  scene.add(body);
+
+  // Island bottom cap — prevents sky showing through from underwater
+  const bottom = new THREE.Mesh(
+    new THREE.CircleGeometry(256, 48),
+    new THREE.MeshStandardMaterial({ color: 0x6B5030, roughness: 0.97 })
+  );
+  bottom.rotation.x = Math.PI / 2;
+  bottom.position.y = -6;
+  scene.add(bottom);
+
+  // ── Terrain disc: flat top surface with 5-zone blended shader ────────
+  //
+  //  r <  193        Zone 1 — pure grass
+  //  r  193–215      Zone 2 — grass with scattered sand patches
+  //  r  215–230      Zone 3 — pure dry sand (PBR texture)
+  //  r  230–240      Zone 4 — wet sand (darker, lower roughness)
+  //  r  240–246      Edge fade → transparent (blends into shallow water)
+  //
+  const terrainGeo = new THREE.CircleGeometry(246, 128);
+
+  const grassTex = makeGrassTexture();
+
+  const terrainMat = new THREE.MeshStandardMaterial({
+    map:         grassTex,   // declares USE_MAP → sampler2D map available in shader
+    roughness:   0.92,
+    metalness:   0.0,
+    transparent: true,
+  });
+  terrainMat.customProgramCacheKey = () => 'terrain-v2';
+
+  terrainMat.onBeforeCompile = shader => {
+    shader.uniforms.uSandTex   = { value: sandTex   };
+    shader.uniforms.uSandRough = { value: sandRough  };
+
+    // ── Vertex: pass world XZ to fragment ────────────────────────────
+    shader.vertexShader = `varying vec2 vTW;\n` + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <project_vertex>',
+      `#include <project_vertex>
+       vTW = (modelMatrix * vec4(transformed, 1.0)).xz;`
+    );
+
+    // ── Fragment: sampler declarations ───────────────────────────────
+    shader.fragmentShader =
+      `varying vec2 vTW;
+       uniform sampler2D uSandTex;
+       uniform sampler2D uSandRough;\n` + shader.fragmentShader;
+
+    // ── Fragment: replace map_fragment with zone-blended colour ──────
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      `{
+        float r = length(vTW);
+
+        // Zone blend factors
+        float tSand  = smoothstep(193.0, 215.0, r);   // grass→dry sand
+        float tWet   = smoothstep(222.0, 235.0, r);   // dry→wet sand
+        float tFade  = smoothstep(240.0, 246.0, r);   // wet sand→transparent
+
+        // Zone 2: organic sand patches in grass (cell noise)
+        vec2  cell  = floor(vTW * 0.10);
+        float cellN = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+        float patch = smoothstep(193.0, 220.0, r) * smoothstep(0.38, 0.62, cellN);
+        float sandF = max(tSand, patch);
+
+        // World-space UV tiling (avoids seams from mesh UV)
+        vec2 uvG = vTW / 4.5;    // grass ~4.5 m tiles
+        vec2 uvS = vTW / 4.2;    // sand  ~4.2 m tiles
+
+        vec4 cGrass = texture2D(map, uvG);
+        vec4 cSand  = texture2D(uSandTex, uvS);
+
+        // Wet sand: darker & cooler tone (water-soaked surface)
+        vec3 cWet = cSand.rgb * vec3(0.58, 0.56, 0.53);
+
+        // Blend through zones
+        vec3 col = mix(cGrass.rgb, cSand.rgb, sandF);
+        col = mix(col, cWet, tWet);
+
+        diffuseColor = vec4(col, (1.0 - tFade));
+      }`
+    );
+
+    // ── Fragment: zone-aware roughness & metalness ────────────────────
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <roughnessmap_fragment>',
+      `float roughnessFactor = roughness;
+       {
+         float r2   = length(vTW);
+         float tW2  = smoothstep(222.0, 238.0, r2);
+         // Wet sand lower roughness → surface water sheen
+         roughnessFactor = mix(roughnessFactor, 0.52, tW2);
+       }`
+    );
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <metalnessmap_fragment>',
+      `float metalnessFactor = metalness;
+       {
+         float r3  = length(vTW);
+         float tW3 = smoothstep(222.0, 238.0, r3);
+         // Very slight metalness on wet sand simulates water-film specular
+         metalnessFactor = mix(metalnessFactor, 0.06, tW3);
+       }`
+    );
+  };
+
+  const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+  terrainMesh.rotation.x = -Math.PI / 2;
+  terrainMesh.position.y = 0.02;
+  terrainMesh.receiveShadow = true;
+  scene.add(terrainMesh);
+  registerGround(terrainMesh);
 }
 
-// ── Beach ring (PBR sand texture) ────────────────────────────────────
+// Zone 5 — shallow water ring: animated transparent surf between beach and deep ocean
+function addShallowWater(scene) {
+  //  r  234–262  transparent teal with animated foam wash at shore edge
+  const geo = new THREE.RingGeometry(234, 262, 80, 8);
 
-function addBeach(scene) {
-  const loader = new THREE.TextureLoader();
-  const pfx    = 'textures/beach/Ground054_2K-JPG_';
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: /* glsl */`
+      varying vec2 vW;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vW = wp.xz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uTime;
+      varying vec2 vW;
+      void main() {
+        float r = length(vW);
 
-  const colorTex  = loader.load(pfx + 'Color.jpg');
-  const normalTex = loader.load(pfx + 'NormalGL.jpg');
-  const roughTex  = loader.load(pfx + 'Roughness.jpg');
-  const aoTex     = loader.load(pfx + 'AmbientOcclusion.jpg');
+        // Fade in/out at ring edges
+        float inner = smoothstep(234.0, 244.0, r);
+        float outer = 1.0 - smoothstep(254.0, 262.0, r);
+        float zone  = inner * outer;
 
-  [colorTex, normalTex, roughTex, aoTex].forEach(t => {
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(20, 4); // 20 tiles around ring, 4 across 18 m width
-    t.anisotropy = 8;
+        // Depth colour: bright turquoise near shore → deeper teal further out
+        float depth = smoothstep(244.0, 262.0, r);
+        vec3 colShallow = vec3(0.28, 0.74, 0.72);
+        vec3 colDeep    = vec3(0.06, 0.40, 0.54);
+        vec3 col = mix(colShallow, colDeep, depth);
+
+        // Animated foam wash rolling onto the beach
+        float wave   = sin(r * 1.3 - uTime * 2.6) * 0.5 + 0.5;
+        float foam   = smoothstep(0.62, 0.90, wave)
+                     * (1.0 - smoothstep(234.0, 250.0, r))
+                     * 0.75;
+        col = mix(col, vec3(0.93, 0.97, 1.0), foam);
+
+        gl_FragColor = vec4(col, 0.62 * zone);
+      }
+    `,
+    transparent: true,
+    depthWrite:  false,
+    side: THREE.FrontSide,
   });
-  colorTex.colorSpace = THREE.SRGBColorSpace;
-  // Slight offset so tile seam falls in an inconspicuous spot
-  colorTex.offset.set(0.23, 0.17);
-  normalTex.offset.copy(colorTex.offset);
-  roughTex.offset.copy(colorTex.offset);
-  aoTex.offset.copy(colorTex.offset);
 
-  const geo = new THREE.RingGeometry(220, 238, 64, 8);
-  geo.setAttribute('uv1', geo.attributes.uv);
+  // updateWater ticks mat.uniforms.uTime directly
+  _shoreShader = mat;
 
-  // Perturb vertices for an organic shoreline:
-  //   Z → world Y (height) after rotation.x = -PI/2
-  //   XY → radial variation makes inner/outer boundaries irregular
-  const pos = geo.attributes.position;
-  const rng = seededRng(77);
-  for (let i = 0; i < pos.count; i++) {
-    const lx = pos.getX(i), ly = pos.getY(i);
-    const a  = Math.atan2(ly, lx);
-    const r  = Math.sqrt(lx * lx + ly * ly);
-    const t  = Math.max(0, Math.min(1, (r - 220) / 18)); // 0=inner, 1=outer
-
-    // Height variation
-    const h  = 0.12 * Math.sin(a * 7 + 0.3)
-             + 0.08 * Math.sin(a * 13 + 1.1)
-             + 0.04 * Math.cos(a * 21 - 0.7)
-             + 0.03 * (rng() - 0.5);
-    pos.setZ(i, h);
-
-    // Radial variation — organic boundary, no perfect circles
-    const radNoise = 4.2 * Math.sin(a * 3 + 0.4)
-                   + 2.5 * Math.sin(a * 7 + 1.7)
-                   + 1.4 * Math.cos(a * 13 - 0.8)
-                   + 0.9 * Math.sin(a * 19 + 2.1);
-    const radPush = radNoise * (1.0 - t * 0.65);
-    const newR    = r + radPush;
-    if (newR > 0.01) {
-      const ratio = newR / r;
-      pos.setX(i, lx * ratio);
-      pos.setY(i, ly * ratio);
-    }
-  }
-  pos.needsUpdate = true;
-  geo.computeVertexNormals();
-
-  const beachRing = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    map:            colorTex,
-    normalMap:      normalTex,
-    roughnessMap:   roughTex,
-    aoMap:          aoTex,
-    aoMapIntensity: 0.85,
-    roughness:      0.94,
-    metalness:      0.0,
-  }));
-  beachRing.rotation.x = -Math.PI / 2;
-  beachRing.position.y = 0.04;
-  beachRing.receiveShadow = true;
-  scene.add(beachRing);
-
-  // Sloped sand skirt down to water level
-  const skirt = new THREE.Mesh(
-    new THREE.CylinderGeometry(238, 252, 2.2, 32),
-    new THREE.MeshStandardMaterial({ color: 0xD4B470, roughness: 0.97, metalness: 0.0 })
-  );
-  skirt.position.y = -2.2;
-  skirt.receiveShadow = true;
-  scene.add(skirt);
-
-  // Wet surf band
-  const wet = new THREE.Mesh(
-    new THREE.CylinderGeometry(252, 258, 0.6, 32),
-    new THREE.MeshStandardMaterial({ color: 0xB8A060, roughness: 0.99, metalness: 0.0 })
-  );
-  wet.position.y = -3.1;
-  scene.add(wet);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = -0.15;
+  scene.add(mesh);
 }
 
 // ── Water (Three.js built-in Water shader) ────────────────────────────
