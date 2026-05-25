@@ -69,13 +69,9 @@ function _loadBenches(scene) {
     _pendingFns = [];
 
     addCornerBenches(scene, _benchTmpl);
-    addEdgeBenches(scene, _benchTmpl);
-    addCentralBenches(scene, _benchTmpl);
   }, undefined, err => {
     console.warn('[plaza] bench GLB failed, using procedural benches:', err?.message ?? err);
     addCornerBenchesFallback(scene);
-    addEdgeBenchesFallback(scene);
-    addCentralBenchesFallback(scene);
   });
 }
 
@@ -91,55 +87,41 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
 // ── Corner benches ────────────────────────────────────────────────────
 
 function addCornerBenches(scene, tmpl) {
-  const stoneMat = mat(0x8A8270, 0.90);
   const corners = [[-36, -36], [-36, 36], [36, -36], [36, 36]];
-
   corners.forEach(([cx, cz]) => {
-    const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 1.4), stoneMat);
-    pillar.position.set(cx, 1.30, cz);
-    pillar.castShadow = pillar.receiveShadow = true;
-    scene.add(pillar);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.22, 1.8), mat(0xC0B8A0, 0.80));
-    cap.position.set(cx, 2.01, cz);
-    scene.add(cap);
-
-    [
-      { ox: Math.sign(cx) * -5.5, oz: 0,                    ry: Math.sign(cx) * Math.PI / 2 },
-      { ox: 0,                    oz: Math.sign(cz) * -5.5, ry: 0                            },
-    ].forEach(({ ox, oz, ry }) => {
-      _placeBench(scene, tmpl, cx + ox, FLOOR_Y, cz + oz, ry);
+    const d     = Math.hypot(cx, cz);
+    const ry    = Math.atan2(-cx, -cz);   // face toward plaza centre
+    const perpX = -cz / d;
+    const perpZ =  cx / d;
+    [-2.5, 2.5].forEach(s => {
+      _placeBench(scene, tmpl, cx + perpX * s, FLOOR_Y, cz + perpZ * s, ry);
     });
   });
 }
 
 function addCornerBenchesFallback(scene) {
-  const seatMat  = mat(0x9A7A58, 0.82);
-  const legMat   = mat(0x7A5A3A, 0.90);
-  const stoneMat = mat(0x8A8270, 0.90);
+  const seatMat = mat(0x9A7A58, 0.82);
+  const legMat  = mat(0x7A5A3A, 0.90);
   const corners = [[-36, -36], [-36, 36], [36, -36], [36, 36]];
-
   corners.forEach(([cx, cz]) => {
-    const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 1.4), stoneMat);
-    pillar.position.set(cx, 1.30, cz);
-    pillar.castShadow = pillar.receiveShadow = true;
-    scene.add(pillar);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.22, 1.8), mat(0xC0B8A0, 0.80));
-    cap.position.set(cx, 2.01, cz);
-    scene.add(cap);
-
-    [
-      { ox: Math.sign(cx) * -5.5, oz: 0,  ry: Math.sign(cx) * Math.PI / 2 },
-      { ox: 0, oz: Math.sign(cz) * -5.5,  ry: 0 },
-    ].forEach(({ ox, oz, ry }) => {
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.22, 1.0), seatMat);
-      seat.position.set(cx + ox, 0.82, cz + oz); seat.rotation.y = ry;
-      seat.castShadow = seat.receiveShadow = true; scene.add(seat);
-      const lGeo = new THREE.BoxGeometry(0.18, 0.82, 0.18);
-      [-2.6, 2.6].forEach(lo => {
+    const d     = Math.hypot(cx, cz);
+    const ry    = Math.atan2(-cx, -cz);
+    const perpX = -cz / d;
+    const perpZ =  cx / d;
+    [-2.5, 2.5].forEach(s => {
+      const bx = cx + perpX * s;
+      const bz = cz + perpZ * s;
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.9), seatMat);
+      seat.position.set(bx, FLOOR_Y + 0.47, bz);
+      seat.rotation.y = ry;
+      seat.castShadow = seat.receiveShadow = true;
+      scene.add(seat);
+      const lGeo = new THREE.BoxGeometry(0.14, 0.47, 0.14);
+      [-0.7, 0.7].forEach(lo => {
         const leg = new THREE.Mesh(lGeo, legMat);
-        const lx  = ry === 0 ? lo : 0, lz = ry === 0 ? 0 : lo;
-        leg.position.set(cx + ox + lx, 0.41, cz + oz + lz);
-        leg.castShadow = true; scene.add(leg);
+        leg.position.set(bx + perpX * lo, FLOOR_Y + 0.235, bz + perpZ * lo);
+        leg.castShadow = true;
+        scene.add(leg);
       });
     });
   });
