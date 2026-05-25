@@ -1,11 +1,10 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { spawnTree } from './trees.js';
 import { registerGround } from '../systems/terrain.js';
 
-let _waterMesh    = null;
-let _waterTime    = 0;
-const _shoreMixers = [];
+let _waterMesh   = null;
+let _waterTime   = 0;
+let _waterShader = null;
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -15,13 +14,11 @@ export function initIsland(scene, opts = {}) {
   addBeach(scene);
   addWater(scene);
   addTrees(scene, opts.maxTrees ?? 62);
-  if (!opts.lowQuality) _spawnShorelineWaves(scene);
 }
 
 export function updateWater(delta) {
   _waterTime += delta;
-  if (_waterMesh) _waterMesh.material.uniforms.uTime.value = _waterTime;
-  for (const m of _shoreMixers) m.update(delta);
+  if (_waterShader) _waterShader.uniforms.uTime.value = _waterTime;
 }
 
 // ── Sky sphere ───────────────────────────────────────────────────────
@@ -207,226 +204,42 @@ function addBeach(scene) {
   scene.add(wet);
 }
 
-// ── Water (advanced shader) ───────────────────────────────────────────
-
-const WATER_VERT = /* glsl */`
-  uniform float uTime;
-  varying vec2  vWorld;
-  varying float vWave;
-  varying float vDepth;
-  varying vec3  vNormal;
-  varying vec3  vViewDir;
-
-  void main() {
-    vec3 pos = position;
-    vWorld    = (modelMatrix * vec4(pos, 1.0)).xz;
-    float dist = length(vWorld);
-
-    // Waves die off in the shallows (< 260 from center)
-    float shoreBlend = smoothstep(240.0, 265.0, dist);
-
-    float w1 = sin(pos.x * 0.038 + uTime * 1.05) * 0.60 * shoreBlend;
-    float w2 = cos(pos.z * 0.031 + uTime * 0.80) * 0.50 * shoreBlend;
-    float w3 = sin((pos.x + pos.z) * 0.022 + uTime * 1.35) * 0.32 * shoreBlend;
-    float w4 = cos((pos.x - pos.z) * 0.015 + uTime * 0.58) * 0.22 * shoreBlend;
-    float h   = w1 + w2 + w3 + w4;
-    pos.y    += h;
-    vWave     = h;
-    vDepth    = smoothstep(240.0, 278.0, dist);
-
-    float eps = 1.5;
-    float hx  = sin((position.x + eps) * 0.038 + uTime * 1.05) * 0.60 * shoreBlend
-              + sin(((position.x + eps) + position.z) * 0.022 + uTime * 1.35) * 0.32 * shoreBlend;
-    float hz  = cos((position.z + eps) * 0.031 + uTime * 0.80) * 0.50 * shoreBlend
-              + sin((position.x + (position.z + eps)) * 0.022 + uTime * 1.35) * 0.32 * shoreBlend;
-    vNormal   = normalize(vec3(h - hx, eps * 0.72, h - hz));
-
-    vec4 worldPos = modelMatrix * vec4(pos, 1.0);
-    vViewDir  = normalize(cameraPosition - worldPos.xyz);
-
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-  }
-`;
-
-const WATER_FRAG = /* glsl */`
-  uniform float uTime;
-  uniform vec3  uSand;
-  uniform vec3  uShallow;
-  uniform vec3  uMid;
-  uniform vec3  uDeep;
-  uniform vec3  uFoam;
-
-  varying vec2  vWorld;
-  varying float vWave;
-  varying float vDepth;
-  varying vec3  vNormal;
-  varying vec3  vViewDir;
-
-  // Pseudo-random for noise patterns
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5); }
-  float noise(vec2 p) {
-    vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1,0)), f.x),
-               mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x), f.y);
-  }
-
-  void main() {
-    float dist     = length(vWorld);
-
-    // ── Depth-based base colour ──
-    float t1  = smoothstep(238.0, 252.0, dist); // sand→shallow transition
-    float t2  = smoothstep(252.0, 272.0, dist); // shallow→mid
-    vec3  col = mix(uSand, uShallow, t1);
-    col  = mix(col, uMid, t2);
-    col  = mix(col, uDeep, vDepth);
-
-    // ── Underwater kelp/vegetation (shallow zone) ──
-    float shallowMask = (1.0 - smoothstep(238.0, 262.0, dist));
-    float kelpA = noise(vWorld * vec2(0.22, 0.18) + vec2(uTime * 0.12, 0.0));
-    float kelpB = noise(vWorld * vec2(0.15, 0.25) + vec2(0.0, uTime * -0.10));
-    float kelp  = smoothstep(0.55, 0.78, kelpA * kelpB * 2.5) * shallowMask * 0.14;
-    col = mix(col, vec3(0.10, 0.35, 0.16), kelp);
-
-    // ── Caustics (animated refraction pattern, shallow only) ──
-    float c1 = sin(vWorld.x * 1.4 + uTime * 2.1) * cos(vWorld.y * 1.2 + uTime * 1.6);
-    float c2 = sin(vWorld.x * 0.9 - uTime * 1.4) * cos(vWorld.y * 1.0 - uTime * 0.9);
-    float cau = smoothstep(0.25, 0.65, c1 * c2 + 0.5) * shallowMask * 0.14;
-    col += vec3(0.80, 0.92, 0.72) * cau;
-
-    // ── Fresnel (sky reflection) ──
-    float ndv   = max(dot(normalize(vNormal), normalize(vViewDir)), 0.0);
-    float fres  = pow(1.0 - ndv, 3.8);
-    col = mix(col, vec3(0.72, 0.88, 1.0), fres * 0.28);
-
-    // ── Wave crest foam (open-ocean only) ──
-    float crest = smoothstep(0.45, 0.90, vWave) * vDepth;
-    col = mix(col, uFoam, crest * 0.32);
-
-    // ── Shore foam — animated wash at the beach edge ──
-    float shoreDist  = 1.0 - smoothstep(238.0, 256.0, dist);
-    float foamRipple = sin(dist * 0.75 - uTime * 2.8) * 0.5 + 0.5;
-    float foamNoise  = noise(vWorld * 0.14 + vec2(uTime * 0.4, -uTime * 0.3));
-    float foam       = shoreDist * foamRipple * smoothstep(0.35, 0.65, foamNoise);
-    col  = mix(col, uFoam, foam * 0.72);
-
-    // ── Depth-based transparency ──
-    float alpha = mix(0.50, 0.94, vDepth);
-    // Extra transparency right at the waterline
-    alpha = mix(alpha * 0.35, alpha, smoothstep(238.0, 244.0, dist));
-    // Fade out near the ring's outer edge (500) so there's no hard cutoff
-    alpha *= smoothstep(490.0, 420.0, dist);
-
-    gl_FragColor = vec4(col, alpha);
-  }
-`;
+// ── Water ─────────────────────────────────────────────────────────────
 
 function addWater(scene) {
-  // RingGeometry spans only the actual ocean area: inner radius = beach outer
-  // edge (238), outer radius = 500. This ensures the mesh never reaches the
-  // horizon/sky regardless of camera angle. Baked rotation so the ring lies
-  // flat (XZ plane) and vertex shader pos.y displacement works correctly.
-  const geo = new THREE.RingGeometry(238, 500, 72, 20);
-  geo.rotateX(-Math.PI / 2);
-  const mat = new THREE.ShaderMaterial({
-    uniforms: {
-      uTime:    { value: 0 },
-      uSand:    { value: new THREE.Color(0xB0C890) },
-      uShallow: { value: new THREE.Color(0x28A898) },
-      uMid:     { value: new THREE.Color(0x0070A0) },
-      uDeep:    { value: new THREE.Color(0x00405A) },
-      uFoam:    { value: new THREE.Color(0xE8F6FF) },
-    },
-    vertexShader:   WATER_VERT,
-    fragmentShader: WATER_FRAG,
+  const mat = new THREE.MeshStandardMaterial({
+    color:       0x006994,
     transparent: true,
+    opacity:     0.85,
+    roughness:   0.15,
+    metalness:   0.10,
+    side:        THREE.FrontSide,
     depthWrite:  false,
-    side: THREE.FrontSide,
   });
 
-  _waterMesh = new THREE.Mesh(geo, mat);
-  _waterMesh.position.y = 0;
+  // Inject a simple vertex-displacement pass into MeshStandardMaterial's
+  // compiled shader so we keep full PBR lighting without writing a full shader.
+  mat.onBeforeCompile = shader => {
+    shader.uniforms.uTime = { value: 0 };
+    shader.vertexShader   = 'uniform float uTime;\n' + shader.vertexShader;
+    shader.vertexShader   = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+      transformed.y +=
+        sin(position.x * 0.05 + uTime * 1.2) * 0.4 +
+        cos(position.z * 0.04 + uTime * 0.9) * 0.3 +
+        sin((position.x + position.z) * 0.03 + uTime * 0.7) * 0.2;`
+    );
+    _waterShader = shader;
+  };
+
+  _waterMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(2000, 2000, 48, 48),
+    mat
+  );
+  _waterMesh.rotation.x = -Math.PI / 2;
+  _waterMesh.position.y = -0.5;
   scene.add(_waterMesh);
-}
-
-// ── Shoreline breaking waves (decorative GLB instances) ──────────────
-// The ocean GLB is one wave mesh — we clone it N times around the beach
-// edge so it looks like continuous surf rolling in from all directions.
-// Each clone gets its own AnimationMixer started at a different phase so
-// the waves don't all crest simultaneously.
-
-const SHORE_R      = 244;   // just outside beach outer edge (r≈238)
-const SHORE_COUNT  = 14;    // instances around the full circumference
-const SHORE_WAVE_W = 42;    // target width in world metres per instance
-
-function _spawnShorelineWaves(scene) {
-  const loader = new GLTFLoader();
-  const url    = '/models/ocean/free_ocean_wave_animation.glb';
-
-  loader.load(url, gltf => {
-    const tmpl  = gltf.scene;
-    const clips = gltf.animations;
-
-    // Measure natural XZ footprint of the GLB
-    const box  = new THREE.Box3().setFromObject(tmpl);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const naturalW = Math.max(size.x, size.z, 0.01);
-    const scale    = SHORE_WAVE_W / naturalW;
-
-    // Duration of first animation clip (for phase offsetting)
-    const clipDur  = clips.length > 0 ? (clips[0].duration ?? 2.0) : 2.0;
-
-    const rng = seededRng(31415);
-
-    for (let i = 0; i < SHORE_COUNT; i++) {
-      // Slightly irregular angular spacing so it doesn't look mechanical
-      const baseAngle   = (i / SHORE_COUNT) * Math.PI * 2;
-      const jitter      = (rng() - 0.5) * (Math.PI * 2 / SHORE_COUNT) * 0.55;
-      const angle       = baseAngle + jitter;
-
-      const inst = tmpl.clone(true);
-      inst.scale.setScalar(scale);
-
-      // Align the wave's base to y = 0 (sea surface)
-      const ibox = new THREE.Box3().setFromObject(inst);
-      const yOff = -ibox.min.y;
-
-      inst.position.set(
-        Math.cos(angle) * SHORE_R,
-        yOff,
-        Math.sin(angle) * SHORE_R
-      );
-
-      // Face the crest toward the island centre (wave "rolling in")
-      inst.rotation.y = angle + Math.PI + (rng() - 0.5) * 0.35;
-
-      inst.traverse(n => {
-        if (!n.isMesh) return;
-        n.castShadow    = false;
-        n.receiveShadow = false;
-        if (n.material) {
-          n.material             = n.material.clone();
-          n.material.transparent = true;
-          n.material.depthWrite  = false;
-        }
-      });
-
-      scene.add(inst);
-
-      if (clips.length > 0) {
-        const mixer = new THREE.AnimationMixer(inst);
-        clips.forEach(clip => mixer.clipAction(clip).play());
-        // Start each instance at a different point in its cycle
-        mixer.setTime((i / SHORE_COUNT) * clipDur);
-        _shoreMixers.push(mixer);
-      }
-    }
-
-    console.log('[shore-waves]', SHORE_COUNT, 'instances | scale:', scale.toFixed(3),
-                '| anims:', clips.length);
-  }, undefined, err => {
-    console.warn('[shore-waves] failed to load GLB:', err?.message ?? err);
-  });
 }
 
 // ── Trees (HighPoly FBX) ──────────────────────────────────────────────
