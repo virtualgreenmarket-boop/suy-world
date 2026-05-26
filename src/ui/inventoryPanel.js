@@ -1,32 +1,26 @@
-// Character management / inventory panel.
-// Shows equippable items from the ithappy Separate_assets_glb collection,
-// categorised by slot. Uses localStorage to persist current loadout.
+// Character inventory panel — game-bag style UI
 
 const STORAGE_KEY = 'suy_loadout';
 
-// ── Item catalogue (from /models/characters/ithappy/Separate_assets_glb/) ──
-
 const CATEGORIES = {
-  'Hair':     ['Hairstyle_male_010.glb', 'Hairstyle_male_012.glb'],
-  'Hat':      ['Hat_010.glb', 'Hat_049.glb', 'Hat_057.glb'],
-  'Glasses':  ['Glasses_004.glb', 'Glasses_006.glb'],
-  'Shirt':    ['T-Shirt_009.glb'],
-  'Outwear':  ['Outwear_029.glb', 'Outwear_036.glb'],
-  'Pants':    ['Pants_010.glb', 'Pants_014.glb'],
-  'Shorts':   ['Shorts_003.glb'],
-  'Shoes':    ['Shoe_Sneakers_009.glb', 'Shoe_Slippers_002.glb', 'Shoe_Slippers_005.glb'],
-  'Gloves':   ['Gloves_006.glb', 'Gloves_014.glb'],
-  'Costume':  ['Costume_6_001.glb', 'Costume_10_001.glb'],
-  'Extra':    ['Headphones_002.glb', 'Moustache_001.glb', 'Moustache_002.glb', 'Pacifier_001.glb', 'Clown_nose_001.glb', 'Socks_008.glb'],
-  'Emotion':  ['Male_emotion_happy_002.glb', 'Male_emotion_angry_003.glb', 'Male_emotion_usual_001.glb'],
+  'Hair':    { icon: '💇', items: ['Hairstyle_male_010.glb', 'Hairstyle_male_012.glb'] },
+  'Hat':     { icon: '🎩', items: ['Hat_010.glb', 'Hat_049.glb', 'Hat_057.glb'] },
+  'Glasses': { icon: '🕶️', items: ['Glasses_004.glb', 'Glasses_006.glb'] },
+  'Shirt':   { icon: '👕', items: ['T-Shirt_009.glb'] },
+  'Outwear': { icon: '🧥', items: ['Outwear_029.glb', 'Outwear_036.glb'] },
+  'Pants':   { icon: '👖', items: ['Pants_010.glb', 'Pants_014.glb'] },
+  'Shorts':  { icon: '🩳', items: ['Shorts_003.glb'] },
+  'Shoes':   { icon: '👟', items: ['Shoe_Sneakers_009.glb', 'Shoe_Slippers_002.glb', 'Shoe_Slippers_005.glb'] },
+  'Gloves':  { icon: '🧤', items: ['Gloves_006.glb', 'Gloves_014.glb'] },
+  'Costume': { icon: '🎭', items: ['Costume_6_001.glb', 'Costume_10_001.glb'] },
+  'Extra':   { icon: '✨', items: ['Headphones_002.glb', 'Moustache_001.glb', 'Moustache_002.glb', 'Pacifier_001.glb', 'Clown_nose_001.glb', 'Socks_008.glb'] },
+  'Emotion': { icon: '😊', items: ['Male_emotion_happy_002.glb', 'Male_emotion_angry_003.glb', 'Male_emotion_usual_001.glb'] },
 };
 
-const _BASE = '/models/characters/ithappy/Separate_assets_glb/';
-
 let _loadout = _loadSaved();
-let _visible = false;
-let _panel = null;
-let _onEquip = null; // external callback(category, filename|null)
+let _visible  = false;
+let _onEquip  = null;
+let _activeCategory = Object.keys(CATEGORIES)[0];
 
 function _loadSaved() {
   try {
@@ -40,168 +34,375 @@ function _saveCurrent() {
 }
 
 export function getLoadout() { return { ..._loadout }; }
-
 export function onEquipChange(cb) { _onEquip = cb; }
 
-// ── Init ──────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────
 
-export function initInventoryPanel() {
-  _buildPanel();
-}
+export function initInventoryPanel() { _buildPanel(); }
 
 function _buildPanel() {
   const style = document.createElement('style');
   style.textContent = `
+    /* ── Overlay ── */
     #inv-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.60);
+      background: rgba(0,0,0,0.65);
       z-index: 310; display: none;
-      justify-content: flex-end;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      align-items: flex-end; justify-content: center;
+      font-family: 'DM Sans', 'Segoe UI', Arial, sans-serif;
     }
     #inv-overlay.inv-open { display: flex; }
+
+    /* ── Panel ── */
     #inv-panel {
-      width: min(380px, 92vw); height: 100dvh;
-      background: rgba(12,12,24,0.98);
-      border-left: 1px solid rgba(255,255,255,0.10);
-      display: flex; flex-direction: column;
-      overflow: hidden;
+      width: 100%; max-width: 480px;
+      height: 92dvh;
+      background: rgba(12,10,24,0.98);
+      border: 1px solid rgba(255,200,80,0.12);
+      border-bottom: none;
+      border-radius: 24px 24px 0 0;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 -10px 50px rgba(0,0,0,0.7);
+      animation: inv-slidein .28s cubic-bezier(.32,1,.45,1);
     }
+    @keyframes inv-slidein {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+
+    /* ── Drag handle ── */
+    #inv-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.18);
+      margin: 10px auto 0; flex-shrink: 0;
+    }
+
+    /* ── Header ── */
     #inv-header {
-      padding: 20px 20px 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 16px; height: 50px; flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,200,80,0.10);
     }
-    #inv-header h2 { margin: 0; font-size: 17px; font-weight: 700; color: #fff; }
+    #inv-header-icon { font-size: 22px; }
+    #inv-header h2 {
+      flex: 1; margin: 0; font-size: 17px; font-weight: 700;
+      color: rgba(255,255,255,0.95); letter-spacing: -.01em;
+    }
+    #inv-equipped-count {
+      font-size: 11px; color: rgba(255,200,80,0.7);
+      background: rgba(255,200,80,0.1);
+      border: 1px solid rgba(255,200,80,0.2);
+      border-radius: 20px; padding: 3px 10px; font-weight: 600;
+    }
     #inv-close {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: rgba(255,255,255,0.10); border: none; color: #fff;
-      font-size: 16px; cursor: pointer; display: flex;
-      align-items: center; justify-content: center;
-      transition: background 0.15s;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.6);
+      font-size: 14px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; transition: background .15s;
     }
-    #inv-close:hover { background: rgba(255,255,255,0.20); }
-    #inv-body {
-      overflow-y: auto; flex: 1; padding: 16px 16px 24px;
-      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
+    #inv-close:hover { background: rgba(255,255,255,0.16); }
+
+    /* ── Category tabs ── */
+    #inv-tabs {
+      display: flex; gap: 6px;
+      padding: 10px 14px 0;
+      overflow-x: auto; flex-shrink: 0;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
     }
-    .inv-cat-label {
-      font-size: 11px; font-weight: 700; letter-spacing: 1px;
-      color: rgba(255,255,255,0.40); text-transform: uppercase;
-      margin: 18px 0 8px 2px;
-    }
-    .inv-cat-label:first-child { margin-top: 4px; }
-    .inv-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-    }
-    .inv-item {
-      background: rgba(255,255,255,0.07);
+    #inv-tabs::-webkit-scrollbar { display: none; }
+    .inv-tab {
+      display: flex; align-items: center; gap: 5px;
+      padding: 7px 12px; border-radius: 20px; flex-shrink: 0;
       border: 1.5px solid rgba(255,255,255,0.10);
-      border-radius: 10px; padding: 10px 6px 8px;
-      cursor: pointer; text-align: center;
-      transition: all 0.15s;
+      background: transparent; color: rgba(255,255,255,0.45);
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all .18s; white-space: nowrap;
     }
-    .inv-item:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
-    .inv-item.equipped { background: rgba(124,106,247,0.22); border-color: #7c6af7; }
-    .inv-item .inv-icon { font-size: 24px; display: block; margin-bottom: 4px; }
-    .inv-item .inv-name {
-      font-size: 10px; color: rgba(255,255,255,0.60); word-break: break-word;
-      line-height: 1.3;
+    .inv-tab .inv-tab-icon { font-size: 14px; }
+    .inv-tab.active {
+      background: rgba(124,106,247,0.2);
+      border-color: #7c6af7; color: #c4b8ff;
     }
-    .inv-item.equipped .inv-name { color: #c4b8ff; }
-    .inv-none-btn {
+    .inv-tab-equipped-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #f59e0b; flex-shrink: 0;
+    }
+
+    /* ── Separator ── */
+    .inv-sep {
+      height: 1px; background: rgba(255,200,80,0.08);
+      margin: 10px 14px 0; flex-shrink: 0;
+    }
+
+    /* ── Body / grid ── */
+    #inv-body {
+      flex: 1; overflow-y: auto; padding: 14px 14px 32px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+
+    /* ── Category header inside body ── */
+    .inv-cat-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .inv-cat-header-icon { font-size: 20px; }
+    .inv-cat-header-name {
+      font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.9);
+    }
+    .inv-cat-header-count {
+      font-size: 11px; color: rgba(255,255,255,0.35);
+    }
+
+    /* ── Item grid ── */
+    .inv-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+
+    /* ── Item slot ── */
+    .inv-slot {
+      position: relative;
+      aspect-ratio: 1;
       background: rgba(255,255,255,0.05);
-      border: 1.5px dashed rgba(255,255,255,0.15);
-      border-radius: 10px; padding: 8px 6px;
+      border: 1.5px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
       cursor: pointer; text-align: center;
-      color: rgba(255,255,255,0.30); font-size: 11px;
-      transition: all 0.15s;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 5px;
+      padding: 8px 4px 6px;
+      transition: all .15s;
     }
-    .inv-none-btn:hover { border-color: rgba(255,255,255,0.30); color: rgba(255,255,255,0.50); }
-    .inv-none-btn.equipped { border-color: #7c6af7; color: #c4b8ff; }
+    .inv-slot:hover {
+      background: rgba(255,255,255,0.10);
+      border-color: rgba(255,255,255,0.22);
+    }
+    .inv-slot.equipped {
+      background: rgba(124,106,247,0.18);
+      border-color: #7c6af7;
+      box-shadow: 0 0 12px rgba(124,106,247,0.25);
+    }
+    .inv-slot-icon { font-size: 26px; line-height: 1; }
+    .inv-slot-name {
+      font-size: 9px; color: rgba(255,255,255,0.45);
+      line-height: 1.2; word-break: break-word; text-align: center;
+      max-width: 100%;
+    }
+    .inv-slot.equipped .inv-slot-name { color: #c4b8ff; }
+
+    /* ── Equipped badge (✓ corner) ── */
+    .inv-badge {
+      position: absolute; top: 5px; right: 5px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #7c6af7; color: #fff;
+      font-size: 9px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── None slot ── */
+    .inv-slot-none {
+      aspect-ratio: 1;
+      background: transparent;
+      border: 1.5px dashed rgba(255,255,255,0.12);
+      border-radius: 14px;
+      cursor: pointer; text-align: center;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px;
+      padding: 8px 4px;
+      transition: all .15s;
+      color: rgba(255,255,255,0.25); font-size: 10px; font-weight: 600;
+    }
+    .inv-slot-none:hover { border-color: rgba(255,255,255,0.28); color: rgba(255,255,255,0.45); }
+    .inv-slot-none.equipped {
+      border-color: #7c6af7; color: #c4b8ff;
+      background: rgba(124,106,247,0.10);
+    }
+    .inv-slot-none-icon { font-size: 18px; opacity: .4; }
   `;
   document.head.appendChild(style);
 
   const overlay = document.createElement('div');
   overlay.id = 'inv-overlay';
+  overlay.addEventListener('click', e => { if (e.target === overlay) hideInventoryPanel(); });
 
-  _panel = document.createElement('div');
-  _panel.id = 'inv-panel';
+  const panel = document.createElement('div');
+  panel.id = 'inv-panel';
 
+  // Handle
+  const handle = document.createElement('div');
+  handle.id = 'inv-handle';
+  panel.appendChild(handle);
+
+  // Header
   const header = document.createElement('div');
   header.id = 'inv-header';
-  header.innerHTML = '<h2>🎒 Character</h2>';
+  const headerIcon = document.createElement('span');
+  headerIcon.id = 'inv-header-icon';
+  headerIcon.textContent = '🎒';
+  const headerTitle = document.createElement('h2');
+  headerTitle.textContent = 'Bag';
+  const equippedCount = document.createElement('span');
+  equippedCount.id = 'inv-equipped-count';
+  equippedCount.textContent = _equippedCount() + ' equipped';
   const closeBtn = document.createElement('button');
   closeBtn.id = 'inv-close'; closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', hideInventoryPanel);
-  header.appendChild(closeBtn);
-  _panel.appendChild(header);
+  header.append(headerIcon, headerTitle, equippedCount, closeBtn);
+  panel.appendChild(header);
 
-  const body = document.createElement('div');
-  body.id = 'inv-body';
+  // Category tabs
+  const tabsRow = document.createElement('div');
+  tabsRow.id = 'inv-tabs';
+  const tabEls = {};
 
-  // Build category sections
-  const ICONS = {
-    Hair: '💇', Hat: '🎩', Glasses: '🕶', Shirt: '👕', Outwear: '🧥',
-    Pants: '👖', Shorts: '🩳', Shoes: '👟', Gloves: '🧤',
-    Costume: '🎭', Extra: '✨', Emotion: '😊',
-  };
+  for (const [cat, { icon }] of Object.entries(CATEGORIES)) {
+    const tab = document.createElement('button');
+    tab.className = 'inv-tab' + (cat === _activeCategory ? ' active' : '');
+    tab.dataset.cat = cat;
 
-  for (const [cat, files] of Object.entries(CATEGORIES)) {
-    const catLabel = document.createElement('div');
-    catLabel.className = 'inv-cat-label';
-    catLabel.textContent = cat;
-    body.appendChild(catLabel);
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'inv-tab-icon';
+    iconSpan.textContent = icon;
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = cat;
+    tab.append(iconSpan, nameSpan);
 
-    const grid = document.createElement('div');
-    grid.className = 'inv-grid';
-
-    // "None" button to unequip
-    const noneBtn = document.createElement('div');
-    noneBtn.className = 'inv-none-btn' + (_loadout[cat] === null ? ' equipped' : '');
-    noneBtn.textContent = '— None —';
-    noneBtn.addEventListener('click', () => {
-      _equip(cat, null);
-      _refreshGrid(cat, grid, noneBtn);
-    });
-    grid.appendChild(noneBtn);
-
-    for (const file of files) {
-      const item = _makeItemEl(cat, file, ICONS[cat] ?? '📦');
-      grid.appendChild(item);
+    if (_loadout[cat]) {
+      const dot = document.createElement('span');
+      dot.className = 'inv-tab-equipped-dot';
+      tab.appendChild(dot);
     }
 
-    body.appendChild(grid);
+    tab.addEventListener('click', () => {
+      _activeCategory = cat;
+      Object.values(tabEls).forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      _renderGrid(gridArea);
+      tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+
+    tabEls[cat] = tab;
+    tabsRow.appendChild(tab);
   }
 
-  _panel.appendChild(body);
-  overlay.appendChild(_panel);
+  const sep = document.createElement('div');
+  sep.className = 'inv-sep';
+
+  panel.appendChild(tabsRow);
+  panel.appendChild(sep);
+
+  // Grid body
+  const body = document.createElement('div');
+  body.id = 'inv-body';
+  const gridArea = document.createElement('div');
+  body.appendChild(gridArea);
+  panel.appendChild(body);
+
+  overlay.appendChild(panel);
   document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) hideInventoryPanel(); });
+
+  _renderGrid(gridArea);
+
+  // expose for refresh after equip
+  panel._tabEls    = tabEls;
+  panel._gridArea  = gridArea;
+  panel._countEl   = equippedCount;
 }
 
-function _makeItemEl(cat, file, icon) {
+function _renderGrid(container) {
+  container.innerHTML = '';
+  const { icon, items } = CATEGORIES[_activeCategory];
+
+  const catHeader = document.createElement('div');
+  catHeader.className = 'inv-cat-header';
+  catHeader.innerHTML = `
+    <span class="inv-cat-header-icon">${icon}</span>
+    <span class="inv-cat-header-name">${_activeCategory}</span>
+    <span class="inv-cat-header-count">${items.length} items</span>`;
+  container.appendChild(catHeader);
+
+  const grid = document.createElement('div');
+  grid.className = 'inv-grid';
+
+  // None slot
+  const noneSlot = document.createElement('div');
+  noneSlot.className = 'inv-slot-none' + (_loadout[_activeCategory] == null ? ' equipped' : '');
+  noneSlot.innerHTML = `<span class="inv-slot-none-icon">✕</span><span>None</span>`;
+  noneSlot.addEventListener('click', () => {
+    _equip(_activeCategory, null);
+    _afterEquip(container);
+  });
+  grid.appendChild(noneSlot);
+
+  for (const file of items) {
+    const slot = _makeSlot(_activeCategory, file, icon);
+    grid.appendChild(slot);
+  }
+
+  container.appendChild(grid);
+}
+
+function _makeSlot(cat, file, icon) {
   const name = file.replace('.glb', '').replace(/_/g, ' ');
-  const item = document.createElement('div');
-  item.className = 'inv-item' + (_loadout[cat] === file ? ' equipped' : '');
-  item.dataset.cat  = cat;
-  item.dataset.file = file;
-  item.innerHTML = `<span class="inv-icon">${icon}</span><span class="inv-name">${name}</span>`;
-  item.addEventListener('click', () => {
-    const same = _loadout[cat] === file;
-    _equip(cat, same ? null : file);
-    const grid = item.parentElement;
-    _refreshGrid(cat, grid, grid.firstElementChild);
+  const equipped = _loadout[cat] === file;
+
+  const slot = document.createElement('div');
+  slot.className = 'inv-slot' + (equipped ? ' equipped' : '');
+  slot.dataset.cat  = cat;
+  slot.dataset.file = file;
+
+  const iconEl = document.createElement('span');
+  iconEl.className = 'inv-slot-icon';
+  iconEl.textContent = icon;
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'inv-slot-name';
+  nameEl.textContent = name;
+
+  slot.append(iconEl, nameEl);
+
+  if (equipped) {
+    const badge = document.createElement('div');
+    badge.className = 'inv-badge';
+    badge.textContent = '✓';
+    slot.appendChild(badge);
+  }
+
+  slot.addEventListener('click', () => {
+    const isEquipped = _loadout[cat] === file;
+    _equip(cat, isEquipped ? null : file);
+    _afterEquip(slot.closest('#inv-body > div'));
   });
-  return item;
+
+  return slot;
 }
 
-function _refreshGrid(cat, grid, noneBtn) {
-  noneBtn.classList.toggle('equipped', _loadout[cat] == null);
-  grid.querySelectorAll('.inv-item').forEach(el => {
-    el.classList.toggle('equipped', el.dataset.file === _loadout[cat]);
-  });
+function _afterEquip(container) {
+  const panel = document.getElementById('inv-panel');
+
+  // refresh grid
+  _renderGrid(container);
+
+  // refresh tab dots
+  for (const [cat, tabEl] of Object.entries(panel._tabEls)) {
+    const dot = tabEl.querySelector('.inv-tab-equipped-dot');
+    if (_loadout[cat]) {
+      if (!dot) {
+        const d = document.createElement('span');
+        d.className = 'inv-tab-equipped-dot';
+        tabEl.appendChild(d);
+      }
+    } else {
+      dot?.remove();
+    }
+  }
+
+  // refresh equipped count
+  panel._countEl.textContent = _equippedCount() + ' equipped';
+}
+
+function _equippedCount() {
+  return Object.values(_loadout).filter(v => v != null).length;
 }
 
 function _equip(cat, file) {

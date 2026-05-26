@@ -10,7 +10,7 @@ import { initPaths }                 from './world/paths.js';
 import { initHangars }               from './world/hangars.js';
 import { initMarina }                from './world/marina.js';
 
-import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem }
+import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem, savePlayerPosition }
   from './player/localPlayer.js';
 import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemotePlayerPosition }
   from './player/remotePlayer.js';
@@ -36,7 +36,7 @@ import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
 import { initInteractionUI, updateInteractions }         from './ui/interactionUI.js';
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
-import { initSettingsPanel, applyQualitySettings }       from './ui/settingsPanel.js';
+import { initSettingsPanel, applyQualitySettings, setSavePositionCallback } from './ui/settingsPanel.js';
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -164,6 +164,7 @@ initInventoryPanel();
 onEquipChange((cat, file) => equipLocalPlayerItem(cat, file));
 initSettingsPanel(renderer);
 applyQualitySettings(renderer);
+setSavePositionCallback(savePlayerPosition);
 
 // ── Multiplayer ────────────────────────────────────────────────────────
 initRemotePlayers(scene);

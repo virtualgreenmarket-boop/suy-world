@@ -37,6 +37,9 @@ const _defaults = {
 let _settings = _load();
 let _visible  = false;
 let _renderer = null;
+let _savePosCb = null;
+
+export function setSavePositionCallback(fn) { _savePosCb = fn; }
 
 function _load() {
   try {
@@ -426,6 +429,35 @@ function _injectStyles() {
     .sp-tab-panel { display: none; }
     .sp-tab-panel.active { display: contents; }
 
+    /* ── Save position footer ── */
+    #sp-pos-footer {
+      flex-shrink: 0;
+      padding: 10px 14px 22px;
+      display: flex; align-items: center; gap: 10px;
+      border-top: 1px solid var(--sp-border);
+    }
+    #sp-pos-footer-label {
+      flex: 1; min-width: 0;
+    }
+    #sp-pos-footer-label .sp-pos-title {
+      font-size: 13px; font-weight: 600; color: var(--sp-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #sp-pos-footer-label .sp-pos-sub {
+      font-size: 11px; color: var(--sp-muted); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #sp-pos-save-btn {
+      flex-shrink: 0;
+      padding: 8px 18px; border-radius: 10px;
+      border: none; background: var(--sp-accent);
+      color: #fff; font-family: inherit;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: opacity .15s;
+    }
+    #sp-pos-save-btn:active { opacity: .75; }
+    #sp-pos-save-btn.saved  { background: #4ade80; }
+
     /* ── Save button ── */
     .sp-save-btn {
       display: block; width: 100%;
@@ -687,7 +719,35 @@ function _buildPanel() {
     });
   });
 
-  panel.append(header, playerWrap, tabBar, body);
+  // Save position footer
+  const posFooter = document.createElement('div');
+  posFooter.id = 'sp-pos-footer';
+
+  const posLabel = document.createElement('div');
+  posLabel.id = 'sp-pos-footer-label';
+  posLabel.innerHTML = `
+    <div class="sp-pos-title">📍 Save Position</div>
+    <div class="sp-pos-sub" id="sp-pos-sub">${_savedPosLabel()}</div>`;
+
+  const posSaveBtn = document.createElement('button');
+  posSaveBtn.id = 'sp-pos-save-btn';
+  posSaveBtn.textContent = 'Save';
+  posSaveBtn.addEventListener('click', () => {
+    if (_savePosCb) {
+      _savePosCb();
+      document.getElementById('sp-pos-sub').textContent = _savedPosLabel();
+      posSaveBtn.textContent = '✓ Saved';
+      posSaveBtn.classList.add('saved');
+      setTimeout(() => {
+        posSaveBtn.textContent = 'Save';
+        posSaveBtn.classList.remove('saved');
+      }, 1200);
+    }
+  });
+
+  posFooter.append(posLabel, posSaveBtn);
+
+  panel.append(header, playerWrap, tabBar, body, posFooter);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 }
@@ -877,6 +937,17 @@ function _versionCard() {
       <span class="sp-version-val sp-server-online">● Online</span>
     </div>`;
   return div;
+}
+
+function _savedPosLabel() {
+  try {
+    const raw = localStorage.getItem('suy_spawn');
+    if (raw) {
+      const { x, y, z } = JSON.parse(raw);
+      return `Last saved: ${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}`;
+    }
+  } catch {}
+  return 'Not saved yet';
 }
 
 function _privLabel(val) {

@@ -3,6 +3,7 @@ import { resolveCollision } from '../systems/collision.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { getSettings } from '../ui/settingsPanel.js';
 import { spawnCharacter, setAnimState, updateCharacterMixer, equipItem } from './characterLoader.js';
+import { toggleInventoryPanel } from '../ui/inventoryPanel.js';
 import { getLoadout } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
@@ -36,7 +37,8 @@ export function initLocalPlayer(scene, camera, name) {
   _camera = camera;
 
   playerGroup = new THREE.Group();
-  playerGroup.position.set(0, 0.7, 20); // spawn at plaza
+  const _savedSpawn = _loadSpawn();
+  playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
   scene.add(playerGroup);
 
   spawnCharacter(playerGroup).then(() => {
@@ -54,6 +56,7 @@ export function initLocalPlayer(scene, camera, name) {
       const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z);
       if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
     }
+    if (e.code === 'KeyI') toggleInventoryPanel();
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -199,6 +202,20 @@ export function getLocalPlayerRotY()     { return playerGroup?.rotation.y ?? 0; 
 
 export function equipLocalPlayerItem(category, filename) {
   if (playerGroup) equipItem(playerGroup, category, filename);
+}
+
+export function savePlayerPosition() {
+  if (!playerGroup) return;
+  const { x, y, z } = playerGroup.position;
+  localStorage.setItem('suy_spawn', JSON.stringify({ x, y, z }));
+}
+
+function _loadSpawn() {
+  try {
+    const raw = localStorage.getItem('suy_spawn');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { x: 0, y: 0.7, z: 20 };
 }
 
 export function setLocalPlayerPosition(x, z) {
