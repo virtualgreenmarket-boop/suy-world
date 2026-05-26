@@ -291,12 +291,12 @@ function _buildRulesOverlay() {
       <button class="rsh-close" id="sp-rules-close">✕</button>
     </div>
     <div id="sp-rules-body">
-      <p class="ri">Welcome to [Game Name].<br><br>
+      <p class="ri">Welcome to Suy-world.<br><br>
       These Game Rules explain how to play the game, what is allowed, what is not allowed, and how players are expected to behave while using the game.<br><br>
-      By playing [Game Name], you agree to follow these rules.</p>
+      By playing Suy-world, you agree to follow these rules.</p>
 
       <h3>1. General Gameplay</h3>
-      <p>[Game Name] is a virtual game where players can explore different areas, enter rooms, interact with virtual spaces, view products or items, customize their character, and enjoy different in-game features.</p>
+      <p>Suy-world is a virtual game where players can explore different areas, enter rooms, interact with virtual spaces, view products or items, customize their character, and enjoy different in-game features.</p>
       <p>Players may progress by exploring, completing actions, collecting items, unlocking features, purchasing virtual content, or interacting with other players or sellers.</p>
       <p>The game may include different zones, rooms, characters, virtual items, decorations, upgrades, pets, signs, advertisements, and other interactive elements.</p>
 
