@@ -55,10 +55,23 @@ function addSky(scene) {
 // ── Terrain (grass inner disc + sand outer ring) ─────────────────────
 
 function addTerrain(scene) {
-  const tl  = new THREE.TextureLoader();
-  const pfx = 'textures/beach/Ground054_2K-JPG_';
+  const tl = new THREE.TextureLoader();
 
-  const sandTex = tl.load(pfx + 'Color.jpg');
+  // ── Grass PBR textures ───────────────────────────────────────────────
+  const gPfx = 'textures/grass/Grass001_2K-JPG_';
+  const grassColor  = tl.load(gPfx + 'Color.jpg');
+  const grassNormal = tl.load(gPfx + 'NormalGL.jpg');
+  const grassRough  = tl.load(gPfx + 'Roughness.jpg');
+  [grassColor, grassNormal, grassRough].forEach(t => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(48, 48);   // ~8 m per tile across the 394 m disc diameter
+    t.anisotropy = 8;
+  });
+  grassColor.colorSpace = THREE.SRGBColorSpace;
+
+  // ── Sand PBR textures ────────────────────────────────────────────────
+  const sPfx = 'textures/beach/Ground054_2K-JPG_';
+  const sandTex = tl.load(sPfx + 'Color.jpg');
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
   sandTex.repeat.set(14, 14);
   sandTex.colorSpace = THREE.SRGBColorSpace;
@@ -82,17 +95,23 @@ function addTerrain(scene) {
   bottom.position.y = -8;
   scene.add(bottom);
 
-  // Grass disc — inner island (r < 197)
+  // Grass disc — inner island (r < 197), realistic PBR grass
   const grassMesh = new THREE.Mesh(
     new THREE.CircleGeometry(197, 128),
-    new THREE.MeshStandardMaterial({ color: 0x4a8c35, roughness: 0.88, metalness: 0.0 })
+    new THREE.MeshStandardMaterial({
+      map:          grassColor,
+      normalMap:    grassNormal,
+      roughnessMap: grassRough,
+      roughness:    1.0,
+      metalness:    0.0,
+    })
   );
   grassMesh.rotation.x = -Math.PI / 2;
   grassMesh.position.y = 0.02;
   grassMesh.receiveShadow = true;
   scene.add(grassMesh);
 
-  // Sand ring — beach zone (r 191–246); sits 1 cm below grass so depth test is clean
+  // Sand ring — beach zone (r 191–246); 1 cm below grass so depth test is clean
   const sandMesh = new THREE.Mesh(
     new THREE.RingGeometry(191, 246, 128),
     new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95, metalness: 0.0 })
