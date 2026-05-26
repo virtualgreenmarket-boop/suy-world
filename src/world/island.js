@@ -152,7 +152,7 @@ function addWater(scene) {
 
 function addShallowWater(scene) {
   const shallow = new THREE.Mesh(
-    new THREE.RingGeometry(246, 276, 128),
+    new THREE.RingGeometry(246, 296, 128),
     new THREE.MeshStandardMaterial({
       color:       0x38C0D8,
       transparent: true,
@@ -187,12 +187,12 @@ function addShallowSeabed(scene) {
   scene.add(slopeMesh);
   registerGround(slopeMesh);
 
-  // Flat bottom: r=260→276, y=-0.65
+  // Flat bottom: r=260→296, y=-0.65 (16 m original + 20 m extension)
   const flatTex = tex.clone();
-  flatTex.repeat.set(4, 40);
+  flatTex.repeat.set(5, 50);
   flatTex.needsUpdate = true;
   const flatMesh = new THREE.Mesh(
-    new THREE.RingGeometry(260, 276, 128),
+    new THREE.RingGeometry(260, 296, 128),
     new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0 })
   );
   flatMesh.rotation.x = -Math.PI / 2;
