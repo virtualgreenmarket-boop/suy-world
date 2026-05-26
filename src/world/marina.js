@@ -163,6 +163,7 @@ function addElevatedDeck(group) {
 // Railing segment: pos is the centre along the railing direction
 // axis 'x' → rail runs along X, axis 'z' → rail runs along Z
 // baseY = world-local Y of the surface the railing sits on
+// Group transform: rot.y=PI/2 → worldX = -230+localZ, worldZ = -localX
 function _railSegment(group, cx, cz, length, axis, baseY = DECK_Y + 0.38) {
   const postMat  = solidMat(0x7D5D3C, 0.9);
   const topMat   = solidMat(0xA07040, 0.85);
@@ -191,6 +192,16 @@ function _railSegment(group, cx, cz, length, axis, baseY = DECK_Y + 0.38) {
   const midRail = new THREE.Mesh(railGeo.clone(), topMat.clone());
   midRail.position.set(cx, rY + postH * 0.55, cz);
   group.add(midRail);
+
+  // Collision box in world space (group rot PI/2: worldX=-230+localZ, worldZ=-localX)
+  const PAD = 0.25;
+  if (axis === 'x') {
+    // runs along local X → worldZ spans [-cx-length/2, -cx+length/2]
+    registerBox(-230 + cz - PAD, -230 + cz + PAD, -cx - length / 2, -cx + length / 2);
+  } else {
+    // runs along local Z → worldX spans [-230+cz-length/2, -230+cz+length/2]
+    registerBox(-230 + cz - length / 2, -230 + cz + length / 2, -cx - PAD, -cx + PAD);
+  }
 }
 
 // ── Stairs from deck down to pier ─────────────────────────────────────
