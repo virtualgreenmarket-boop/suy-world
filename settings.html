@@ -370,6 +370,134 @@
     }
     select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+    /* ───────── Disclosure row (chevron) ───────── */
+    .disclosure-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 16px;
+      min-height: 50px;
+      gap: 12px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      width: 100%;
+      font-family: inherit;
+      color: var(--text);
+      text-align: left;
+      transition: background .1s;
+    }
+    .disclosure-row:active { background: var(--surface-2); }
+    .disclosure-row .row-label { font-size: 15px; font-weight: 500; flex: 1; }
+    .disclosure-chevron {
+      color: var(--text-2);
+      flex-shrink: 0;
+    }
+
+    /* ───────── Rules sheet ───────── */
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0);
+      z-index: 200;
+      pointer-events: none;
+      transition: background .25s ease;
+    }
+    .sheet-backdrop.open {
+      background: rgba(0,0,0,0.45);
+      pointer-events: auto;
+    }
+    .sheet {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      max-height: 92%;
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform .32s cubic-bezier(.32,1,.45,1);
+      overflow: hidden;
+    }
+    .sheet-backdrop.open .sheet {
+      transform: translateY(0);
+    }
+    .sheet-handle {
+      width: 36px; height: 4px;
+      border-radius: 2px;
+      background: var(--track-off);
+      margin: 12px auto 0;
+      flex-shrink: 0;
+    }
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--divider);
+      flex-shrink: 0;
+    }
+    .sheet-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .sheet-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface-2);
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      transition: opacity .15s;
+    }
+    .sheet-close:active { opacity: .55; }
+    .sheet-body {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px 20px 40px;
+      flex: 1;
+    }
+    .rules-intro {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .rules-section {
+      margin-bottom: 22px;
+    }
+    .rules-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 8px;
+    }
+    .rules-section p {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .rules-section ul {
+      margin: 6px 0 8px 0;
+      padding-left: 18px;
+    }
+    .rules-section ul li {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .rules-contact p { margin-bottom: 4px; }
+    .rules-contact a { color: var(--accent); text-decoration: none; }
+
     /* ───────── Logout button ───────── */
     .logout-btn {
       display: block;
@@ -560,6 +688,17 @@
       </div>
     </div>
 
+    <!-- ── Game Rules ── -->
+    <p class="sec-label">Legal</p>
+    <div class="card">
+      <button class="disclosure-row" onclick="openRules()" aria-haspopup="dialog">
+        <span class="row-label">Game Rules</span>
+        <svg class="disclosure-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden="true">
+          <path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
     <!-- ── Account ── -->
     <p class="sec-label">Account</p>
     <div class="card">
@@ -567,6 +706,176 @@
     </div>
 
   </main>
+</div>
+
+<!-- ── Game Rules Sheet ── -->
+<div class="sheet-backdrop" id="rules-backdrop" role="dialog" aria-modal="true" aria-label="Game Rules" onclick="closeRulesOnBackdrop(event)">
+  <div class="sheet" id="rules-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">Game Rules</span>
+      <button class="sheet-close" onclick="closeRules()" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+
+      <p class="rules-intro">Welcome to [Game Name].<br><br>
+      These Game Rules explain how to play the game, what is allowed, what is not allowed, and how players are expected to behave while using the game.<br><br>
+      By playing [Game Name], you agree to follow these rules.</p>
+
+      <div class="rules-section">
+        <h3>1. General Gameplay</h3>
+        <p>[Game Name] is a virtual game where players can explore different areas, enter rooms, interact with virtual spaces, view products or items, customize their character, and enjoy different in-game features.</p>
+        <p>Players may progress in the game by exploring, completing actions, collecting items, unlocking features, purchasing virtual content, or interacting with other players or sellers, depending on the available game mode.</p>
+        <p>The game may include different zones, rooms, characters, virtual items, decorations, upgrades, pets, signs, advertisements, and other interactive elements.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>2. Player Account</h3>
+        <p>Each player is responsible for their own account.</p>
+        <p>You must not share your account login details with other people. You are responsible for all activity that happens through your account.</p>
+        <p>The game team is not responsible for lost progress, purchases, virtual items, or rewards caused by sharing your account, using unofficial software, or breaking the game rules.</p>
+        <p>You must provide correct information when creating or managing your account, where required.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>3. Fair Play</h3>
+        <p>Players must play fairly and honestly. The following actions are not allowed:</p>
+        <ul>
+          <li>Using cheats, hacks, bots, scripts, modified apps, or unauthorized software.</li>
+          <li>Exploiting bugs or technical errors to gain an unfair advantage.</li>
+          <li>Selling, buying, or trading accounts outside the official game system.</li>
+          <li>Manipulating the game economy, rankings, rewards, or other players.</li>
+          <li>Trying to access another player's account.</li>
+          <li>Using multiple accounts to abuse rewards, promotions, voting systems, or other game features.</li>
+        </ul>
+        <p>If you find a bug or error in the game, you should report it to the game team and not use it for personal advantage.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>4. Player Behavior</h3>
+        <p>Players must treat each other with respect. The following behavior is not allowed:</p>
+        <ul>
+          <li>Harassment, bullying, threats, or abusive language.</li>
+          <li>Hate speech, racism, discrimination, or offensive content.</li>
+          <li>Sexual, violent, or inappropriate messages or images.</li>
+          <li>Impersonating another player, seller, moderator, or game team member.</li>
+          <li>Spamming, advertising outside the allowed areas, or sending misleading messages.</li>
+          <li>Sharing personal information of yourself or others, such as phone numbers, addresses, passwords, or private photos.</li>
+        </ul>
+        <p>The game team may remove messages, content, rooms, items, or accounts that violate these rules.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>5. Virtual Items and Customization</h3>
+        <p>The game may allow players to collect, buy, unlock, or use virtual items. These may include character designs, clothing, pets, room decorations, signs, backgrounds, furniture, visual effects, advertisements, or other digital content.</p>
+        <p>Virtual items do not have real-world ownership value unless clearly stated by the game team.</p>
+        <p>The game team may update, change, balance, remove, or limit virtual items if needed for technical, legal, safety, or gameplay reasons.</p>
+        <p>Players are not allowed to sell virtual items for real money outside the official game system.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>6. Rooms, Stores, and Virtual Spaces</h3>
+        <p>Some players may be able to own, rent, design, or manage virtual rooms, stores, or spaces inside the game. Room owners are responsible for the content they upload or display in their room.</p>
+        <p>The following content is not allowed in rooms or virtual spaces:</p>
+        <ul>
+          <li>Illegal products or services.</li>
+          <li>False or misleading information.</li>
+          <li>Offensive, hateful, sexual, violent, or inappropriate images or text.</li>
+          <li>Content that violates intellectual property rights, including trademarks, logos, copyrighted images, or brand names without permission.</li>
+          <li>External links or contact details, unless officially allowed by the game.</li>
+        </ul>
+        <p>The game team may review, edit, hide, suspend, or remove any room or content that violates these rules.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>7. Advertising and Promotions</h3>
+        <p>The game may include advertising spaces, promoted rooms, signs, banners, sponsored areas, or other promotional features.</p>
+        <p>Players or sellers using advertising features must make sure that their content is accurate, appropriate, and permitted.</p>
+        <p>The game team may reject or remove advertisements that are misleading, offensive, illegal, or unsuitable for the game environment.</p>
+        <p>Payment for advertising or promotion does not guarantee player engagement, sales, ranking, or visibility beyond what is clearly described in the game.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>8. Purchases and Payments</h3>
+        <p>The game may offer optional purchases, including virtual currency, premium features, room upgrades, character customization, advertisements, decorations, pets, or other digital items.</p>
+        <p>All purchases must be made through the official payment methods provided by the game or app store. Prices, available items, and purchase options may change from time to time.</p>
+        <p>Purchases are usually final and non-refundable, except where required by law or by the rules of the app store platform.</p>
+        <p>Players must not use unauthorized payment methods, stolen payment details, chargeback abuse, or payment fraud.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>9. Rewards, Progress, and Game Balance</h3>
+        <p>The game may include rewards, achievements, levels, rankings, badges, or other progress systems.</p>
+        <p>Rewards and progress may be changed, adjusted, reset, or removed if there is a technical issue, cheating, abuse, or balancing update.</p>
+        <p>The game team may update the game to improve fairness, performance, security, or gameplay experience. No player is guaranteed to keep the same rank, progress speed, item value, or game advantage forever.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>10. User-Generated Content</h3>
+        <p>Players may be allowed to upload or create content inside the game, including room designs, item names, profile names, images, descriptions, comments, signs, or other creative content.</p>
+        <p>By uploading content, you confirm that you have the right to use it. You must not upload content that belongs to someone else unless you have permission.</p>
+        <p>The game team may remove or limit user-generated content if it violates the rules or creates risk for the game or other players.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>11. Safety and Privacy</h3>
+        <p>Players should never share private personal information in the game, including passwords, home addresses, phone numbers, payment details, identity numbers, private photos, or sensitive personal information.</p>
+        <p>The game team will never ask for your password inside the game chat.</p>
+        <p>Parents or guardians should supervise younger players and review the game's privacy settings, purchases, and communication features.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>12. Technical Issues</h3>
+        <p>The game may sometimes be unavailable because of maintenance, updates, server problems, internet issues, bugs, or other technical reasons.</p>
+        <p>The game team will try to keep the game stable and safe, but uninterrupted access is not guaranteed.</p>
+        <p>The game team is not responsible for connection problems, device issues, app store issues, or third-party service failures.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>13. Updates and Changes</h3>
+        <p>The game may be updated from time to time, including new features, removed features, balance changes, visual changes, new areas, new rules, security improvements, bug fixes, or changes to virtual items.</p>
+        <p>By continuing to play after an update, you accept the updated version of the game and its rules.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>14. Rule Violations</h3>
+        <p>If a player breaks the rules, the game team may take action, including:</p>
+        <ul>
+          <li>Warning the player.</li>
+          <li>Removing content.</li>
+          <li>Limiting access to features.</li>
+          <li>Suspending the account.</li>
+          <li>Banning the account permanently.</li>
+          <li>Removing virtual items, rewards, or progress gained unfairly.</li>
+          <li>Blocking payments or promotional features.</li>
+        </ul>
+        <p>Serious violations may lead to immediate suspension or permanent removal from the game.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>15. Reporting Problems</h3>
+        <p>Players can report inappropriate behavior, bugs, cheating, offensive content, payment issues, or technical problems through the official support system.</p>
+        <p>When reporting an issue, players should provide clear information, such as screenshots, usernames, dates, and a short explanation of the problem.</p>
+        <p>False reports, repeated spam reports, or abuse of the reporting system are not allowed.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>16. Final Decision</h3>
+        <p>The game team has the right to interpret and apply these rules in order to protect the game, the players, and the community.</p>
+        <p>Decisions may be made based on the situation, severity, player history, and available evidence.</p>
+        <p>The purpose of these rules is to keep the game fair, safe, respectful, and enjoyable for everyone.</p>
+      </div>
+
+      <div class="rules-section rules-contact">
+        <h3>17. Contact</h3>
+        <p>For questions, reports, or support, please contact us through:</p>
+        <p>Support: <a href="mailto:[support email]">[support email]</a></p>
+        <p>Website: <a href="[website link]">[website link]</a></p>
+        <p>Company: [company name]</p>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <script>
@@ -591,6 +900,22 @@
 
     input.addEventListener('input', sync);
   });
+
+  // ── Game Rules sheet ─────────────────────────────────────────────────
+  const _rulesBackdrop = document.getElementById('rules-backdrop');
+
+  function openRules() {
+    _rulesBackdrop.classList.add('open');
+    document.getElementById('rules-sheet').scrollTop = 0;
+  }
+
+  function closeRules() {
+    _rulesBackdrop.classList.remove('open');
+  }
+
+  function closeRulesOnBackdrop(e) {
+    if (e.target === _rulesBackdrop) closeRules();
+  }
 
   function confirmLogout() {
     if (confirm('Are you sure you want to log out?')) {
