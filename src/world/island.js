@@ -132,7 +132,8 @@ function addWater(scene) {
   const waterNormals = new THREE.TextureLoader().load('textures/waternormals.jpg');
   waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
 
-  _water = new Water(new THREE.RingGeometry(120, 1000, 80), {
+  // Animated deep-water shader — starts beyond the shallow wading zone
+  _water = new Water(new THREE.RingGeometry(396, 1000, 80), {
     textureWidth:   512,
     textureHeight:  512,
     waterNormals,
@@ -142,10 +143,25 @@ function addWater(scene) {
     distortionScale: 3.7,
     fog:            !!scene.fog,
   });
-
   _water.rotation.x = -Math.PI / 2;
   _water.position.y = -0.5;
   scene.add(_water);
+
+  // Simple water fill between island edge and shallow zone (r=120→246)
+  const innerWater = new THREE.Mesh(
+    new THREE.RingGeometry(120, 246, 80),
+    new THREE.MeshStandardMaterial({
+      color:       0x006994,
+      transparent: true,
+      opacity:     0.88,
+      roughness:   0.08,
+      metalness:   0.15,
+      depthWrite:  false,
+    })
+  );
+  innerWater.rotation.x = -Math.PI / 2;
+  innerWater.position.y = -0.5;
+  scene.add(innerWater);
 }
 
 // ── Shallow wading zone (r 246–276, walkable, y = -0.15) ─────────────
@@ -181,19 +197,21 @@ function addShallowSeabed(scene) {
   // Sloped entry: r=246 (y=0) → r=260 (y=-0.25) — just below water surface
   const slopeMesh = new THREE.Mesh(
     _slopedRing(246, 260, 0, -1.05, 128),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0.0 })
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0.0,
+      emissive: 0x664422, emissiveIntensity: 0.18 })
   );
   slopeMesh.receiveShadow = true;
   scene.add(slopeMesh);
   registerGround(slopeMesh);
 
-  // Flat sandy bottom: r=260→396, y=-0.25 (10 cm below water surface — sand clearly visible)
+  // Flat sandy bottom: r=260→396, y=-1.05
   const flatTex = tex.clone();
   flatTex.repeat.set(10, 80);
   flatTex.needsUpdate = true;
   const flatMesh = new THREE.Mesh(
     new THREE.RingGeometry(260, 396, 128),
-    new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0 })
+    new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0,
+      emissive: 0x664422, emissiveIntensity: 0.18 })
   );
   flatMesh.rotation.x = -Math.PI / 2;
   flatMesh.position.y = -1.05;
