@@ -121,6 +121,23 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.circleSpeed  = 0.30; // rad/s
       npc.circleCenter = new THREE.Vector3(0, 0, 0);
       npc.canWalk      = false;
+
+      // Ensure a dedicated walk clip exists — if the model only has one clip
+      // (texting pose) with no walk keyword, build a retargeted walk instead.
+      const needsRetarget = !npc.walkAction || npc.walkAction === npc.idleAction;
+      if (needsRetarget) {
+        await preloadAnimations();
+        const boneNames = new Set();
+        npc.group.traverse(n => {
+          if (n.isBone)        boneNames.add(n.name);
+          if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
+        });
+        const walkClip = buildClipForSkeleton('walk', boneNames);
+        if (walkClip?.tracks.length > 0) {
+          npc.walkAction = npc.mixer.clipAction(walkClip);
+        }
+      }
+
       const loopAnim = npc.walkAction ?? npc.idleAction;
       if (loopAnim) { npc.idleAction?.stop(); loopAnim.reset().play(); }
     } else {
