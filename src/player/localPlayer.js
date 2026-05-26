@@ -36,7 +36,7 @@ export function initLocalPlayer(scene, camera, name) {
   _camera = camera;
 
   playerGroup = new THREE.Group();
-  playerGroup.position.set(-234, 5, 0); // spawn on marina deck, in front of the sea house
+  playerGroup.position.set(0, 0.7, 20); // spawn at plaza
   scene.add(playerGroup);
 
   spawnCharacter(playerGroup).then(() => {
