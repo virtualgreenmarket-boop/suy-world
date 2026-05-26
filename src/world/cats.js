@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { getSurfaceY } from '../systems/terrain.js';
 
 const ISLAND_R    = 228;
-const WALK_SPEED  = 0.9;
+const WALK_SPEED  = 0.38;
 
 const CAT_SPOTS = [
   { x:  65, z: -75 },
@@ -29,7 +29,7 @@ const _animals = [];
 
 export function initCats(scene) {
   _loadAndPlace(scene, CAT_URL, CAT_H, CAT_SPOTS, WALK_SPEED);
-  _loadAndPlace(scene, HEN_URL, HEN_H, HEN_SPOTS, 0.6);
+  _loadAndPlace(scene, HEN_URL, HEN_H, HEN_SPOTS, 0.30);
 }
 
 export function updateCats(delta, time) {
@@ -80,9 +80,9 @@ function _loadAndPlace(scene, url, targetH, spots, speed) {
         home:      new THREE.Vector3(spot.x, 0, spot.z),
         target:    new THREE.Vector3(spot.x, 0, spot.z),
         state:     'sitting',
-        sitTimer:  1 + Math.random() * 4,
+        sitTimer:  4 + Math.random() * 8,
         speed,
-        speedMult: 0.8 + Math.random() * 0.5,
+        speedMult: 0.85 + Math.random() * 0.30,
         phase:     Math.random() * Math.PI * 2,
         hasAnim:   !!idleClip,
       });
@@ -120,7 +120,7 @@ function _updateAnimal(a, delta, time) {
   pos.x += (dx / dist) * a.speed * a.speedMult * delta;
   pos.z += (dz / dist) * a.speed * a.speedMult * delta;
   pos.y  = getSurfaceY(pos.x, pos.z) + a.floorOffset;
-  a.group.rotation.y = Math.atan2(dx, dz);
+  a.group.rotation.y = Math.atan2(dx, dz) - Math.PI / 2;
 }
 
 function _startWalking(a) {
@@ -128,13 +128,14 @@ function _startWalking(a) {
   let tx, tz, tries = 0;
   do {
     const angle = Math.random() * Math.PI * 2;
-    const r     = 15 + Math.random() * 55;
+    const r     = 8 + Math.random() * 28;
     tx = a.home.x + Math.cos(angle) * r;
     tz = a.home.z + Math.sin(angle) * r;
     tries++;
   } while ((tx * tx + tz * tz > ISLAND_R * ISLAND_R ||
             (Math.abs(tx) < 42 && Math.abs(tz) < 42)) && tries < 20);
   a.target.set(tx, 0, tz);
+  a.sitTimer = 5 + Math.random() * 9;
   if (a.idleAction) a.idleAction.fadeOut(0.3);
   if (a.walkAction) a.walkAction.reset().fadeIn(0.3).play();
   else if (a.idleAction) a.idleAction.reset().fadeIn(0.1).play();

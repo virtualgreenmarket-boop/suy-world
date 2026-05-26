@@ -40,6 +40,7 @@ globalThis.Blob        = dom.window.Blob;
 globalThis.URL         = dom.window.URL;
 globalThis.TextDecoder = globalThis.TextDecoder ?? dom.window.TextDecoder;
 globalThis.TextEncoder = globalThis.TextEncoder ?? dom.window.TextEncoder;
+globalThis.FileReader  = dom.window.FileReader;
 
 // Polyfill XMLHttpRequest with a synchronous file-reader for local paths
 class XHR {
@@ -67,7 +68,7 @@ class XHR {
 globalThis.XMLHttpRequest = XHR;
 
 // Now import Three.js (must be after polyfills)
-const { default: THREE }  = await import('three');
+const THREE               = await import('three');
 const { FBXLoader }       = await import('three/addons/loaders/FBXLoader.js');
 const { GLTFExporter }    = await import('three/addons/exporters/GLTFExporter.js');
 
@@ -75,6 +76,16 @@ console.log('[convert-trees] loading FBX…');
 const loader = new FBXLoader();
 const fbxBuf = readFileSync(FBX_PATH);
 const fbx    = loader.parse(fbxBuf.buffer.slice(fbxBuf.byteOffset, fbxBuf.byteOffset + fbxBuf.byteLength), '');
+
+// Recompute normals for any mesh whose normals were missing in the FBX
+// Strip textures so GLTFExporter doesn't try to serialise Node.js Image objects
+fbx.traverse(n => {
+  if (!n.isMesh) return;
+  n.geometry.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  n.material = Array.isArray(n.material) ? mat : mat;
+});
+console.log('[convert-trees] normals computed, materials stripped for export');
 
 // Normalise scale to 15 m height
 const box = new THREE.Box3().setFromObject(fbx);

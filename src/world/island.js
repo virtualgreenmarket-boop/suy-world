@@ -3,31 +3,26 @@ import { Water } from 'three/addons/objects/Water.js';
 import { spawnTree } from './trees.js';
 import { registerGround } from '../systems/terrain.js';
 
-let _water       = null;
-let _shoreShader = null;
-let _shoreTime   = 0;
+let _water = null;
 
 // ── Public ────────────────────────────────────────────────────────────
 
 export function initIsland(scene, opts = {}) {
   addSky(scene);
   addTerrain(scene);
-  addShallowWater(scene);
   addWater(scene);
   addTrees(scene, opts.maxTrees ?? 62);
 }
 
 export function updateWater(delta) {
   if (_water) _water.material.uniforms['time'].value += delta;
-  _shoreTime += delta;
-  if (_shoreShader) _shoreShader.uniforms.uTime.value = _shoreTime; // ShaderMaterial: direct uniform access
 }
 
 // ── Sky sphere ───────────────────────────────────────────────────────
 
 function addSky(scene) {
   const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(850, 16, 8),
+    new THREE.SphereGeometry(850, 32, 16),
     new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthTest:  false,
@@ -143,12 +138,11 @@ function addTerrain(scene) {
   const grassTex = makeGrassTexture();
 
   const terrainMat = new THREE.MeshStandardMaterial({
-    map:         grassTex,   // declares USE_MAP → sampler2D map available in shader
-    roughness:   0.92,
-    metalness:   0.0,
-    transparent: true,
+    map:       grassTex,
+    roughness: 0.92,
+    metalness: 0.0,
   });
-  terrainMat.customProgramCacheKey = () => 'terrain-v2';
+  terrainMat.customProgramCacheKey = () => 'terrain-v3';
 
   terrainMat.onBeforeCompile = shader => {
     shader.uniforms.uSandTex   = { value: sandTex   };
@@ -199,7 +193,7 @@ function addTerrain(scene) {
         vec3 col = mix(cGrass.rgb, cSand.rgb, sandF);
         col = mix(col, cWet, tWet);
 
-        diffuseColor = vec4(col, (1.0 - tFade));
+        diffuseColor = vec4(col, 1.0);
       }`
     );
 
@@ -235,62 +229,6 @@ function addTerrain(scene) {
   registerGround(terrainMesh);
 }
 
-// Zone 5 — shallow water ring: animated transparent surf between beach and deep ocean
-function addShallowWater(scene) {
-  //  r  234–262  transparent teal with animated foam wash at shore edge
-  const geo = new THREE.RingGeometry(234, 262, 80, 8);
-
-  const mat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: /* glsl */`
-      varying vec2 vW;
-      void main() {
-        vec4 wp = modelMatrix * vec4(position, 1.0);
-        vW = wp.xz;
-        gl_Position = projectionMatrix * viewMatrix * wp;
-      }
-    `,
-    fragmentShader: /* glsl */`
-      uniform float uTime;
-      varying vec2 vW;
-      void main() {
-        float r = length(vW);
-
-        // Fade in/out at ring edges
-        float inner = smoothstep(234.0, 244.0, r);
-        float outer = 1.0 - smoothstep(254.0, 262.0, r);
-        float zone  = inner * outer;
-
-        // Depth colour: bright turquoise near shore → deeper teal further out
-        float depth = smoothstep(244.0, 262.0, r);
-        vec3 colShallow = vec3(0.28, 0.74, 0.72);
-        vec3 colDeep    = vec3(0.06, 0.40, 0.54);
-        vec3 col = mix(colShallow, colDeep, depth);
-
-        // Animated foam wash rolling onto the beach
-        float wave   = sin(r * 1.3 - uTime * 2.6) * 0.5 + 0.5;
-        float foam   = smoothstep(0.62, 0.90, wave)
-                     * (1.0 - smoothstep(234.0, 250.0, r))
-                     * 0.75;
-        col = mix(col, vec3(0.93, 0.97, 1.0), foam);
-
-        gl_FragColor = vec4(col, 0.62 * zone);
-      }
-    `,
-    transparent: true,
-    depthWrite:  false,
-    side: THREE.FrontSide,
-  });
-
-  // updateWater ticks mat.uniforms.uTime directly
-  _shoreShader = mat;
-
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -2;
-  scene.add(mesh);
-}
-
 // ── Water (Three.js built-in Water shader) ────────────────────────────
 
 function addWater(scene) {
@@ -309,7 +247,7 @@ function addWater(scene) {
   });
 
   _water.rotation.x = -Math.PI / 2;
-  _water.position.y = -2;
+  _water.position.y = -0.5;
   scene.add(_water);
 }
 

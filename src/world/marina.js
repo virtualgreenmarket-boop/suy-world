@@ -34,8 +34,8 @@ function _loadHouse(scene) {
 
     const box = new THREE.Box3().setFromObject(model);
     const h   = Math.max(box.max.y - box.min.y, 0.001);
-    // Target ~12 m tall so it reads as a substantial harbour building
-    const sc  = 12 / h;
+    // Target ~24 m tall (200% scale-up per user request)
+    const sc  = 24 / h;
     model.scale.setScalar(sc);
 
     // Recalculate bounding box after scale to floor it
@@ -46,7 +46,7 @@ function _loadHouse(scene) {
     const mx = -150, mz = -8;
     const sy = getSurfaceY(mx, mz);
     model.position.set(mx, sy + floorOffset, mz);
-    model.rotation.y = Math.PI / 2;   // entrance faces east toward plaza
+    model.rotation.y = Math.PI;   // rotated 90° from previous (PI/2 → PI)
     scene.add(model);
 
     console.log('[marina] house loaded — height:', h.toFixed(2), '→ scale:', sc.toFixed(3));

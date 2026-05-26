@@ -120,8 +120,9 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.circleAngle  = 0;
       npc.circleSpeed  = 0.30; // rad/s
       npc.circleCenter = new THREE.Vector3(0, 0, 0);
-      npc.canWalk      = false; // disable wandering
-      if (npc.walkAction) { npc.idleAction?.stop(); npc.walkAction.reset().play(); }
+      npc.canWalk      = false;
+      const loopAnim = npc.walkAction ?? npc.idleAction;
+      if (loopAnim) { npc.idleAction?.stop(); loopAnim.reset().play(); }
     } else {
       npc.walkCenter = new THREE.Vector3(cfg.x, 0, cfg.z);
       npc.walkRadius = 7;
@@ -175,7 +176,9 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     });
 
     const idleClip = findClip('idle', 'stand', 'breathing', 'tpose', 't-pose') ?? builtinClips[0];
-    const walkClip = findClip('walk', 'run') ?? null;
+    const walkClip = findClip('walk', 'run', 'walking', 'jog', 'move', 'locomotion')
+                  ?? (builtinClips.length > 1 ? builtinClips[1] : builtinClips[0])
+                  ?? null;
 
     idleAction = mixer.clipAction(idleClip);
     idleAction.play();

@@ -162,19 +162,37 @@ export async function equipItem(group, category, filename) {
   if (!group.userData._equipped) group.userData._equipped = {};
 
   const prev = group.userData._equipped[category];
-  if (prev) { group.remove(prev); group.userData._equipped[category] = null; }
+  if (prev) { prev.parent?.remove(prev); group.userData._equipped[category] = null; }
   if (!filename) return;
+
+  // Collect character skeleton bones for rebinding
+  const charBoneMap = new Map();
+  group.traverse(n => {
+    if (n.isBone) charBoneMap.set(n.name, n);
+  });
 
   try {
     const gltf = await new Promise((res, rej) =>
       new GLTFLoader().load(ASSETS_BASE + filename, res, undefined, rej)
     );
-    const item = gltf.scene;
+    const item = skeletonClone(gltf.scene);
     item.scale.setScalar(MODEL_SCALE);
     item.position.y = _modelFloorY;
+
+    // Rebind item SkinnedMeshes to the character's bones so they animate together
+    if (charBoneMap.size > 0) {
+      item.traverse(n => {
+        if (!n.isSkinnedMesh || !n.skeleton) return;
+        const bones = n.skeleton.bones.map(b => charBoneMap.get(b.name) ?? b);
+        n.skeleton = new THREE.Skeleton(bones, n.skeleton.boneInverses);
+        n.bind(n.skeleton);
+      });
+    }
+
     item.traverse(n => { if (n.isMesh) n.castShadow = true; });
     group.add(item);
     group.userData._equipped[category] = item;
+    console.log('[character] equipped:', category, filename);
   } catch (err) {
     console.warn('[character] equip failed:', filename, err?.message ?? err);
   }
