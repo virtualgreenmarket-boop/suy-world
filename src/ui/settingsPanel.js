@@ -1,18 +1,42 @@
-// Settings panel — music, sfx, graphics quality, look sensitivity.
-// Settings are persisted in localStorage.
-
 const STORAGE_KEY = 'suy_settings';
 
 const _defaults = {
-  musicMuted:   false,
-  sfxMuted:     false,
-  quality:      'high',   // 'low' | 'medium' | 'high'
-  sensitivity:  1.0,      // multiplier for mouse/touch camera rotation (0.3–2.0)
+  // Sound
+  musicVolume:    80,
+  sfxVolume:      75,
+  voiceVolume:    70,
+  muteAll:        false,
+  // Graphics
+  quality:        'high',
+  frameRate:      60,
+  batterySaver:   false,
+  animations:     true,
+  // Controls
+  movementType:   'joystick',
+  sensitivity:    1.0,
+  invertCamera:   false,
+  buttonSize:     'medium',
+  // Notifications
+  notifGame:      true,
+  notifRoom:      true,
+  notifMessages:  true,
+  notifEvents:    true,
+  // Language
+  language:       'en',
+  // Privacy & Safety
+  chatPrivacy:    'everyone',
+  friendRequests: 'everyone',
+  showOnlineStatus: true,
+  // Gameplay
+  tutorialTips:   true,
+  autoSave:       true,
+  vibration:      true,
+  showPlayerNames: true,
 };
 
 let _settings = _load();
-let _panel    = null;
 let _visible  = false;
+let _renderer = null;
 
 function _load() {
   try {
@@ -27,8 +51,6 @@ function _save() {
 
 export function getSettings() { return _settings; }
 
-// ── Apply quality settings to the renderer ────────────────────────────
-
 export function applyQualitySettings(renderer) {
   if (!renderer) return;
   switch (_settings.quality) {
@@ -40,113 +62,323 @@ export function applyQualitySettings(renderer) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.shadowMap.enabled = true;
       break;
-    case 'high':
     default:
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.shadowMap.enabled = true;
-      break;
   }
 }
 
-// ── Init ──────────────────────────────────────────────────────────────
-
 export function initSettingsPanel(renderer) {
-  _buildPanel(renderer);
+  _renderer = renderer;
+  _injectStyles();
+  _buildPanel();
+  _buildRulesOverlay();
 }
 
-function _buildPanel(renderer) {
-  // Inject styles
-  const style = document.createElement('style');
-  style.textContent = `
+export function showSettingsPanel() {
+  const ov = document.getElementById('sp-overlay');
+  if (!ov) return;
+  ov.classList.add('sp-open');
+  _visible = true;
+}
+
+export function hideSettingsPanel() {
+  const ov = document.getElementById('sp-overlay');
+  if (!ov) return;
+  ov.classList.remove('sp-open');
+  _visible = false;
+}
+
+export function toggleSettingsPanel() {
+  _visible ? hideSettingsPanel() : showSettingsPanel();
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────
+
+function _injectStyles() {
+  const s = document.createElement('style');
+  s.textContent = `
+    :root {
+      --sp-bg:       rgba(10,9,20,0.96);
+      --sp-surface:  rgba(255,255,255,0.05);
+      --sp-border:   rgba(255,255,255,0.09);
+      --sp-text:     rgba(255,255,255,0.90);
+      --sp-muted:    rgba(255,255,255,0.45);
+      --sp-accent:   #7c6af7;
+      --sp-danger:   #f87171;
+      --sp-on:       #7c6af7;
+      --sp-off:      rgba(255,255,255,0.15);
+    }
+
+    /* ── Overlay ── */
     #sp-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.60);
+      background: rgba(0,0,0,0.55);
       z-index: 310;
       display: none;
-      align-items: center; justify-content: center;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      align-items: flex-end;
+      justify-content: center;
+      font-family: 'DM Sans', 'Segoe UI', Arial, sans-serif;
     }
     #sp-overlay.sp-open { display: flex; }
+
+    /* ── Panel ── */
     #sp-panel {
-      background: rgba(14,14,26,0.97);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 18px;
-      padding: 28px 32px 24px;
-      width: min(420px, 90vw);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-      backdrop-filter: blur(18px);
-      color: #fff;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      max-width: 480px;
+      background: var(--sp-bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
+      animation: sp-slidein .28s cubic-bezier(.32,1,.45,1);
     }
-    #sp-panel h2 {
-      margin: 0 0 22px;
-      font-size: 18px; font-weight: 700; letter-spacing: 0.5px;
-      color: #fff;
+    @keyframes sp-slidein {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
     }
-    .sp-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 11px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+
+    /* ── Drag handle ── */
+    #sp-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.2);
+      margin: 10px auto 0; flex-shrink: 0;
     }
-    .sp-row:last-of-type { border-bottom: none; }
-    .sp-label {
-      font-size: 14px; color: rgba(255,255,255,0.80);
-    }
-    .sp-toggle {
-      width: 44px; height: 24px; border-radius: 12px;
-      background: rgba(255,255,255,0.15);
-      border: 1.5px solid rgba(255,255,255,0.22);
-      cursor: pointer; position: relative; transition: background 0.2s;
+
+    /* ── Header ── */
+    #sp-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px;
+      height: 48px;
+      border-bottom: 1px solid var(--sp-border);
       flex-shrink: 0;
     }
-    .sp-toggle.on { background: #7c6af7; border-color: #9a8aff; }
-    .sp-toggle::after {
-      content: '';
+    #sp-close-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; background: var(--sp-surface);
+      color: var(--sp-muted); font-size: 16px; cursor: pointer;
+      flex-shrink: 0; transition: background .15s;
+    }
+    #sp-close-btn:hover { background: rgba(255,255,255,0.12); }
+    #sp-header h2 {
+      flex: 1; text-align: center;
+      font-size: 16px; font-weight: 600; color: var(--sp-text);
+      margin: 0; letter-spacing: -.01em;
+    }
+    #sp-header-spacer { width: 32px; flex-shrink: 0; }
+
+    /* ── Body ── */
+    #sp-body {
+      flex: 1; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: 14px 12px 60px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* ── Section ── */
+    .sp-sec-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--sp-muted);
+      padding: 0 4px; margin-bottom: -12px;
+    }
+    .sp-card {
+      background: var(--sp-surface);
+      border: 1px solid var(--sp-border);
+      border-radius: 14px; overflow: hidden;
+    }
+
+    /* ── Rows ── */
+    .sp-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px; gap: 10px; min-height: 46px;
+    }
+    .sp-row + .sp-row,
+    .sp-slider-row + .sp-row,
+    .sp-row + .sp-slider-row,
+    .sp-slider-row + .sp-slider-row,
+    .sp-pill-row + .sp-row,
+    .sp-row + .sp-pill-row,
+    .sp-pill-row + .sp-pill-row,
+    .sp-pill-row + .sp-slider-row,
+    .sp-slider-row + .sp-pill-row,
+    .sp-disc + .sp-pill-row,
+    .sp-pill-row + .sp-disc {
+      border-top: 1px solid var(--sp-border);
+    }
+    .sp-row-label {
+      font-size: 14px; font-weight: 500; color: var(--sp-text);
+      flex: 1; min-width: 0;
+    }
+
+    /* ── Pill row (stacked: label above, pills below) ── */
+    .sp-pill-row {
+      display: flex; flex-direction: column;
+      padding: 11px 14px 12px; gap: 9px;
+    }
+    .sp-pill-row-label {
+      font-size: 14px; font-weight: 500; color: var(--sp-text);
+    }
+
+    /* ── Account info ── */
+    .sp-account-info {
+      padding: 16px 14px 14px;
+      border-bottom: 1px solid var(--sp-border);
+    }
+    .sp-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, #7c6af7, #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; margin-bottom: 10px;
+    }
+    .sp-account-name {
+      font-size: 15px; font-weight: 700; color: var(--sp-text);
+      margin-bottom: 2px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sp-account-detail {
+      font-size: 12px; color: var(--sp-muted); margin-bottom: 1px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ── Action buttons (Edit Profile, Change Password, etc.) ── */
+    .sp-action-btn {
+      display: block; width: 100%;
+      padding: 13px 14px;
+      background: none; border: none;
+      font-family: inherit; font-size: 14px; font-weight: 500;
+      color: var(--sp-text); text-align: left; cursor: pointer;
+      transition: background .1s;
+    }
+    .sp-action-btn:active { background: rgba(255,255,255,0.06); }
+    .sp-action-btn + .sp-action-btn { border-top: 1px solid var(--sp-border); }
+    .sp-action-btn.accent { color: var(--sp-accent); }
+    .sp-action-btn.danger { color: var(--sp-danger); }
+
+    /* ── Toggle ── */
+    .sp-tog {
+      position: relative; width: 46px; height: 27px; flex-shrink: 0;
+    }
+    .sp-tog input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .sp-tog-track {
+      position: absolute; inset: 0; border-radius: 14px;
+      background: var(--sp-off); transition: background .2s; cursor: pointer;
+    }
+    .sp-tog input:checked ~ .sp-tog-track { background: var(--sp-on); }
+    .sp-tog-thumb {
       position: absolute; top: 3px; left: 3px;
-      width: 16px; height: 16px;
-      border-radius: 50%; background: #fff;
-      transition: transform 0.2s;
+      width: 21px; height: 21px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35);
+      transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none;
     }
-    .sp-toggle.on::after { transform: translateX(20px); }
-    .sp-quality-btns { display: flex; gap: 6px; }
-    .sp-qbtn {
-      padding: 5px 13px; border-radius: 12px; font-size: 12px;
-      font-weight: 600; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.22);
-      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65);
-      transition: all 0.15s;
+    .sp-tog input:checked ~ .sp-tog-thumb { transform: translateX(19px); }
+
+    /* ── Slider row ── */
+    .sp-slider-row { padding: 12px 14px 14px; }
+    .sp-slider-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 9px;
     }
-    .sp-qbtn.active {
-      background: #7c6af7; border-color: #9a8aff; color: #fff;
+    .sp-slider-name { font-size: 14px; font-weight: 500; color: var(--sp-text); }
+    .sp-slider-val {
+      font-size: 12px; color: var(--sp-muted);
+      font-variant-numeric: tabular-nums; min-width: 32px; text-align: right;
     }
-    .sp-slider {
+    .sp-range {
       -webkit-appearance: none; appearance: none;
-      width: 140px; height: 4px; border-radius: 2px;
-      background: rgba(255,255,255,0.18); outline: none; cursor: pointer;
+      display: block; width: 100%; height: 3px; border-radius: 999px;
+      background: linear-gradient(
+        to right,
+        var(--sp-accent) 0%,
+        var(--sp-accent) var(--pct, 50%),
+        rgba(255,255,255,0.18) var(--pct, 50%),
+        rgba(255,255,255,0.18) 100%
+      );
+      outline: none; cursor: pointer;
     }
-    .sp-slider::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 18px; height: 18px;
-      border-radius: 50%; background: #7c6af7; cursor: pointer;
-      border: 2px solid #9a8aff;
+    .sp-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 5px rgba(0,0,0,.4), 0 0 0 .5px rgba(0,0,0,.1);
+      cursor: pointer;
+      transition: transform .12s cubic-bezier(.34,1.56,.64,1);
     }
-    .sp-close-btn {
-      margin-top: 22px; width: 100%;
-      padding: 11px; border-radius: 26px;
-      background: rgba(124,106,247,0.85); color: #fff;
-      font-size: 14px; font-weight: 700; border: none; cursor: pointer;
-      letter-spacing: 0.5px;
-      transition: background 0.15s;
+    .sp-range:active::-webkit-slider-thumb { transform: scale(1.15); }
+
+    /* ── Pill group (multi-option selector) ── */
+    .sp-pills {
+      display: flex; gap: 6px; width: 100%;
     }
-    .sp-close-btn:hover { background: #7c6af7; }
-    .sp-rules-btn {
-      width: 100%; margin-top: 10px;
-      padding: 11px; border-radius: 26px;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.14);
-      color: rgba(255,255,255,0.75);
-      font-size: 14px; font-weight: 600; cursor: pointer;
-      letter-spacing: 0.5px; transition: background 0.15s;
-      font-family: 'Segoe UI', Arial, sans-serif;
+    .sp-pill {
+      flex: 1; padding: 8px 4px; border-radius: 10px;
+      font-size: 12px; font-weight: 600; text-align: center;
+      cursor: pointer; border: 1.5px solid var(--sp-border);
+      background: transparent; color: var(--sp-muted);
+      font-family: inherit; transition: all .15s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .sp-rules-btn:hover { background: rgba(255,255,255,0.13); }
+    .sp-pill.active {
+      background: var(--sp-accent); border-color: var(--sp-accent); color: #fff;
+    }
+
+    /* ── Select dropdown ── */
+    .sp-select-wrap { position: relative; flex-shrink: 0; }
+    .sp-select-wrap::after {
+      content: ''; position: absolute; right: 9px; top: 50%;
+      transform: translateY(-50%);
+      border: 4px solid transparent;
+      border-top-color: var(--sp-muted); border-bottom: none;
+      pointer-events: none;
+    }
+    .sp-select {
+      -webkit-appearance: none; appearance: none;
+      background: rgba(255,255,255,0.08);
+      border: 1.5px solid var(--sp-border);
+      color: var(--sp-text); font-family: inherit;
+      font-size: 13px; font-weight: 500;
+      padding: 6px 26px 6px 10px; border-radius: 10px;
+      cursor: pointer; outline: none; min-width: 100px;
+    }
+
+    /* ── Disclosure row (chevron, for "Open" items) ── */
+    .sp-disc {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 14px; gap: 10px; min-height: 48px;
+      background: none; border: none; width: 100%;
+      font-family: inherit; color: var(--sp-text); text-align: left;
+      cursor: pointer; transition: background .1s;
+    }
+    .sp-disc + .sp-disc,
+    .sp-disc + .sp-row,
+    .sp-row + .sp-disc,
+    .sp-disc + .sp-slider-row,
+    .sp-slider-row + .sp-disc { border-top: 1px solid var(--sp-border); }
+    .sp-disc:active { background: rgba(255,255,255,0.05); }
+    .sp-disc-label { font-size: 14px; font-weight: 500; }
+    .sp-disc-chevron { color: var(--sp-muted); flex-shrink: 0; }
+
+    /* ── Version card ── */
+    .sp-version-card {
+      background: var(--sp-surface);
+      border: 1px solid var(--sp-border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .sp-version-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 0; font-size: 13px;
+    }
+    .sp-version-row:first-child { padding-top: 0; }
+    .sp-version-row:last-child  { padding-bottom: 0; }
+    .sp-version-key   { color: var(--sp-muted); }
+    .sp-version-val   { color: var(--sp-text); font-weight: 600; }
+    .sp-server-online { color: #4ade80; font-weight: 700; }
 
     /* ── Rules overlay ── */
     #sp-rules-overlay {
@@ -154,18 +386,17 @@ function _buildPanel(renderer) {
       background: rgba(0,0,0,0.72);
       z-index: 320;
       display: none; align-items: flex-end; justify-content: center;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      font-family: 'DM Sans', 'Segoe UI', Arial, sans-serif;
     }
     #sp-rules-overlay.open { display: flex; }
     #sp-rules-sheet {
       background: rgba(14,14,26,0.98);
-      border: 1px solid rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.10);
       border-radius: 20px 20px 0 0;
       width: min(480px, 100vw);
       max-height: 88vh;
       display: flex; flex-direction: column;
       box-shadow: 0 -10px 50px rgba(0,0,0,0.6);
-      backdrop-filter: blur(20px);
     }
     #sp-rules-sheet .rsh-handle {
       width: 36px; height: 4px; border-radius: 2px;
@@ -178,15 +409,13 @@ function _buildPanel(renderer) {
       border-bottom: 1px solid rgba(255,255,255,0.08);
       flex-shrink: 0;
     }
-    #sp-rules-sheet .rsh-title {
-      font-size: 16px; font-weight: 700; color: #fff;
-    }
+    #sp-rules-sheet .rsh-title { font-size: 16px; font-weight: 700; color: #fff; }
     #sp-rules-sheet .rsh-close {
       width: 28px; height: 28px; border-radius: 50%;
       border: none; background: rgba(255,255,255,0.12);
       color: rgba(255,255,255,0.7); font-size: 14px;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s;
+      transition: background .15s;
     }
     #sp-rules-sheet .rsh-close:hover { background: rgba(255,255,255,0.22); }
     #sp-rules-body {
@@ -197,84 +426,381 @@ function _buildPanel(renderer) {
     #sp-rules-body .ri { color: rgba(255,255,255,0.55); margin-bottom: 20px; }
     #sp-rules-body h3 {
       font-size: 11px; font-weight: 700; letter-spacing: .07em;
-      text-transform: uppercase; color: #9a8aff;
-      margin: 20px 0 7px;
+      text-transform: uppercase; color: #9a8aff; margin: 20px 0 7px;
     }
-    #sp-rules-body p { margin-bottom: 8px; }
+    #sp-rules-body p  { margin-bottom: 8px; }
     #sp-rules-body ul { padding-left: 16px; margin: 4px 0 8px; }
     #sp-rules-body ul li { margin-bottom: 4px; }
-    #sp-rules-body a { color: #9a8aff; text-decoration: none; }
+    #sp-rules-body a  { color: #9a8aff; text-decoration: none; }
   `;
-  document.head.appendChild(style);
+  document.head.appendChild(s);
+}
 
+// ── Panel DOM ─────────────────────────────────────────────────────────────
+
+function _buildPanel() {
   const overlay = document.createElement('div');
   overlay.id = 'sp-overlay';
-
-  _panel = document.createElement('div');
-  _panel.id = 'sp-panel';
-
-  _panel.innerHTML = `<h2>⚙ Settings</h2>`;
-
-  // Music mute
-  _panel.appendChild(_makeToggleRow('Music', 'sp-music', _settings.musicMuted, v => {
-    _settings.musicMuted = v; _save();
-  }));
-
-  // SFX mute
-  _panel.appendChild(_makeToggleRow('Sound Effects', 'sp-sfx', _settings.sfxMuted, v => {
-    _settings.sfxMuted = v; _save();
-  }));
-
-  // Graphics quality
-  const qRow = _makeRow('Graphics Quality');
-  const qBtns = document.createElement('div');
-  qBtns.className = 'sp-quality-btns';
-  ['low', 'medium', 'high'].forEach(q => {
-    const b = document.createElement('button');
-    b.className = 'sp-qbtn' + (q === _settings.quality ? ' active' : '');
-    b.textContent = q.charAt(0).toUpperCase() + q.slice(1);
-    b.addEventListener('click', () => {
-      _settings.quality = q;
-      _save();
-      qBtns.querySelectorAll('.sp-qbtn').forEach(x => x.classList.toggle('active', x === b));
-      applyQualitySettings(renderer);
-    });
-    qBtns.appendChild(b);
-  });
-  qRow.appendChild(qBtns);
-  _panel.appendChild(qRow);
-
-  // Sensitivity
-  const sensRow = _makeRow('Look Sensitivity');
-  const slider = document.createElement('input');
-  slider.type = 'range'; slider.min = '0.3'; slider.max = '2.0'; slider.step = '0.05';
-  slider.value = String(_settings.sensitivity);
-  slider.className = 'sp-slider';
-  slider.addEventListener('input', () => {
-    _settings.sensitivity = parseFloat(slider.value);
-    _save();
-  });
-  sensRow.appendChild(slider);
-  _panel.appendChild(sensRow);
-
-  const rulesBtn = document.createElement('button');
-  rulesBtn.className = 'sp-rules-btn';
-  rulesBtn.textContent = '📜  Game Rules';
-  rulesBtn.addEventListener('click', _showRules);
-  _panel.appendChild(rulesBtn);
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'sp-close-btn';
-  closeBtn.textContent = 'Close';
-  closeBtn.addEventListener('click', hideSettingsPanel);
-  _panel.appendChild(closeBtn);
-
-  overlay.appendChild(_panel);
-  document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) hideSettingsPanel(); });
 
-  _buildRulesOverlay();
+  const panel = document.createElement('div');
+  panel.id = 'sp-panel';
+
+  // Drag handle
+  const handle = document.createElement('div');
+  handle.id = 'sp-handle';
+  panel.appendChild(handle);
+
+  // Header
+  const header = document.createElement('div');
+  header.id = 'sp-header';
+  const closeBtn = document.createElement('button');
+  closeBtn.id = 'sp-close-btn';
+  closeBtn.innerHTML = '✕';
+  closeBtn.addEventListener('click', hideSettingsPanel);
+  const title = document.createElement('h2');
+  title.textContent = 'Settings';
+  const spacer = document.createElement('div');
+  spacer.id = 'sp-header-spacer';
+  header.append(closeBtn, title, spacer);
+
+  // Body
+  const body = document.createElement('div');
+  body.id = 'sp-body';
+
+  // ── Account ──────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Account'),
+    _accountCard()
+  );
+
+  // ── Sound ─────────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Sound'),
+    _card([
+      _sliderRow('Music Volume',             'musicVolume',  _settings.musicVolume),
+      _sliderRow('Sound Effects',            'sfxVolume',    _settings.sfxVolume),
+      _sliderRow('Voice / Character Sounds', 'voiceVolume',  _settings.voiceVolume),
+      _toggleRow('Mute All',                 'muteAll',      _settings.muteAll),
+    ])
+  );
+
+  // ── Graphics ──────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Graphics'),
+    _card([
+      _pillRow('Graphics Quality', 'quality',     ['Low','Medium','High'],  _settings.quality),
+      _pillRow('Frame Rate',       'frameRate',   ['30 FPS','60 FPS'],      _settings.frameRate === 30 ? '30 FPS' : '60 FPS'),
+      _toggleRow('Battery Saver Mode', 'batterySaver', _settings.batterySaver),
+      _toggleRow('Animations',         'animations',   _settings.animations),
+    ])
+  );
+
+  // ── Controls ──────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Controls'),
+    _card([
+      _pillRow('Movement Type', 'movementType', ['Joystick','Tap to Move'], _settings.movementType === 'joystick' ? 'Joystick' : 'Tap to Move'),
+      _sliderRow('Camera Sensitivity', 'sensitivity', Math.round((_settings.sensitivity - 0.3) / 1.7 * 100), { min: 0, max: 100, label: v => ['Low','Mid','High'][v < 34 ? 0 : v < 67 ? 1 : 2] }),
+      _toggleRow('Invert Camera', 'invertCamera', _settings.invertCamera),
+      _pillRow('Button Size', 'buttonSize', ['Small','Medium','Large'], _settings.buttonSize.charAt(0).toUpperCase() + _settings.buttonSize.slice(1)),
+    ])
+  );
+
+  // ── Notifications ─────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Notifications'),
+    _card([
+      _toggleRow('Game Notifications', 'notifGame',     _settings.notifGame),
+      _toggleRow('Room Updates',       'notifRoom',     _settings.notifRoom),
+      _toggleRow('Messages',           'notifMessages', _settings.notifMessages),
+      _toggleRow('Events & Rewards',   'notifEvents',   _settings.notifEvents),
+    ])
+  );
+
+  // ── Language ──────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Language'),
+    _card([
+      _selectRow('Language', 'language', [
+        { value: 'en',    label: 'English'  },
+        { value: 'he',    label: 'עברית'    },
+        { value: 'es',    label: 'Español'  },
+        { value: 'fr',    label: 'Français' },
+        { value: 'ar',    label: 'العربية'  },
+        { value: 'other', label: 'Other'    },
+      ], _settings.language),
+    ])
+  );
+
+  // ── Privacy & Safety ──────────────────────────────────────────────────
+  body.append(
+    _secLabel('Privacy & Safety'),
+    _card([
+      _pillRow('Chat',             'chatPrivacy',    ['Everyone','Friends Only','Off'], _privLabel(_settings.chatPrivacy)),
+      _pillRow('Friend Requests',  'friendRequests', ['Everyone','Friends Only','Off'], _privLabel(_settings.friendRequests)),
+      _toggleRow('Show Online Status', 'showOnlineStatus', _settings.showOnlineStatus),
+      _discRow('Block List',    () => alert('Block list coming soon.')),
+      _discRow('Report Player', () => alert('Report Player coming soon.')),
+    ])
+  );
+
+  // ── Gameplay ──────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Gameplay'),
+    _card([
+      _toggleRow('Tutorial Tips',      'tutorialTips',    _settings.tutorialTips),
+      _toggleRow('Auto Save',          'autoSave',        _settings.autoSave),
+      _toggleRow('Vibration',          'vibration',       _settings.vibration),
+      _toggleRow('Show Player Names',  'showPlayerNames', _settings.showPlayerNames),
+    ])
+  );
+
+  // ── Support ───────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Support'),
+    _card([
+      _discRow('Help Center',      () => alert('Help Center coming soon.')),
+      _discRow('Contact Support',  () => alert('Contact Support coming soon.')),
+      _discRow('Report a Bug',     () => alert('Report a Bug coming soon.')),
+      _discRow('Feedback',         () => alert('Feedback coming soon.')),
+    ])
+  );
+
+  // ── Legal ─────────────────────────────────────────────────────────────
+  body.append(
+    _secLabel('Legal'),
+    _card([
+      _discRow('Game Rules',           _showRules),
+      _discRow('Terms and Conditions', () => alert('Terms and Conditions coming soon.')),
+      _discRow('Privacy Policy',       () => alert('Privacy Policy coming soon.')),
+      _discRow('Licenses',             () => alert('Licenses coming soon.')),
+    ])
+  );
+
+  // ── Version ───────────────────────────────────────────────────────────
+  body.append(_secLabel('Version'), _versionCard());
+
+  panel.append(header, body);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
 }
+
+// ── DOM helpers ───────────────────────────────────────────────────────────
+
+function _secLabel(text) {
+  const p = document.createElement('p');
+  p.className = 'sp-sec-label';
+  p.textContent = text;
+  return p;
+}
+
+function _card(rows) {
+  const div = document.createElement('div');
+  div.className = 'sp-card';
+  rows.forEach(r => div.appendChild(r));
+  return div;
+}
+
+function _toggleRow(label, key, initial) {
+  const row = document.createElement('div');
+  row.className = 'sp-row';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'sp-row-label';
+  lbl.textContent = label;
+
+  const tog = document.createElement('label');
+  tog.className = 'sp-tog';
+  const inp = document.createElement('input');
+  inp.type = 'checkbox';
+  inp.checked = !!initial;
+  inp.addEventListener('change', () => {
+    _settings[key] = inp.checked;
+    _save();
+  });
+  const track = document.createElement('span');
+  track.className = 'sp-tog-track';
+  const thumb = document.createElement('span');
+  thumb.className = 'sp-tog-thumb';
+  tog.append(inp, track, thumb);
+
+  row.append(lbl, tog);
+  return row;
+}
+
+function _sliderRow(label, key, initial, opts = {}) {
+  const min = opts.min ?? 0, max = opts.max ?? 100;
+  const pct  = ((initial - min) / (max - min)) * 100;
+  const fmt  = opts.label ?? (v => v + '%');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'sp-slider-row';
+
+  const head = document.createElement('div');
+  head.className = 'sp-slider-head';
+
+  const name = document.createElement('span');
+  name.className = 'sp-slider-name';
+  name.textContent = label;
+
+  const val = document.createElement('span');
+  val.className = 'sp-slider-val';
+  val.textContent = fmt(initial);
+
+  head.append(name, val);
+
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.className = 'sp-range';
+  input.min = min; input.max = max; input.value = initial;
+  input.style.setProperty('--pct', pct + '%');
+
+  input.addEventListener('input', () => {
+    const v = Number(input.value);
+    const p = ((v - min) / (max - min)) * 100;
+    input.style.setProperty('--pct', p + '%');
+    val.textContent = fmt(v);
+
+    if (key === 'sensitivity') {
+      _settings.sensitivity = 0.3 + (v / 100) * 1.7;
+    } else {
+      _settings[key] = v;
+    }
+    _save();
+  });
+
+  wrap.append(head, input);
+  return wrap;
+}
+
+function _pillRow(label, key, options, current) {
+  const row = document.createElement('div');
+  row.className = 'sp-pill-row';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'sp-pill-row-label';
+  lbl.textContent = label;
+
+  const pills = document.createElement('div');
+  pills.className = 'sp-pills';
+
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'sp-pill' + (opt === current ? ' active' : '');
+    btn.textContent = opt;
+    btn.addEventListener('click', () => {
+      pills.querySelectorAll('.sp-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      // map display label back to stored value
+      if (key === 'quality')       _settings.quality       = opt.toLowerCase();
+      else if (key === 'frameRate')     _settings.frameRate     = opt === '30 FPS' ? 30 : 60;
+      else if (key === 'movementType')  _settings.movementType  = opt === 'Joystick' ? 'joystick' : 'tap';
+      else if (key === 'buttonSize')    _settings.buttonSize    = opt.toLowerCase();
+      else if (key === 'chatPrivacy' || key === 'friendRequests') {
+        _settings[key] = opt === 'Everyone' ? 'everyone' : opt === 'Friends Only' ? 'friends' : 'off';
+      }
+      _save();
+      if (key === 'quality' && _renderer) applyQualitySettings(_renderer);
+    });
+    pills.appendChild(btn);
+  });
+
+  row.append(lbl, pills);
+  return row;
+}
+
+function _selectRow(label, key, options, current) {
+  const row = document.createElement('div');
+  row.className = 'sp-row';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'sp-row-label';
+  lbl.textContent = label;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'sp-select-wrap';
+
+  const sel = document.createElement('select');
+  sel.className = 'sp-select';
+  options.forEach(({ value, label: optLabel }) => {
+    const o = document.createElement('option');
+    o.value = value; o.textContent = optLabel;
+    if (value === current) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => {
+    _settings[key] = sel.value;
+    _save();
+  });
+  wrap.appendChild(sel);
+  row.append(lbl, wrap);
+  return row;
+}
+
+function _discRow(label, onClick) {
+  const btn = document.createElement('button');
+  btn.className = 'sp-disc';
+  btn.innerHTML = `
+    <span class="sp-disc-label">${label}</span>
+    <svg class="sp-disc-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none">
+      <path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function _accountCard() {
+  const card = document.createElement('div');
+  card.className = 'sp-card';
+
+  const info = document.createElement('div');
+  info.className = 'sp-account-info';
+  info.innerHTML = `
+    <div class="sp-avatar">🧑</div>
+    <div class="sp-account-name">[Player Name]</div>
+    <div class="sp-account-detail">[Player Email]</div>
+    <div class="sp-account-detail">ID: [ID Number]</div>`;
+  card.appendChild(info);
+
+  const actions = [
+    { label: 'Edit Profile',     cls: '',       fn: () => alert('Edit Profile coming soon.') },
+    { label: 'Change Password',  cls: '',       fn: () => alert('Change Password coming soon.') },
+    { label: 'Log Out',          cls: 'accent', fn: () => { if (confirm('Log out?')) alert('Logged out.'); } },
+    { label: 'Delete Account',   cls: 'danger', fn: () => { if (confirm('Delete your account? This cannot be undone.')) alert('Account deletion coming soon.'); } },
+  ];
+  actions.forEach(({ label, cls, fn }) => {
+    const btn = document.createElement('button');
+    btn.className = 'sp-action-btn' + (cls ? ' ' + cls : '');
+    btn.textContent = label;
+    btn.addEventListener('click', fn);
+    card.appendChild(btn);
+  });
+
+  return card;
+}
+
+function _versionCard() {
+  const div = document.createElement('div');
+  div.className = 'sp-version-card';
+  div.innerHTML = `
+    <div class="sp-version-row">
+      <span class="sp-version-key">Suy-world Version</span>
+      <span class="sp-version-val">1.0.0</span>
+    </div>
+    <div class="sp-version-row">
+      <span class="sp-version-key">Server</span>
+      <span class="sp-version-val sp-server-online">● Online</span>
+    </div>`;
+  return div;
+}
+
+function _privLabel(val) {
+  return val === 'everyone' ? 'Everyone' : val === 'friends' ? 'Friends Only' : 'Off';
+}
+
+// ── Game Rules overlay ────────────────────────────────────────────────────
 
 function _buildRulesOverlay() {
   const ov = document.createElement('div');
@@ -407,47 +933,10 @@ function _buildRulesOverlay() {
 
 function _showRules() {
   document.getElementById('sp-rules-overlay')?.classList.add('open');
-  document.getElementById('sp-rules-body').scrollTop = 0;
+  const body = document.getElementById('sp-rules-body');
+  if (body) body.scrollTop = 0;
 }
 
 function _hideRules() {
   document.getElementById('sp-rules-overlay')?.classList.remove('open');
-}
-
-function _makeRow(label) {
-  const row = document.createElement('div');
-  row.className = 'sp-row';
-  const lbl = document.createElement('span');
-  lbl.className = 'sp-label'; lbl.textContent = label;
-  row.appendChild(lbl);
-  return row;
-}
-
-function _makeToggleRow(label, id, initialValue, onChange) {
-  const row = _makeRow(label);
-  const tog = document.createElement('div');
-  tog.className = 'sp-toggle' + (initialValue ? '' : ' on');
-  // "muted" starts as false → show as ON (enabled)
-  tog.classList.toggle('on', !initialValue);
-  tog.addEventListener('click', () => {
-    const muted = tog.classList.toggle('on');
-    // on = NOT muted
-    onChange(!muted);
-  });
-  row.appendChild(tog);
-  return row;
-}
-
-export function showSettingsPanel() {
-  document.getElementById('sp-overlay')?.classList.add('sp-open');
-  _visible = true;
-}
-
-export function hideSettingsPanel() {
-  document.getElementById('sp-overlay')?.classList.remove('sp-open');
-  _visible = false;
-}
-
-export function toggleSettingsPanel() {
-  _visible ? hideSettingsPanel() : showSettingsPanel();
 }
