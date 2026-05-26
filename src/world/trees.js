@@ -31,6 +31,23 @@ export function preloadTrees() {
   _promise = new Promise((resolve, reject) =>
     _loader.load(GLB_URL, gltf => {
       const root = gltf.scene;
+      root.updateMatrixWorld(true);
+
+      // FBX->GLB round-trip may leave the tree lying on its side.
+      // Detect by comparing bounding-box extents and rotate upright if needed.
+      {
+        const b = new THREE.Box3().setFromObject(root);
+        const s = b.getSize(new THREE.Vector3());
+        if (s.z > s.y * 1.5 && s.z >= s.x) {
+          // Tall in Z: apply -90° around X to bring Z into Y
+          root.rotation.x = -Math.PI / 2;
+          root.updateMatrixWorld(true);
+        } else if (s.x > s.y * 1.5 && s.x > s.z) {
+          // Tall in X: apply 90° around Z to bring X into Y
+          root.rotation.z = Math.PI / 2;
+          root.updateMatrixWorld(true);
+        }
+      }
 
       let leafCount = 0, trunkCount = 0;
       root.traverse(n => {
