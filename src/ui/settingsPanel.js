@@ -392,6 +392,32 @@ function _injectStyles() {
     .sp-version-val   { color: var(--sp-text); font-weight: 600; }
     .sp-server-online { color: #4ade80; font-weight: 700; }
 
+    /* ── Tab bar ── */
+    #sp-tabs {
+      display: flex; gap: 6px;
+      padding: 10px 12px 0;
+      flex-shrink: 0;
+    }
+    .sp-tab {
+      flex: 1; padding: 8px 4px;
+      border: 1.5px solid var(--sp-border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--sp-muted);
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      text-align: center; cursor: pointer;
+      transition: all .18s; white-space: nowrap;
+    }
+    .sp-tab.active {
+      background: var(--sp-accent);
+      border-color: var(--sp-accent);
+      color: #fff;
+    }
+
+    /* ── Tab panels ── */
+    .sp-tab-panel { display: none; }
+    .sp-tab-panel.active { display: contents; }
+
     /* ── Rules overlay ── */
     #sp-rules-overlay {
       position: fixed; inset: 0;
@@ -476,64 +502,28 @@ function _buildPanel() {
   spacer.id = 'sp-header-spacer';
   header.append(closeBtn, title, spacer);
 
+  // Tab bar
+  const tabBar = document.createElement('div');
+  tabBar.id = 'sp-tabs';
+  const tabDefs = ['System', 'General', 'Graphics'];
+  const tabs = tabDefs.map(name => {
+    const btn = document.createElement('button');
+    btn.className = 'sp-tab';
+    btn.textContent = name;
+    tabBar.appendChild(btn);
+    return btn;
+  });
+
   // Body
   const body = document.createElement('div');
   body.id = 'sp-body';
 
-  // ── Account ──────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Account'),
-    _accountCard()
-  );
-
-  // ── Sound ─────────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Sound'),
-    _card([
-      _sliderRow('Music Volume',             'musicVolume',  _settings.musicVolume),
-      _sliderRow('Sound Effects',            'sfxVolume',    _settings.sfxVolume),
-      _sliderRow('Voice / Character Sounds', 'voiceVolume',  _settings.voiceVolume),
-      _toggleRow('Mute All',                 'muteAll',      _settings.muteAll),
-    ])
-  );
-
-  // ── Graphics ──────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Graphics'),
-    _card([
-      _pillRow('Graphics Quality', 'quality',     ['Low','Medium','High'],  _settings.quality),
-      _pillRow('Frame Rate',       'frameRate',   ['30 FPS','60 FPS'],      _settings.frameRate === 30 ? '30 FPS' : '60 FPS'),
-      _toggleRow('Battery Saver Mode', 'batterySaver', _settings.batterySaver),
-      _toggleRow('Animations',         'animations',   _settings.animations),
-    ])
-  );
-
-  // ── Controls ──────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Controls'),
-    _card([
-      _pillRow('Movement Type', 'movementType', ['Joystick','Tap to Move'], _settings.movementType === 'joystick' ? 'Joystick' : 'Tap to Move'),
-      _sliderRow('Camera Sensitivity', 'sensitivity', Math.round((_settings.sensitivity - 0.3) / 1.7 * 100), { min: 0, max: 100, label: v => ['Low','Mid','High'][v < 34 ? 0 : v < 67 ? 1 : 2] }),
-      _toggleRow('Invert Camera', 'invertCamera', _settings.invertCamera),
-      _pillRow('Button Size', 'buttonSize', ['Small','Medium','Large'], _settings.buttonSize.charAt(0).toUpperCase() + _settings.buttonSize.slice(1)),
-    ])
-  );
-
-  // ── Notifications ─────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Notifications'),
-    _card([
-      _toggleRow('Game Notifications', 'notifGame',     _settings.notifGame),
-      _toggleRow('Room Updates',       'notifRoom',     _settings.notifRoom),
-      _toggleRow('Messages',           'notifMessages', _settings.notifMessages),
-      _toggleRow('Events & Rewards',   'notifEvents',   _settings.notifEvents),
-    ])
-  );
-
-  // ── Language ──────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Language'),
-    _card([
+  // ── System Settings panel ─────────────────────────────────────────────
+  const sysPanel = document.createElement('div');
+  sysPanel.className = 'sp-tab-panel active';
+  sysPanel.append(
+    _secLabel('Account'), _accountCard(),
+    _secLabel('Language'), _card([
       _selectRow('Language', 'language', [
         { value: 'en',    label: 'English'  },
         { value: 'he',    label: 'עברית'    },
@@ -542,25 +532,52 @@ function _buildPanel() {
         { value: 'ar',    label: 'العربية'  },
         { value: 'other', label: 'Other'    },
       ], _settings.language),
-    ])
-  );
-
-  // ── Privacy & Safety ──────────────────────────────────────────────────
-  body.append(
-    _secLabel('Privacy & Safety'),
-    _card([
+    ]),
+    _secLabel('Notifications'), _card([
+      _toggleRow('Game Notifications', 'notifGame',     _settings.notifGame),
+      _toggleRow('Room Updates',       'notifRoom',     _settings.notifRoom),
+      _toggleRow('Messages',           'notifMessages', _settings.notifMessages),
+      _toggleRow('Events & Rewards',   'notifEvents',   _settings.notifEvents),
+    ]),
+    _secLabel('Privacy & Safety'), _card([
       _pillRow('Chat',             'chatPrivacy',    ['Everyone','Friends Only','Off'], _privLabel(_settings.chatPrivacy)),
       _pillRow('Friend Requests',  'friendRequests', ['Everyone','Friends Only','Off'], _privLabel(_settings.friendRequests)),
       _toggleRow('Show Online Status', 'showOnlineStatus', _settings.showOnlineStatus),
       _discRow('Block List',    () => alert('Block list coming soon.')),
       _discRow('Report Player', () => alert('Report Player coming soon.')),
-    ])
+    ]),
+    _secLabel('Support'), _card([
+      _discRow('Help Center',      () => alert('Help Center coming soon.')),
+      _discRow('Contact Support',  () => alert('Contact Support coming soon.')),
+      _discRow('Report a Bug',     () => alert('Report a Bug coming soon.')),
+      _discRow('Feedback',         () => alert('Feedback coming soon.')),
+    ]),
+    _secLabel('Legal'), _card([
+      _discRow('Game Rules',           _showRules),
+      _discRow('Terms and Conditions', () => alert('Terms and Conditions coming soon.')),
+      _discRow('Privacy Policy',       () => alert('Privacy Policy coming soon.')),
+      _discRow('Licenses',             () => alert('Licenses coming soon.')),
+    ]),
+    _secLabel('Version'), _versionCard()
   );
 
-  // ── Gameplay ──────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Gameplay'),
-    _card([
+  // ── General Settings panel ────────────────────────────────────────────
+  const genPanel = document.createElement('div');
+  genPanel.className = 'sp-tab-panel';
+  genPanel.append(
+    _secLabel('Sound'), _card([
+      _sliderRow('Music Volume',             'musicVolume',  _settings.musicVolume),
+      _sliderRow('Sound Effects',            'sfxVolume',    _settings.sfxVolume),
+      _sliderRow('Voice / Character Sounds', 'voiceVolume',  _settings.voiceVolume),
+      _toggleRow('Mute All',                 'muteAll',      _settings.muteAll),
+    ]),
+    _secLabel('Controls'), _card([
+      _pillRow('Movement Type', 'movementType', ['Joystick','Tap to Move'], _settings.movementType === 'joystick' ? 'Joystick' : 'Tap to Move'),
+      _sliderRow('Camera Sensitivity', 'sensitivity', Math.round((_settings.sensitivity - 0.3) / 1.7 * 100), { min: 0, max: 100, label: v => ['Low','Mid','High'][v < 34 ? 0 : v < 67 ? 1 : 2] }),
+      _toggleRow('Invert Camera', 'invertCamera', _settings.invertCamera),
+      _pillRow('Button Size', 'buttonSize', ['Small','Medium','Large'], _settings.buttonSize.charAt(0).toUpperCase() + _settings.buttonSize.slice(1)),
+    ]),
+    _secLabel('Gameplay'), _card([
       _toggleRow('Tutorial Tips',      'tutorialTips',    _settings.tutorialTips),
       _toggleRow('Auto Save',          'autoSave',        _settings.autoSave),
       _toggleRow('Vibration',          'vibration',       _settings.vibration),
@@ -568,32 +585,33 @@ function _buildPanel() {
     ])
   );
 
-  // ── Support ───────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Support'),
-    _card([
-      _discRow('Help Center',      () => alert('Help Center coming soon.')),
-      _discRow('Contact Support',  () => alert('Contact Support coming soon.')),
-      _discRow('Report a Bug',     () => alert('Report a Bug coming soon.')),
-      _discRow('Feedback',         () => alert('Feedback coming soon.')),
+  // ── Graphics panel ────────────────────────────────────────────────────
+  const gfxPanel = document.createElement('div');
+  gfxPanel.className = 'sp-tab-panel';
+  gfxPanel.append(
+    _secLabel('Graphics'), _card([
+      _pillRow('Graphics Quality', 'quality', ['Low','Medium','High'], _settings.quality.charAt(0).toUpperCase() + _settings.quality.slice(1)),
+      _pillRow('Frame Rate',       'frameRate', ['30 FPS','60 FPS'],   _settings.frameRate === 30 ? '30 FPS' : '60 FPS'),
+      _toggleRow('Battery Saver Mode', 'batterySaver', _settings.batterySaver),
+      _toggleRow('Animations',         'animations',   _settings.animations),
     ])
   );
 
-  // ── Legal ─────────────────────────────────────────────────────────────
-  body.append(
-    _secLabel('Legal'),
-    _card([
-      _discRow('Game Rules',           _showRules),
-      _discRow('Terms and Conditions', () => alert('Terms and Conditions coming soon.')),
-      _discRow('Privacy Policy',       () => alert('Privacy Policy coming soon.')),
-      _discRow('Licenses',             () => alert('Licenses coming soon.')),
-    ])
-  );
+  body.append(sysPanel, genPanel, gfxPanel);
 
-  // ── Version ───────────────────────────────────────────────────────────
-  body.append(_secLabel('Version'), _versionCard());
+  // Tab switching
+  const panels = [sysPanel, genPanel, gfxPanel];
+  tabs[0].classList.add('active');
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      panels[i].classList.add('active');
+    });
+  });
 
-  panel.append(header, body);
+  panel.append(header, tabBar, body);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 }
