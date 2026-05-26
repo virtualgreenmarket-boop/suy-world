@@ -48,6 +48,7 @@ export function initMarina(scene) {
 
   addElevatedDeck(group);
   addStairs(group);
+  addLandStairs(group);
   addFishingPier(group);
   addNpcOrb(group);
   _registerDeckCollision();
@@ -216,6 +217,39 @@ function addStairs(group) {
   });
 }
 
+// ── Land stairs: deck (y=3.2) → path (y=0.2) ─────────────────────────
+// Local group: worldX = -230+localZ  worldZ = -localX
+// Deck land edge localZ=+23 (worldX=-207).  Path base localZ=+28 (worldX=-202).
+
+const LAND_STEP_COUNT = 10;
+const LAND_STEP_H     = (DECK_Y - 0.2) / LAND_STEP_COUNT;  // 0.30 m
+const LAND_STEP_D     = 0.5;
+const LAND_STEP_W     = 9.5;   // matches path width
+const LAND_STAIRS_Z   = DZ + DL / 2;  // = 1 + 22 = 23 (deck land edge)
+
+function addLandStairs(group) {
+  const mat = woodMat(LAND_STEP_W / 2.0, 1.0);
+  for (let i = 0; i < LAND_STEP_COUNT; i++) {
+    const stepTopY = DECK_Y - i * LAND_STEP_H;
+    const stepZ    = LAND_STAIRS_Z + i * LAND_STEP_D + LAND_STEP_D / 2;
+    const step = new THREE.Mesh(
+      new THREE.BoxGeometry(LAND_STEP_W, LAND_STEP_H, LAND_STEP_D), mat);
+    step.position.set(0, stepTopY - LAND_STEP_H / 2, stepZ);
+    step.castShadow = step.receiveShadow = true;
+    group.add(step);
+  }
+  // Side stringers
+  const strMat = solidMat(0x5C3D1A);
+  const strLen = LAND_STEP_COUNT * LAND_STEP_D + 0.2;
+  const strH   = DECK_Y - 0.2 + 0.4;
+  [-LAND_STEP_W / 2 - 0.1, LAND_STEP_W / 2 + 0.1].forEach(sx => {
+    const str = new THREE.Mesh(new THREE.BoxGeometry(0.18, strH, strLen), strMat);
+    str.position.set(sx, DECK_Y - strH / 2, LAND_STAIRS_Z + strLen / 2);
+    str.castShadow = true;
+    group.add(str);
+  });
+}
+
 // ── Fishing pier ──────────────────────────────────────────────────────
 
 const PIER_W   = 45;
@@ -300,8 +334,9 @@ function addFishingPier(group) {
 function _registerDeckCollision() {
   // Group at (-230,0,0) rot.y=PI/2 → worldX=-230+localZ, worldZ=-localX
   // Deck: localZ∈[-21,+23] → worldX∈[-251,-207], localX∈[-65,+65] → worldZ∈[-65,+65]
-  // Back wall (land side, localZ=+23 → worldX=-207)
-  registerBox(-208, -206, -66, 66);
+  // Back wall — two halves with 9.5 m stair gap (worldZ∈[-5,+5])
+  registerBox(-208, -206, -66, -5);
+  registerBox(-208, -206,   5, 66);
   // Left side wall (localX=-65 → worldZ=+65)
   registerBox(-252, -206, 64, 66);
   // Right side wall (localX=+65 → worldZ=-65)

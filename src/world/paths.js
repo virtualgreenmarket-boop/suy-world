@@ -110,7 +110,7 @@ export function initPaths(scene) {
   addPath(scene,   0, -41,   0, -88);
   addPath(scene,  41,   0,  88,   0);
   addPath(scene,   0,  41,   0,  88);
-  addPath(scene, -41,   0, -207,  0);
+  addPath(scene, -41,   0, -202,  0);
 }
 
 function addPath(scene, ax, az, bx, bz) {
