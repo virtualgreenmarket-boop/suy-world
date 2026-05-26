@@ -123,7 +123,6 @@ export function initTouchControls() {
   window.addEventListener('touchcancel', _onEnd,    { passive: false });
   window.addEventListener('resize',      applyLayoutToElements);
 
-  _initEditMode();
 }
 
 // ── Touch handlers ────────────────────────────────────────────────────

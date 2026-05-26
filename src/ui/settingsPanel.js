@@ -72,6 +72,8 @@ export function initSettingsPanel(renderer) {
   _renderer = renderer;
   _injectStyles();
   _buildPanel();
+  _buildNavSheets();
+  _buildProfileSheet();
   _buildRulesOverlay();
 }
 
@@ -195,7 +197,7 @@ function _injectStyles() {
     .sp-row {
       display: flex; align-items: center;
       justify-content: space-between;
-      padding: 11px 14px; gap: 10px; min-height: 44px;
+      padding: 13px 14px; gap: 10px; min-height: 48px;
     }
     .sp-row + .sp-row,
     .sp-slider-row + .sp-row,
@@ -219,7 +221,7 @@ function _injectStyles() {
     /* ── Pill row (stacked: label above, pills below) ── */
     .sp-pill-row {
       display: flex; flex-direction: column;
-      padding: 10px 14px 11px; gap: 8px;
+      padding: 12px 14px 13px; gap: 10px;
     }
     .sp-pill-row-label {
       font-size: 13px; font-weight: 500; color: var(--sp-text);
@@ -351,7 +353,7 @@ function _injectStyles() {
       color: var(--sp-text); font-family: inherit;
       font-size: 13px; font-weight: 500;
       padding: 6px 26px 6px 10px; border-radius: 10px;
-      cursor: pointer; outline: none; min-width: 100px;
+      cursor: pointer; outline: none; min-width: 80px; max-width: 160px;
     }
 
     /* ── Disclosure row (chevron, for "Open" items) ── */
@@ -392,6 +394,12 @@ function _injectStyles() {
     .sp-version-val   { color: var(--sp-text); font-weight: 600; }
     .sp-server-online { color: #4ade80; font-weight: 700; }
 
+    /* ── Player info strip ── */
+    #sp-player-wrap {
+      flex-shrink: 0;
+      padding: 8px 12px 0;
+    }
+
     /* ── Tab bar ── */
     #sp-tabs {
       display: flex; gap: 6px;
@@ -417,6 +425,111 @@ function _injectStyles() {
     /* ── Tab panels ── */
     .sp-tab-panel { display: none; }
     .sp-tab-panel.active { display: contents; }
+
+    /* ── Save button ── */
+    .sp-save-btn {
+      display: block; width: 100%;
+      padding: 14px; border-radius: 14px;
+      border: none; background: var(--sp-accent);
+      color: #fff; font-family: inherit;
+      font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: opacity .15s, transform .1s;
+      margin-top: 4px;
+    }
+    .sp-save-btn:active { opacity: .8; transform: scale(.98); }
+    .sp-save-btn.saved  { background: #4ade80; }
+
+    /* ── System sub-sheets ── */
+    .sp-sub-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72);
+      z-index: 325;
+      display: none; align-items: flex-end; justify-content: center;
+      font-family: 'DM Sans', 'Segoe UI', Arial, sans-serif;
+    }
+    .sp-sub-overlay.open { display: flex; }
+    .sp-sub-sheet {
+      background: rgba(14,14,26,0.98);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 20px 20px 0 0;
+      width: min(480px, 100vw);
+      max-height: 88vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 -10px 50px rgba(0,0,0,0.6);
+    }
+    .sp-sub-sheet .ssh-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.18);
+      margin: 12px auto 0; flex-shrink: 0;
+    }
+    .sp-sub-sheet .ssh-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .sp-sub-sheet .ssh-close {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.7); font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background .15s;
+    }
+    .sp-sub-sheet .ssh-close:hover { background: rgba(255,255,255,0.22); }
+    .sp-sub-sheet .ssh-title {
+      flex: 1; font-size: 16px; font-weight: 700; color: #fff;
+    }
+    .sp-sub-sheet .ssh-spacer { width: 28px; flex-shrink: 0; }
+    .sp-sub-body {
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 14px 14px 4px;
+      display: flex; flex-direction: column; gap: 14px;
+      flex: 1;
+    }
+    .sp-sub-footer {
+      padding: 10px 14px 28px;
+      flex-shrink: 0;
+    }
+
+    /* ── Profile sheet ── */
+    #sp-profile-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72);
+      z-index: 320;
+      display: none; align-items: flex-end; justify-content: center;
+      font-family: 'DM Sans', 'Segoe UI', Arial, sans-serif;
+    }
+    #sp-profile-overlay.open { display: flex; }
+    #sp-profile-sheet {
+      background: rgba(14,14,26,0.98);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 20px 20px 0 0;
+      width: min(480px, 100vw);
+      display: flex; flex-direction: column;
+      box-shadow: 0 -10px 50px rgba(0,0,0,0.6);
+      padding-bottom: 32px;
+    }
+    #sp-profile-sheet .psh-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.18);
+      margin: 12px auto 0; flex-shrink: 0;
+    }
+    #sp-profile-sheet .psh-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    #sp-profile-sheet .psh-title { font-size: 16px; font-weight: 700; color: #fff; }
+    #sp-profile-sheet .psh-close {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.7); font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    #sp-profile-sheet .psh-close:hover { background: rgba(255,255,255,0.22); }
+    #sp-profile-body { padding: 14px 14px 4px; }
 
     /* ── Rules overlay ── */
     #sp-rules-overlay {
@@ -502,6 +615,11 @@ function _buildPanel() {
   spacer.id = 'sp-header-spacer';
   header.append(closeBtn, title, spacer);
 
+  // Player info (always visible, above tabs)
+  const playerWrap = document.createElement('div');
+  playerWrap.id = 'sp-player-wrap';
+  playerWrap.appendChild(_accountCard());
+
   // Tab bar
   const tabBar = document.createElement('div');
   tabBar.id = 'sp-tabs';
@@ -522,66 +640,24 @@ function _buildPanel() {
   const sysPanel = document.createElement('div');
   sysPanel.className = 'sp-tab-panel active';
   sysPanel.append(
-    _secLabel('Account'), _accountCard(),
-    _secLabel('Language'), _card([
-      _selectRow('Language', 'language', [
-        { value: 'en',    label: 'English'  },
-        { value: 'he',    label: 'עברית'    },
-        { value: 'es',    label: 'Español'  },
-        { value: 'fr',    label: 'Français' },
-        { value: 'ar',    label: 'العربية'  },
-        { value: 'other', label: 'Other'    },
-      ], _settings.language),
-    ]),
-    _secLabel('Notifications'), _card([
-      _toggleRow('Game Notifications', 'notifGame',     _settings.notifGame),
-      _toggleRow('Room Updates',       'notifRoom',     _settings.notifRoom),
-      _toggleRow('Messages',           'notifMessages', _settings.notifMessages),
-      _toggleRow('Events & Rewards',   'notifEvents',   _settings.notifEvents),
-    ]),
-    _secLabel('Privacy & Safety'), _card([
-      _pillRow('Chat',             'chatPrivacy',    ['Everyone','Friends Only','Off'], _privLabel(_settings.chatPrivacy)),
-      _pillRow('Friend Requests',  'friendRequests', ['Everyone','Friends Only','Off'], _privLabel(_settings.friendRequests)),
-      _toggleRow('Show Online Status', 'showOnlineStatus', _settings.showOnlineStatus),
-      _discRow('Block List',    () => alert('Block list coming soon.')),
-      _discRow('Report Player', () => alert('Report Player coming soon.')),
-    ]),
-    _secLabel('Support'), _card([
-      _discRow('Help Center',      () => alert('Help Center coming soon.')),
-      _discRow('Contact Support',  () => alert('Contact Support coming soon.')),
-      _discRow('Report a Bug',     () => alert('Report a Bug coming soon.')),
-      _discRow('Feedback',         () => alert('Feedback coming soon.')),
-    ]),
-    _secLabel('Legal'), _card([
-      _discRow('Game Rules',           _showRules),
-      _discRow('Terms and Conditions', () => alert('Terms and Conditions coming soon.')),
-      _discRow('Privacy Policy',       () => alert('Privacy Policy coming soon.')),
-      _discRow('Licenses',             () => alert('Licenses coming soon.')),
-    ]),
-    _secLabel('Version'), _versionCard()
+    _card([
+      _discRow('Language',         () => _showSubSheet('sp-lang')),
+      _discRow('Notifications',    () => _showSubSheet('sp-notif')),
+      _discRow('Privacy & Safety', () => _showSubSheet('sp-privacy')),
+      _discRow('Support',          () => _showSubSheet('sp-support')),
+      _discRow('Legal',            () => _showSubSheet('sp-legal')),
+      _discRow('Version',          () => _showSubSheet('sp-version')),
+    ])
   );
 
   // ── General Settings panel ────────────────────────────────────────────
   const genPanel = document.createElement('div');
   genPanel.className = 'sp-tab-panel';
   genPanel.append(
-    _secLabel('Sound'), _card([
-      _sliderRow('Music Volume',             'musicVolume',  _settings.musicVolume),
-      _sliderRow('Sound Effects',            'sfxVolume',    _settings.sfxVolume),
-      _sliderRow('Voice / Character Sounds', 'voiceVolume',  _settings.voiceVolume),
-      _toggleRow('Mute All',                 'muteAll',      _settings.muteAll),
-    ]),
-    _secLabel('Controls'), _card([
-      _pillRow('Movement Type', 'movementType', ['Joystick','Tap to Move'], _settings.movementType === 'joystick' ? 'Joystick' : 'Tap to Move'),
-      _sliderRow('Camera Sensitivity', 'sensitivity', Math.round((_settings.sensitivity - 0.3) / 1.7 * 100), { min: 0, max: 100, label: v => ['Low','Mid','High'][v < 34 ? 0 : v < 67 ? 1 : 2] }),
-      _toggleRow('Invert Camera', 'invertCamera', _settings.invertCamera),
-      _pillRow('Button Size', 'buttonSize', ['Small','Medium','Large'], _settings.buttonSize.charAt(0).toUpperCase() + _settings.buttonSize.slice(1)),
-    ]),
-    _secLabel('Gameplay'), _card([
-      _toggleRow('Tutorial Tips',      'tutorialTips',    _settings.tutorialTips),
-      _toggleRow('Auto Save',          'autoSave',        _settings.autoSave),
-      _toggleRow('Vibration',          'vibration',       _settings.vibration),
-      _toggleRow('Show Player Names',  'showPlayerNames', _settings.showPlayerNames),
+    _card([
+      _discRow('Sound',    () => _showSubSheet('sp-sound')),
+      _discRow('Controls', () => _showSubSheet('sp-controls')),
+      _discRow('Gameplay', () => _showSubSheet('sp-gameplay')),
     ])
   );
 
@@ -611,7 +687,7 @@ function _buildPanel() {
     });
   });
 
-  panel.append(header, tabBar, body);
+  panel.append(header, playerWrap, tabBar, body);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 }
@@ -728,7 +804,7 @@ function _pillRow(label, key, options, current) {
       else if (key === 'movementType')  _settings.movementType  = opt === 'Joystick' ? 'joystick' : 'tap';
       else if (key === 'buttonSize')    _settings.buttonSize    = opt.toLowerCase();
       else if (key === 'chatPrivacy' || key === 'friendRequests') {
-        _settings[key] = opt === 'Everyone' ? 'everyone' : opt === 'Friends Only' ? 'friends' : 'off';
+        _settings[key] = opt === 'Everyone' ? 'everyone' : opt === 'Friends' ? 'friends' : 'off';
       }
       _save();
       if (key === 'quality' && _renderer) applyQualitySettings(_renderer);
@@ -784,30 +860,7 @@ function _discRow(label, onClick) {
 function _accountCard() {
   const card = document.createElement('div');
   card.className = 'sp-card';
-
-  const info = document.createElement('div');
-  info.className = 'sp-account-info';
-  info.innerHTML = `
-    <div class="sp-avatar">🧑</div>
-    <div class="sp-account-name">[Player Name]</div>
-    <div class="sp-account-detail">[Player Email]</div>
-    <div class="sp-account-detail">ID: [ID Number]</div>`;
-  card.appendChild(info);
-
-  const actions = [
-    { label: 'Edit Profile',     cls: '',       fn: () => alert('Edit Profile coming soon.') },
-    { label: 'Change Password',  cls: '',       fn: () => alert('Change Password coming soon.') },
-    { label: 'Log Out',          cls: 'accent', fn: () => { if (confirm('Log out?')) alert('Logged out.'); } },
-    { label: 'Delete Account',   cls: 'danger', fn: () => { if (confirm('Delete your account? This cannot be undone.')) alert('Account deletion coming soon.'); } },
-  ];
-  actions.forEach(({ label, cls, fn }) => {
-    const btn = document.createElement('button');
-    btn.className = 'sp-action-btn' + (cls ? ' ' + cls : '');
-    btn.textContent = label;
-    btn.addEventListener('click', fn);
-    card.appendChild(btn);
-  });
-
+  card.appendChild(_discRow('Profile Settings', _showProfileSheet));
   return card;
 }
 
@@ -827,7 +880,228 @@ function _versionCard() {
 }
 
 function _privLabel(val) {
-  return val === 'everyone' ? 'Everyone' : val === 'friends' ? 'Friends Only' : 'Off';
+  return val === 'everyone' ? 'Everyone' : val === 'friends' ? 'Friends' : 'Off';
+}
+
+// ── System sub-sheet helpers ──────────────────────────────────────────────
+
+function _buildSubSheet(id, title, buildBody, buildFooter) {
+  const ov = document.createElement('div');
+  ov.id = id + '-overlay';
+  ov.className = 'sp-sub-overlay';
+  ov.addEventListener('click', e => { if (e.target === ov) _hideSubSheet(id); });
+
+  const sheet = document.createElement('div');
+  sheet.className = 'sp-sub-sheet';
+  const closeId = id + '-close';
+  sheet.innerHTML = `
+    <div class="ssh-handle"></div>
+    <div class="ssh-header">
+      <button class="ssh-close" id="${closeId}">✕</button>
+      <span class="ssh-title">${title}</span>
+      <div class="ssh-spacer"></div>
+    </div>`;
+
+  const body = document.createElement('div');
+  body.className = 'sp-sub-body';
+  buildBody(body);
+  sheet.appendChild(body);
+
+  if (buildFooter) {
+    const footer = document.createElement('div');
+    footer.className = 'sp-sub-footer';
+    buildFooter(footer);
+    sheet.appendChild(footer);
+  }
+
+  ov.appendChild(sheet);
+  document.body.appendChild(ov);
+  document.getElementById(closeId).addEventListener('click', () => _hideSubSheet(id));
+}
+
+function _showSubSheet(id) {
+  document.getElementById(id + '-overlay')?.classList.add('open');
+}
+
+function _hideSubSheet(id) {
+  document.getElementById(id + '-overlay')?.classList.remove('open');
+}
+
+function _saveBtnEl(sheetId) {
+  const btn = document.createElement('button');
+  btn.className = 'sp-save-btn';
+  btn.textContent = 'Save';
+  btn.addEventListener('click', () => {
+    _save();
+    btn.textContent = 'Saved ✓';
+    btn.classList.add('saved');
+    setTimeout(() => {
+      btn.textContent = 'Save';
+      btn.classList.remove('saved');
+      _hideSubSheet(sheetId);
+    }, 900);
+  });
+  return btn;
+}
+
+function _buildNavSheets() {
+  // Language
+  _buildSubSheet('sp-lang', 'Language', body => {
+    body.append(_card([
+      _selectRow('Language', 'language', [
+        { value: 'en',    label: 'English'  },
+        { value: 'he',    label: 'עברית'    },
+        { value: 'es',    label: 'Español'  },
+        { value: 'fr',    label: 'Français' },
+        { value: 'ar',    label: 'العربية'  },
+        { value: 'other', label: 'Other'    },
+      ], _settings.language),
+    ]));
+  });
+
+  // Notifications
+  _buildSubSheet('sp-notif', 'Notifications', body => {
+    body.append(_card([
+      _toggleRow('Game Notifications', 'notifGame',     _settings.notifGame),
+      _toggleRow('Messages',           'notifMessages', _settings.notifMessages),
+      _toggleRow('Events & Rewards',   'notifEvents',   _settings.notifEvents),
+    ]));
+  });
+
+  // Privacy & Safety
+  _buildSubSheet('sp-privacy', 'Privacy & Safety', body => {
+    body.append(_card([
+      _pillRow('Chat',                  'chatPrivacy',       ['Everyone','Friends','Off'], _privLabel(_settings.chatPrivacy)),
+      _toggleRow('Show Online Status',  'showOnlineStatus',  _settings.showOnlineStatus),
+      _discRow('Block List',    () => alert('Block list coming soon.')),
+      _discRow('Report Player', () => alert('Report Player coming soon.')),
+    ]));
+  });
+
+  // Support
+  _buildSubSheet('sp-support', 'Support', body => {
+    body.append(_card([
+      _discRow('Help Center',     () => alert('Help Center coming soon.')),
+      _discRow('Contact Support', () => alert('Contact Support coming soon.')),
+      _discRow('Report a Bug',    () => alert('Report a Bug coming soon.')),
+      _discRow('Feedback',        () => alert('Feedback coming soon.')),
+    ]));
+  });
+
+  // Legal
+  _buildSubSheet('sp-legal', 'Legal', body => {
+    body.append(_card([
+      _discRow('Game Rules',           _showRules),
+      _discRow('Terms and Conditions', () => alert('Terms and Conditions coming soon.')),
+      _discRow('Privacy Policy',       () => alert('Privacy Policy coming soon.')),
+      _discRow('Licenses',             () => alert('Licenses coming soon.')),
+    ]));
+  });
+
+  // Version
+  _buildSubSheet('sp-version', 'Version', body => {
+    body.appendChild(_versionCard());
+  });
+
+  // Sound
+  _buildSubSheet('sp-sound', 'Sound',
+    body => {
+      body.append(_card([
+        _sliderRow('Music Volume',             'musicVolume',  _settings.musicVolume),
+        _sliderRow('Sound Effects',            'sfxVolume',    _settings.sfxVolume),
+        _sliderRow('Voice / Character Sounds', 'voiceVolume',  _settings.voiceVolume),
+        _toggleRow('Mute All',                 'muteAll',      _settings.muteAll),
+      ]));
+    },
+    footer => footer.appendChild(_saveBtnEl('sp-sound'))
+  );
+
+  // Controls
+  _buildSubSheet('sp-controls', 'Controls',
+    body => {
+      body.append(_card([
+        _pillRow('Movement Type', 'movementType', ['Joystick','Tap to Move'], _settings.movementType === 'joystick' ? 'Joystick' : 'Tap to Move'),
+        _sliderRow('Camera Sensitivity', 'sensitivity', Math.round((_settings.sensitivity - 0.3) / 1.7 * 100), { min: 0, max: 100, label: v => ['Low','Mid','High'][v < 34 ? 0 : v < 67 ? 1 : 2] }),
+        _toggleRow('Invert Camera', 'invertCamera', _settings.invertCamera),
+        _pillRow('Button Size', 'buttonSize', ['Small','Medium','Large'], _settings.buttonSize.charAt(0).toUpperCase() + _settings.buttonSize.slice(1)),
+      ]));
+    },
+    footer => footer.appendChild(_saveBtnEl('sp-controls'))
+  );
+
+  // Gameplay
+  _buildSubSheet('sp-gameplay', 'Gameplay',
+    body => {
+      body.append(_card([
+        _toggleRow('Tutorial Tips',     'tutorialTips',    _settings.tutorialTips),
+        _toggleRow('Auto Save',         'autoSave',        _settings.autoSave),
+        _toggleRow('Vibration',         'vibration',       _settings.vibration),
+        _toggleRow('Show Player Names', 'showPlayerNames', _settings.showPlayerNames),
+      ]));
+    },
+    footer => footer.appendChild(_saveBtnEl('sp-gameplay'))
+  );
+}
+
+// ── Profile Settings sheet ────────────────────────────────────────────────
+
+function _buildProfileSheet() {
+  const ov = document.createElement('div');
+  ov.id = 'sp-profile-overlay';
+  ov.addEventListener('click', e => { if (e.target === ov) _hideProfileSheet(); });
+
+  const sheet = document.createElement('div');
+  sheet.id = 'sp-profile-sheet';
+  sheet.innerHTML = `
+    <div class="psh-handle"></div>
+    <div class="psh-header">
+      <span class="psh-title">Profile Settings</span>
+      <button class="psh-close" id="sp-profile-close">✕</button>
+    </div>
+    <div class="psh-body" id="sp-profile-body"></div>`;
+
+  ov.appendChild(sheet);
+  document.body.appendChild(ov);
+  document.getElementById('sp-profile-close').addEventListener('click', _hideProfileSheet);
+
+  const body = document.getElementById('sp-profile-body');
+
+  const infoCard = document.createElement('div');
+  infoCard.className = 'sp-card';
+  infoCard.style.marginBottom = '10px';
+  infoCard.innerHTML = `
+    <div class="sp-account-info" style="border-bottom:none">
+      <div class="sp-avatar">🧑</div>
+      <div class="sp-account-name">[Player Name]</div>
+      <div class="sp-account-detail">[Player Email]</div>
+      <div class="sp-account-detail">ID: [ID Number]</div>
+    </div>`;
+  body.appendChild(infoCard);
+
+  const card = document.createElement('div');
+  card.className = 'sp-card';
+  const actions = [
+    { label: 'Edit Profile',    cls: '',       fn: () => alert('Edit Profile coming soon.') },
+    { label: 'Change Password', cls: '',       fn: () => alert('Change Password coming soon.') },
+    { label: 'Log Out',         cls: 'accent', fn: () => { if (confirm('Log out?')) alert('Logged out.'); } },
+    { label: 'Delete Account',  cls: 'danger', fn: () => { if (confirm('Delete your account? This cannot be undone.')) alert('Account deletion coming soon.'); } },
+  ];
+  actions.forEach(({ label, cls, fn }) => {
+    const btn = document.createElement('button');
+    btn.className = 'sp-action-btn' + (cls ? ' ' + cls : '');
+    btn.textContent = label;
+    btn.addEventListener('click', fn);
+    card.appendChild(btn);
+  });
+  body.appendChild(card);
+}
+
+function _showProfileSheet() {
+  document.getElementById('sp-profile-overlay')?.classList.add('open');
+}
+
+function _hideProfileSheet() {
+  document.getElementById('sp-profile-overlay')?.classList.remove('open');
 }
 
 // ── Game Rules overlay ────────────────────────────────────────────────────
