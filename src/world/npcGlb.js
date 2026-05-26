@@ -138,8 +138,14 @@ export async function spawnAllPlazaNpcs(scene) {
         }
       }
 
-      const loopAnim = npc.walkAction ?? npc.idleAction;
-      if (loopAnim) { npc.idleAction?.stop(); loopAnim.reset().play(); }
+      if (!npc.walkAction) {
+        // No walk animation available — stay in place
+        npc.walkMode = null;
+        npc.idleAction?.reset().play();
+      } else {
+        npc.idleAction?.stop();
+        npc.walkAction.reset().play();
+      }
     } else {
       npc.walkCenter = new THREE.Vector3(cfg.x, 0, cfg.z);
       npc.walkRadius = 7;
