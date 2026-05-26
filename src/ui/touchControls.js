@@ -4,6 +4,7 @@ const DEFAULT_LAYOUT = {
   joystick: { leftPct: 6,  bottomPct: 10, sizePx: 120 },
   jump:     { rightPct: 7, bottomPct: 10, sizePx: 72  },
 };
+
 const RUN_MAG    = 0.78;
 const DEAD_ZONE  = 0.12;
 const MIN_JOY_PX = 64;
@@ -18,8 +19,10 @@ function loadStoredLayout() {
     const raw = localStorage.getItem(LAYOUT_KEY);
     if (!raw) return structuredClone(DEFAULT_LAYOUT);
     const parsed = JSON.parse(raw);
-    return { joystick: { ...DEFAULT_LAYOUT.joystick, ...parsed.joystick },
-             jump:     { ...DEFAULT_LAYOUT.jump,     ...parsed.jump     } };
+    return {
+      joystick: { ...DEFAULT_LAYOUT.joystick, ...parsed.joystick },
+      jump:     { ...DEFAULT_LAYOUT.jump,     ...parsed.jump     },
+    };
   } catch { return structuredClone(DEFAULT_LAYOUT); }
 }
 
@@ -47,6 +50,7 @@ export function applyLayoutToElements() {
   jumpBtnEl.style.height = jb.sizePx + 'px';
   jumpBtnEl.style.right  = (w * jb.rightPct  / 100) + 'px';
   jumpBtnEl.style.bottom = (h * jb.bottomPct / 100) + 'px';
+
 }
 
 // ── DOM elements (exported for controlsEditor) ────────────────────────
@@ -141,17 +145,19 @@ function _onStart(e) {
       _jumpQueued  = true;
       jumpBtnEl.style.background = 'rgba(255,255,255,0.30)';
       e.preventDefault();
-    } else if (!_camTouch1) {
-      _camTouch1 = { id: t.identifier, lx: t.clientX, ly: t.clientY };
-      e.preventDefault();
-    } else if (!_camTouch2) {
-      // Second free finger = start pinch-to-zoom
-      _camTouch2 = { id: t.identifier, lx: t.clientX, ly: t.clientY };
-      _prevPinchDist = Math.hypot(
-        _camTouch2.lx - _camTouch1.lx,
-        _camTouch2.ly - _camTouch1.ly
-      );
-      e.preventDefault();
+    } else {
+      if (!_camTouch1) {
+        _camTouch1 = { id: t.identifier, lx: t.clientX, ly: t.clientY };
+        e.preventDefault();
+      } else if (!_camTouch2) {
+        // Second free finger = start pinch-to-zoom
+        _camTouch2 = { id: t.identifier, lx: t.clientX, ly: t.clientY };
+        _prevPinchDist = Math.hypot(
+          _camTouch2.lx - _camTouch1.lx,
+          _camTouch2.ly - _camTouch1.ly
+        );
+        e.preventDefault();
+      }
     }
   }
 }
@@ -343,8 +349,8 @@ function _enterEditMode() {
 }
 
 function _makeHandle(name, targetEl) {
-  const isJoy = name === 'joystick';
-  const sizePx = isJoy ? _layout.joystick.sizePx : _layout.jump.sizePx;
+  const isJoy  = name === 'joystick';
+  const sizePx = _layout[name]?.sizePx ?? 60;
   const r      = targetEl.getBoundingClientRect();
 
   const h = mkEl('div', {
@@ -375,7 +381,7 @@ function _makeHandle(name, targetEl) {
       const t1  = all.find(t => t.identifier === pinchIds[1]);
       if (t0 && t1) {
         pinch0Dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-        pinch0Size = isJoy ? _layout.joystick.sizePx : _layout.jump.sizePx;
+        pinch0Size = _layout[name]?.sizePx ?? 60;
         dragId = null;
       }
     } else if (pinchIds.length === 1) {
@@ -396,8 +402,7 @@ function _makeHandle(name, targetEl) {
           isJoy ? MIN_JOY_PX : MIN_BTN_PX,
           Math.min(isJoy ? MAX_JOY_PX : MAX_BTN_PX, pinch0Size * dist / pinch0Dist)
         );
-        if (isJoy) _layout.joystick.sizePx = newSz;
-        else       _layout.jump.sizePx     = newSz;
+        if (_layout[name]) _layout[name].sizePx = newSz;
         applyLayoutToElements();
         _syncHandle(name, h);
       }
@@ -409,14 +414,17 @@ function _makeHandle(name, targetEl) {
     if (!t) return;
 
     const w = window.innerWidth, wh = window.innerHeight;
-    const sz = isJoy ? _layout.joystick.sizePx : _layout.jump.sizePx;
+    const lk = _layout[name];
+    if (!lk) return;
+    const sz = lk.sizePx;
     const halfSz = sz / 2;
+
     if (isJoy) {
-      _layout.joystick.leftPct   = Math.max(0, Math.min((w  - sz) / w  * 100, (t.clientX - halfSz) / w  * 100));
-      _layout.joystick.bottomPct = Math.max(0, Math.min((wh - sz) / wh * 100, (wh - t.clientY - halfSz) / wh * 100));
+      lk.leftPct   = Math.max(0, Math.min((w  - sz) / w  * 100, (t.clientX - halfSz) / w  * 100));
+      lk.bottomPct = Math.max(0, Math.min((wh - sz) / wh * 100, (wh - t.clientY - halfSz) / wh * 100));
     } else {
-      _layout.jump.rightPct  = Math.max(0, Math.min((w  - sz) / w  * 100, (w  - t.clientX - halfSz) / w  * 100));
-      _layout.jump.bottomPct = Math.max(0, Math.min((wh - sz) / wh * 100, (wh - t.clientY - halfSz) / wh * 100));
+      lk.rightPct  = Math.max(0, Math.min((w  - sz) / w  * 100, (w  - t.clientX - halfSz) / w  * 100));
+      lk.bottomPct = Math.max(0, Math.min((wh - sz) / wh * 100, (wh - t.clientY - halfSz) / wh * 100));
     }
     applyLayoutToElements();
     _syncHandle(name, h);
@@ -436,9 +444,11 @@ function _makeHandle(name, targetEl) {
 }
 
 function _syncHandle(name, h) {
-  const el   = name === 'joystick' ? joystickBaseEl : jumpBtnEl;
+  let el;
+  if (name === 'joystick') el = joystickBaseEl;
+  else el = jumpBtnEl;
   const rect = el.getBoundingClientRect();
-  const sz   = name === 'joystick' ? _layout.joystick.sizePx : _layout.jump.sizePx;
+  const sz   = _layout[name]?.sizePx ?? 60;
   h.style.left   = rect.left + 'px';
   h.style.top    = rect.top  + 'px';
   h.style.width  = sz + 'px';

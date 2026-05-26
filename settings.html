@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:             #f2f2f7;
+      --surface:        #ffffff;
+      --surface-2:      #f9f9fb;
+      --divider:        rgba(0,0,0,0.07);
+      --border:         rgba(0,0,0,0.06);
+      --text:           #1c1c1e;
+      --text-2:         #6c6c70;
+      --accent:         #5756d6;
+      --danger:         #e53e3e;
+      --track-off:      #d1d1d6;
+      --track-on:       #5756d6;
+      --thumb:          #ffffff;
+      --sl-track:       #e5e5ea;
+      --sl-fill:        #5756d6;
+      --select-bg:      #ededf2;
+      --select-arrow:   #6c6c70;
+      --shadow:         0 2px 12px rgba(0,0,0,0.07);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:           #0f0f12;
+        --surface:      #1c1c1e;
+        --surface-2:    #2c2c2e;
+        --divider:      rgba(255,255,255,0.07);
+        --border:       rgba(255,255,255,0.06);
+        --text:         #f2f2f7;
+        --text-2:       #8e8e93;
+        --accent:       #817dff;
+        --danger:       #f87171;
+        --track-off:    #3a3a3c;
+        --track-on:     #817dff;
+        --thumb:        #ffffff;
+        --sl-track:     #3a3a3c;
+        --sl-fill:      #817dff;
+        --select-bg:    #2c2c2e;
+        --select-arrow: #8e8e93;
+        --shadow:       0 2px 12px rgba(0,0,0,0.4);
+      }
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .shell {
+      max-width: 390px;
+      margin: 0 auto;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    /* ───────── Top bar ───────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      padding: 0 8px 0 4px;
+      height: 54px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--divider);
+    }
+    /* ───────── Language picker (topbar) ───────── */
+    .lang-btn {
+      position: relative;
+      width: 72px;
+      display: flex;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    .lang-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 50%;
+      background: var(--select-bg);
+      color: var(--accent);
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+      flex-shrink: 0;
+    }
+    .lang-icon-btn:active { opacity: .55; }
+    .lang-icon-btn[aria-expanded="true"] { background: var(--accent); color: #fff; }
+
+    .lang-popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.18);
+      overflow: hidden;
+      min-width: 170px;
+      z-index: 100;
+      transform-origin: top right;
+      transform: scale(.92);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform .18s cubic-bezier(.34,1.4,.64,1), opacity .14s ease;
+    }
+    .lang-popover.open {
+      transform: scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .lang-opt {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 13px 16px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .1s;
+      border: none;
+      width: 100%;
+      background: none;
+      font-family: inherit;
+      color: var(--text);
+      text-align: left;
+    }
+    .lang-opt + .lang-opt { border-top: 1px solid var(--divider); }
+    .lang-opt:active { background: var(--select-bg); }
+    .lang-opt .check {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--accent);
+      opacity: 0;
+    }
+    .lang-opt.selected .check { opacity: 1; }
+    .topbar-title {
+      flex: 1;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 8px 10px 8px 6px;
+      border-radius: 10px;
+      transition: opacity .15s;
+      white-space: nowrap;
+      width: 72px;
+    }
+    .back-btn:active { opacity: .5; }
+
+    /* ───────── Page ───────── */
+    .page {
+      flex: 1;
+      padding: 22px 16px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    /* Section header above card */
+    .sec-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      padding: 0 6px;
+      margin-bottom: -14px;
+    }
+
+    /* ───────── Card ───────── */
+    .card {
+      background: var(--surface);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    /* Generic row */
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 16px;
+      gap: 12px;
+      min-height: 50px;
+    }
+    .row + .row,
+    .slider-row + .row,
+    .row + .slider-row,
+    .slider-row + .slider-row {
+      border-top: 1px solid var(--divider);
+    }
+    .row-label {
+      font-size: 15px;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    /* ───────── Slider rows ───────── */
+    .slider-row {
+      padding: 13px 16px 15px;
+    }
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+    .slider-name {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .slider-num {
+      font-size: 13px;
+      color: var(--text-2);
+      font-variant-numeric: tabular-nums;
+      min-width: 32px;
+      text-align: right;
+    }
+
+    /* Custom range */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(
+        to right,
+        var(--sl-fill) 0%,
+        var(--sl-fill) var(--pct, 50%),
+        var(--sl-track) var(--pct, 50%),
+        var(--sl-track) 100%
+      );
+      outline: none;
+      cursor: pointer;
+      transition: opacity .1s;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--thumb);
+      box-shadow: 0 1px 5px rgba(0,0,0,.30), 0 0 0 .5px rgba(0,0,0,.08);
+      cursor: pointer;
+      transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+    }
+    input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.18); }
+    input[type="range"]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 50%;
+      background: var(--thumb);
+      box-shadow: 0 1px 5px rgba(0,0,0,.30);
+      cursor: pointer;
+    }
+
+    /* ───────── Toggle ───────── */
+    .tog {
+      position: relative;
+      width: 50px;
+      height: 30px;
+      flex-shrink: 0;
+    }
+    .tog input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .tog-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 15px;
+      background: var(--track-off);
+      transition: background .22s ease;
+      cursor: pointer;
+    }
+    .tog input:checked ~ .tog-track { background: var(--track-on); }
+    .tog-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--thumb);
+      box-shadow: 0 1px 4px rgba(0,0,0,.32);
+      transition: transform .22s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none;
+    }
+    .tog input:checked ~ .tog-thumb { transform: translateX(20px); }
+    .tog input:focus-visible ~ .tog-track {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* ───────── Select ───────── */
+    .sel-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .sel-wrap::after {
+      content: '';
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 4.5px solid transparent;
+      border-top-color: var(--select-arrow);
+      border-bottom: none;
+      pointer-events: none;
+    }
+    select {
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--select-bg);
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 7px 28px 7px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      outline: none;
+      min-width: 110px;
+    }
+    select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+    /* ───────── Logout button ───────── */
+    .logout-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--danger);
+      text-align: center;
+      transition: opacity .15s;
+    }
+    .logout-btn:active { opacity: .55; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <button class="back-btn" onclick="history.back()" aria-label="Go back">
+      <svg width="8" height="14" viewBox="0 0 8 14" fill="none" aria-hidden="true">
+        <path d="M7 1L1 7L7 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Back
+    </button>
+    <h1 class="topbar-title">Settings</h1>
+    <div class="lang-btn">
+      <button class="lang-icon-btn" id="lang-toggle" aria-label="Change language" aria-expanded="false" aria-haspopup="listbox" onclick="toggleLangPicker()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </button>
+      <div class="lang-popover" id="lang-popover" role="listbox" aria-label="Language">
+        <button class="lang-opt selected" data-lang="en" onclick="selectLang(this)">
+          English
+          <svg class="check" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 9 7 13 15 5"/></svg>
+        </button>
+        <button class="lang-opt" data-lang="he" onclick="selectLang(this)">
+          עברית
+          <svg class="check" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 9 7 13 15 5"/></svg>
+        </button>
+        <button class="lang-opt" data-lang="ar" onclick="selectLang(this)">
+          العربية
+          <svg class="check" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 9 7 13 15 5"/></svg>
+        </button>
+        <button class="lang-opt" data-lang="es" onclick="selectLang(this)">
+          Español
+          <svg class="check" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 9 7 13 15 5"/></svg>
+        </button>
+        <button class="lang-opt" data-lang="fr" onclick="selectLang(this)">
+          Français
+          <svg class="check" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 9 7 13 15 5"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+
+    <!-- ── Audio ── -->
+    <p class="sec-label">Audio</p>
+    <div class="card">
+      <div class="slider-row">
+        <div class="slider-head">
+          <span class="slider-name">Master Volume</span>
+          <span class="slider-num" id="v-master">80%</span>
+        </div>
+        <input type="range" id="sl-master" min="0" max="100" value="80" style="--pct:80%" aria-label="Master volume" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-head">
+          <span class="slider-name">Music</span>
+          <span class="slider-num" id="v-music">65%</span>
+        </div>
+        <input type="range" id="sl-music" min="0" max="100" value="65" style="--pct:65%" aria-label="Music volume" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-head">
+          <span class="slider-name">Sound Effects</span>
+          <span class="slider-num" id="v-sfx">75%</span>
+        </div>
+        <input type="range" id="sl-sfx" min="0" max="100" value="75" style="--pct:75%" aria-label="Sound effects volume" />
+      </div>
+    </div>
+
+    <!-- ── Graphics ── -->
+    <p class="sec-label">Graphics</p>
+    <div class="card">
+      <div class="row">
+        <span class="row-label">Quality</span>
+        <div class="sel-wrap">
+          <select aria-label="Graphics quality">
+            <option>Low</option>
+            <option>Medium</option>
+            <option selected>High</option>
+            <option>Ultra</option>
+          </select>
+        </div>
+      </div>
+      <div class="slider-row">
+        <div class="slider-head">
+          <span class="slider-name">Brightness</span>
+          <span class="slider-num" id="v-bright">55%</span>
+        </div>
+        <input type="range" id="sl-bright" min="0" max="100" value="55" style="--pct:55%" aria-label="Brightness" />
+      </div>
+      <div class="row">
+        <span class="row-label">Show FPS Counter</span>
+        <label class="tog" aria-label="Show FPS counter">
+          <input type="checkbox" />
+          <span class="tog-track"></span>
+          <span class="tog-thumb"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Controls ── -->
+    <p class="sec-label">Controls</p>
+    <div class="card">
+      <div class="row">
+        <span class="row-label">Joystick Sensitivity</span>
+        <div class="sel-wrap">
+          <select aria-label="Joystick sensitivity">
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <span class="row-label">Invert Y-Axis</span>
+        <label class="tog" aria-label="Invert Y-axis">
+          <input type="checkbox" />
+          <span class="tog-track"></span>
+          <span class="tog-thumb"></span>
+        </label>
+      </div>
+      <div class="row">
+        <span class="row-label">Haptic Feedback</span>
+        <label class="tog" aria-label="Haptic feedback">
+          <input type="checkbox" checked />
+          <span class="tog-track"></span>
+          <span class="tog-thumb"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Notifications ── -->
+    <p class="sec-label">Notifications</p>
+    <div class="card">
+      <div class="row">
+        <span class="row-label">Push Notifications</span>
+        <label class="tog" aria-label="Push notifications">
+          <input type="checkbox" checked />
+          <span class="tog-track"></span>
+          <span class="tog-thumb"></span>
+        </label>
+      </div>
+      <div class="row">
+        <span class="row-label">Chat Alerts</span>
+        <label class="tog" aria-label="Chat alerts">
+          <input type="checkbox" checked />
+          <span class="tog-track"></span>
+          <span class="tog-thumb"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Language ── -->
+    <p class="sec-label">Language</p>
+    <div class="card">
+      <div class="row">
+        <span class="row-label">App Language</span>
+        <div class="sel-wrap">
+          <select aria-label="App language">
+            <option value="en" selected>English</option>
+            <option value="he">עברית</option>
+            <option value="ar">العربية</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Account ── -->
+    <p class="sec-label">Account</p>
+    <div class="card">
+      <button class="logout-btn" onclick="confirmLogout()">Log Out</button>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Slider sync: update the numeric label and the CSS fill gradient
+  const sliders = [
+    { id: 'sl-master', label: 'v-master' },
+    { id: 'sl-music',  label: 'v-music'  },
+    { id: 'sl-sfx',    label: 'v-sfx'    },
+    { id: 'sl-bright', label: 'v-bright' },
+  ];
+
+  sliders.forEach(({ id, label }) => {
+    const input = document.getElementById(id);
+    const display = document.getElementById(label);
+    if (!input || !display) return;
+
+    function sync() {
+      const pct = ((input.value - input.min) / (input.max - input.min)) * 100;
+      input.style.setProperty('--pct', pct + '%');
+      display.textContent = input.value + '%';
+    }
+
+    input.addEventListener('input', sync);
+  });
+
+  function confirmLogout() {
+    if (confirm('Are you sure you want to log out?')) {
+      // Wire to your game's auth/logout flow here
+    }
+  }
+
+  // ── Language picker ──────────────────────────────────────────────────
+  const _langBtn     = document.getElementById('lang-toggle');
+  const _langPopover = document.getElementById('lang-popover');
+  const _langSelect  = document.querySelector('select[aria-label="App language"]');
+
+  function toggleLangPicker() {
+    const open = _langPopover.classList.toggle('open');
+    _langBtn.setAttribute('aria-expanded', open);
+  }
+
+  function selectLang(btn) {
+    // update selection state
+    _langPopover.querySelectorAll('.lang-opt').forEach(o => o.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    // sync the Language card dropdown
+    if (_langSelect) _langSelect.value = btn.dataset.lang;
+
+    // close picker
+    _langPopover.classList.remove('open');
+    _langBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  // close on outside tap
+  document.addEventListener('pointerdown', e => {
+    if (!_langBtn.closest('.lang-btn').contains(e.target)) {
+      _langPopover.classList.remove('open');
+      _langBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+</script>
+</body>
+</html>
