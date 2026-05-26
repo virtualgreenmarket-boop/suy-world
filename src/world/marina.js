@@ -148,12 +148,16 @@ function addElevatedDeck(group) {
     });
   }
 
-  // ── Deck railings (sea-facing front + both sides) ────────────────────
-  const frontZ    = DZ - DL / 2;   // z = −21 (sea edge)
-  const deckSurf  = DECK_Y + 0.38; // top of deck planks
-  _railSegment(group, DX, frontZ, DW, 'x', deckSurf);              // front (sea edge)
-  _railSegment(group, DX - DW / 2, DZ, DL, 'z', deckSurf);        // left side full length
-  _railSegment(group, DX + DW / 2, DZ, DL, 'z', deckSurf);        // right side full length
+  // ── Deck railings (sea-facing front with stair gap + both sides) ─────
+  const frontZ    = DZ - DL / 2;       // z = −21 (sea edge)
+  const deckSurf  = DECK_Y + 0.38;     // top of deck planks
+  const gapHalf   = STEP_W / 2;        // 12.5 m — matches stair width
+  const sideLen   = DW / 2 - gapHalf;  // 52.5 m each side of gap
+  const sideCX    = (DW / 2 + gapHalf) / 2; // 38.75 m from centre
+  _railSegment(group, -sideCX, frontZ, sideLen, 'x', deckSurf);   // front left
+  _railSegment(group,  sideCX, frontZ, sideLen, 'x', deckSurf);   // front right
+  _railSegment(group, DX - DW / 2, DZ, DL, 'z', deckSurf);       // left side full length
+  _railSegment(group, DX + DW / 2, DZ, DL, 'z', deckSurf);       // right side full length
 }
 
 // Railing segment: pos is the centre along the railing direction
