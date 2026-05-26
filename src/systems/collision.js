@@ -57,6 +57,10 @@ function collidesAny(x, z) {
  * Returns [rx, rz] — new position after sliding against walls.
  * Tries X-only and Z-only slides before fully blocking movement.
  */
+export function registerBox(minX, maxX, minZ, maxZ) {
+  boxes.push({ minX, maxX, minZ, maxZ });
+}
+
 export function resolveCollision(nx, nz, oldX, oldZ) {
   if (!collidesAny(nx, nz)) return [nx, nz];
   if (!collidesAny(nx, oldZ)) return [nx, oldZ];

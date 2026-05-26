@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildNpcCharacter } from './npc.js';
+import { registerBox } from '../systems/collision.js';
 
 const HOUSE_URL = '/models/nature/marina/Medieval%20Village%20Houses%20GLB/Medieval%20Village%20Houses.glb';
 
@@ -49,6 +50,7 @@ export function initMarina(scene) {
   addStairs(group);
   addFishingPier(group);
   addNpcOrb(group);
+  _registerDeckCollision();
 
   _loadHouse(group);
 }
@@ -66,12 +68,17 @@ function _loadHouse(group) {
     model.scale.setScalar(sc);
 
     const box2 = new THREE.Box3().setFromObject(model);
-    // Place house on top of deck, centred slightly toward land
-    model.position.set(0, DECK_Y - box2.min.y, -6);
+    // Place house on the grass (local Z=45 → world X=-185, inside grass zone)
+    model.position.set(0, -box2.min.y, 45);
     model.rotation.y = 0;
     group.add(model);
 
-    console.log('[marina] house on deck — scale:', sc.toFixed(3));
+    // Register world-space collision box (group rot PI/2: worldX=-230+localZ, worldZ=-localX)
+    group.updateWorldMatrix(true, true);
+    const wb = new THREE.Box3().setFromObject(model);
+    registerBox(wb.min.x - 0.4, wb.max.x + 0.4, wb.min.z - 0.4, wb.max.z + 0.4);
+
+    console.log('[marina] house on grass — scale:', sc.toFixed(3));
   }, undefined, err => {
     console.warn('[marina] house load failed:', err?.message ?? err);
     _fallbackHut(group);
@@ -80,14 +87,16 @@ function _loadHouse(group) {
 
 function _fallbackHut(group) {
   const walls = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 8), solidMat(0xD4C8A8, 0.88));
-  walls.position.set(0, DECK_Y + 3, -6);
+  walls.position.set(0, 3, 45);  // on grass: y=3 (centre of 6m box), localZ=45→worldX=-185
   walls.castShadow = walls.receiveShadow = true;
   group.add(walls);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(8, 4, 4), solidMat(0x7B5E3A, 0.9));
-  roof.position.set(0, DECK_Y + 8, -6);
+  roof.position.set(0, 8, 45);
   roof.rotation.y = Math.PI / 4;
   roof.castShadow = true;
   group.add(roof);
+  // world: localZ=45 → worldX=-185, localX∈[-5,+5] → worldZ∈[-5,+5]
+  registerBox(-191, -179, -6, 6);
 }
 
 // ── Elevated wooden deck (house platform) ─────────────────────────────
@@ -281,6 +290,24 @@ function addFishingPier(group) {
       group.add(alcSpot);
     }
   });
+}
+
+// ── Deck collision (world-space AABBs) ───────────────────────────────
+// Group at (-230,0,0) rot.y=PI/2 → worldX = -230+localZ, worldZ = -localX
+// Deck: localX∈[-65,+65], localZ∈[-21,+1]  →  worldX∈[-251,-229], worldZ∈[-65,+65]
+// Stairs opening: localX∈[-12.5,+12.5] → worldZ∈[-12.5,+12.5]
+
+function _registerDeckCollision() {
+  // Back wall (land side, localZ=+1 → worldX=-229)
+  registerBox(-230.5, -228.5, -66, 66);
+  // Left side wall (localX=-65 → worldZ=+65)
+  registerBox(-252, -228.5, 64, 66);
+  // Right side wall (localX=+65 → worldZ=-65)
+  registerBox(-252, -228.5, -66, -64);
+  // Front wall — left of stair gap (worldZ∈[13,66])
+  registerBox(-252.5, -249.5, 13, 66);
+  // Front wall — right of stair gap (worldZ∈[-66,-13])
+  registerBox(-252.5, -249.5, -66, -13);
 }
 
 // ── NPC ───────────────────────────────────────────────────────────────
