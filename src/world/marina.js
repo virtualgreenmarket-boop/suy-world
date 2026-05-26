@@ -147,19 +147,20 @@ function addElevatedDeck(group) {
   }
 
   // ── Deck railings (sea-facing front + both sides) ────────────────────
-  const frontZ = DZ - DL / 2;  // z = −21 (sea edge)
-  const backZ  = DZ + DL / 2;  // z = +1  (land edge)
-  _railSegment(group, DX, frontZ, DW, 'x');                        // front
-  _railSegment(group, DX - DW / 2, DZ - DL * 0.1, DL * 0.8, 'z'); // left side
-  _railSegment(group, DX + DW / 2, DZ - DL * 0.1, DL * 0.8, 'z'); // right side
+  const frontZ    = DZ - DL / 2;   // z = −21 (sea edge)
+  const deckSurf  = DECK_Y + 0.38; // top of deck planks
+  _railSegment(group, DX, frontZ, DW, 'x', deckSurf);              // front (sea edge)
+  _railSegment(group, DX - DW / 2, DZ, DL, 'z', deckSurf);        // left side full length
+  _railSegment(group, DX + DW / 2, DZ, DL, 'z', deckSurf);        // right side full length
 }
 
 // Railing segment: pos is the centre along the railing direction
 // axis 'x' → rail runs along X, axis 'z' → rail runs along Z
-function _railSegment(group, cx, cz, length, axis) {
+// baseY = world-local Y of the surface the railing sits on
+function _railSegment(group, cx, cz, length, axis, baseY = DECK_Y + 0.38) {
   const postMat  = solidMat(0x7D5D3C, 0.9);
   const topMat   = solidMat(0xA07040, 0.85);
-  const rY       = DECK_Y + 0.38;  // rail base = deck surface
+  const rY       = baseY;
   const postH    = 1.05;
   const spacing  = 1.8;
   const count    = Math.floor(length / spacing);
@@ -293,11 +294,12 @@ function addFishingPier(group) {
   }
 
   // ── Railings along both sides ────────────────────────────────────────
+  const pierSurface = PIER_Y + 0.35;
   [-PIER_W / 2, PIER_W / 2].forEach(rx => {
-    _railSegment(group, rx, PIER_CZ, PIER_LEN, 'z');
+    _railSegment(group, rx, PIER_CZ, PIER_LEN, 'z', pierSurface);
   });
   // End cap railing
-  _railSegment(group, 0, PIER_START_Z - PIER_LEN, PIER_W, 'x');
+  _railSegment(group, 0, PIER_START_Z - PIER_LEN, PIER_W, 'x', pierSurface);
 
   // ── Fishing spots — spread across full pier width at far end ────────
   const spotMat  = solidMat(0x3D2A0E, 0.98);
