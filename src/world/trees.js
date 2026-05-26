@@ -84,54 +84,70 @@ export function preloadTrees() {
 // ── Plaza centrepiece maple tree (FBX) ───────────────────────────────
 
 export function spawnPlazaTree(scene) {
-  const tl      = new THREE.TextureLoader();
-  const BASE    = '/models/nature/trees/plaza_tree/textures/';
-  const leafTex = tl.load(BASE + 'maplebranch.png');
-  const trunkTex = tl.load(BASE + 'HeroTreeTRUNK_Bake1_PBR_StoA_Diffuse.png');
-  leafTex.colorSpace  = THREE.SRGBColorSpace;
-  trunkTex.colorSpace = THREE.SRGBColorSpace;
+  const tl   = new THREE.TextureLoader();
+  const BASE = '/models/nature/trees/plaza_tree/textures/';
 
-  const leafMat  = new THREE.MeshStandardMaterial({
-    map: leafTex, alphaTest: 0.40,
-    side: THREE.DoubleSide, roughness: 0.85, metalness: 0.0,
+  const leafTex  = tl.load(BASE + 'maplebranch.png');
+  const atlasTex = tl.load(BASE + 'HeroTreeTRUNK_Bake1_PBR_StoA_Diffuse.png');
+  const barkTex  = tl.load(BASE + 'Trunk_D_Tiled2.png');
+
+  [leafTex, atlasTex, barkTex].forEach(t => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
   });
-  const trunkMat = new THREE.MeshStandardMaterial({
-    map: trunkTex, roughness: 0.92, metalness: 0.0,
+  barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
+
+  // Leaves — alphaTest cuts white background; DoubleSide for flat cards
+  const leafMat = new THREE.MeshStandardMaterial({
+    map: leafTex, alphaTest: 0.12, transparent: true,
+    side: THREE.DoubleSide, roughness: 0.82, metalness: 0.0,
+    depthWrite: false,
+  });
+  // Trunk atlas — black = transparent in the atlas texture
+  const atlasMat = new THREE.MeshStandardMaterial({
+    map: atlasTex, alphaTest: 0.08, transparent: true,
+    roughness: 0.90, metalness: 0.0,
+  });
+  // Cylindrical bark sections — tileable texture, fully opaque
+  const barkMat = new THREE.MeshStandardMaterial({
+    map: barkTex, roughness: 0.92, metalness: 0.0,
   });
 
   new FBXLoader().load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
+    const meshNames = [];
     fbx.traverse(n => {
       if (!n.isMesh) return;
+      meshNames.push(n.name);
       const name = n.name.toLowerCase();
-      const isLeaf = name.includes('leaf') || name.includes('branch')
-                  || name.includes('foliage') || name.includes('canopy')
-                  || name.includes('maple');
-      n.material      = isLeaf ? leafMat : trunkMat;
+      const isLeaf     = name.includes('leaf') || name.includes('leaves')
+                      || name.includes('foliage') || name.includes('maple')
+                      || name.includes('branch');
+      const isCylinder = name.includes('cylinder') || name.includes('bark_tile')
+                      || name.includes('trunk_d');
+      n.material      = isLeaf ? leafMat : isCylinder ? barkMat : atlasMat;
       n.castShadow    = true;
       n.receiveShadow = !isLeaf;
     });
+    console.log('[trees] plaza mesh names:', meshNames.join(', '));
 
-    // Upright correction (FBX sometimes loads on its side)
+    // Upright correction
     fbx.updateMatrixWorld(true);
-    const b0 = new THREE.Box3().setFromObject(fbx);
-    const s0 = b0.getSize(new THREE.Vector3());
-    if (s0.z > s0.y * 1.5) { fbx.rotation.x = -Math.PI / 2; fbx.updateMatrixWorld(true); }
-    else if (s0.x > s0.y * 1.5) { fbx.rotation.z = Math.PI / 2; fbx.updateMatrixWorld(true); }
+    const s0 = new THREE.Box3().setFromObject(fbx).getSize(new THREE.Vector3());
+    if      (s0.z > s0.y * 1.5) { fbx.rotation.x = -Math.PI / 2; fbx.updateMatrixWorld(true); }
+    else if (s0.x > s0.y * 1.5) { fbx.rotation.z =  Math.PI / 2; fbx.updateMatrixWorld(true); }
 
-    // Scale to 22 m tall
+    // Scale to 22 m
     const box1 = new THREE.Box3().setFromObject(fbx);
     const h    = Math.max(box1.max.y - box1.min.y, 0.01);
     fbx.scale.setScalar(22 / h);
 
-    // Seat feet on the ground
+    // Seat on ground
     const box2 = new THREE.Box3().setFromObject(fbx);
     fbx.position.set(0, -box2.min.y, 0);
 
     scene.add(fbx);
-    console.log('[trees] plaza maple ready — h:', h.toFixed(2), '→ 22 m');
-  }, undefined, err => {
-    console.warn('[trees] plaza maple failed:', err?.message ?? err);
-  });
+    console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 22 m');
+  }, undefined, err => console.warn('[trees] plaza maple failed:', err?.message ?? err));
 }
 
 export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
