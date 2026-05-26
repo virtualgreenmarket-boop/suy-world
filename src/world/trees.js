@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const TARGET_HEIGHT = 15;
+const TARGET_HEIGHT = 7;
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
 const TEX_BASE = '/models/nature/trees/HighPoly%20Tree%20Model/Textures/';
 
@@ -63,10 +63,10 @@ export function preloadTrees() {
   return _promise;
 }
 
-export function spawnTree(scene, x, z, scale = 1.0, rotY) {
+export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
   const place = () => {
     const tree = _template.clone(true);
-    tree.position.set(x, 0, z);
+    tree.position.set(x, y, z);
     tree.scale.setScalar(scale);
     tree.rotation.y = (rotY !== undefined) ? rotY : Math.random() * Math.PI * 2;
     scene.add(tree);

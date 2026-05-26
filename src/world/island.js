@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Water } from 'three/addons/objects/Water.js';
 import { spawnTree } from './trees.js';
-import { registerGround } from '../systems/terrain.js';
+import { registerGround, getSurfaceY } from '../systems/terrain.js';
 
 let _water = null;
 
@@ -52,49 +52,7 @@ function addSky(scene) {
   scene.add(sky);
 }
 
-// ── Terrain (grass → sand → wet sand → shallow water gradient) ────────
-
-function makeGrassTexture() {
-  const S = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = S;
-  const ctx = canvas.getContext('2d');
-  const rng = seededRng(99);
-
-  ctx.fillStyle = '#4a7c3e';
-  ctx.fillRect(0, 0, S, S);
-
-  for (let i = 0; i < 120; i++) {
-    const x = rng() * S, y = rng() * S;
-    const rx = 5 + rng() * 18, ry = 3 + rng() * 10;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rng() * Math.PI);
-    ctx.fillStyle = `rgba(25,70,15,${0.08 + rng() * 0.14})`;
-    ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-
-  for (let i = 0; i < 60; i++) {
-    const x = rng() * S, y = rng() * S;
-    ctx.fillStyle = `rgba(100,180,50,${0.06 + rng() * 0.08})`;
-    ctx.beginPath(); ctx.ellipse(x, y, 3 + rng() * 10, 2 + rng() * 6, rng() * Math.PI, 0, Math.PI * 2); ctx.fill();
-  }
-
-  for (let i = 0; i < 700; i++) {
-    const x = rng() * S, y = rng() * S, h = 4 + rng() * 9;
-    const b = 0.65 + rng() * 0.55;
-    ctx.strokeStyle = `rgba(${Math.floor(48 * b)},${Math.floor(148 * b)},${Math.floor(32 * b)},0.55)`;
-    ctx.lineWidth = 0.8 + rng() * 1.0;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (rng() - 0.5) * 3, y - h); ctx.stroke();
-  }
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(50, 50);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
+// ── Terrain (grass → sand → wet sand gradient) ───────────────────────
 
 function addTerrain(scene) {
   const tl  = new THREE.TextureLoader();
@@ -125,24 +83,20 @@ function addTerrain(scene) {
   bottom.position.y = -8;
   scene.add(bottom);
 
-  // ── Terrain disc: flat top surface with 5-zone blended shader ────────
+  // ── Terrain disc: flat top surface with zone-blended shader ─────────
   //
-  //  r <  193        Zone 1 — pure grass
-  //  r  193–215      Zone 2 — grass with scattered sand patches
-  //  r  215–230      Zone 3 — pure dry sand (PBR texture)
-  //  r  230–240      Zone 4 — wet sand (darker, lower roughness)
-  //  r  240–246      Edge fade → transparent (blends into shallow water)
+  //  r < 193         Zone 1 — pure grass (procedural)
+  //  r 193–215       Zone 2 — grass with scattered sand patches
+  //  r 215–235       Zone 3 — dry sand (PBR texture)
+  //  r 235–246       Zone 4 — wet sand (darker)
   //
   const terrainGeo = new THREE.CircleGeometry(246, 128);
 
-  const grassTex = makeGrassTexture();
-
   const terrainMat = new THREE.MeshStandardMaterial({
-    map:       grassTex,
     roughness: 0.92,
     metalness: 0.0,
   });
-  terrainMat.customProgramCacheKey = () => 'terrain-v3';
+  terrainMat.customProgramCacheKey = () => 'terrain-v4';
 
   terrainMat.onBeforeCompile = shader => {
     shader.uniforms.uSandTex   = { value: sandTex   };
@@ -169,9 +123,8 @@ function addTerrain(scene) {
         float r = length(vTW);
 
         // Zone blend factors
-        float tSand  = smoothstep(193.0, 215.0, r);   // grass→dry sand
-        float tWet   = smoothstep(222.0, 235.0, r);   // dry→wet sand
-        float tFade  = smoothstep(240.0, 246.0, r);   // wet sand→transparent
+        float tSand = smoothstep(193.0, 215.0, r);   // grass→dry sand
+        float tWet  = smoothstep(222.0, 235.0, r);   // dry→wet sand
 
         // Zone 2: organic sand patches in grass (cell noise)
         vec2  cell  = floor(vTW * 0.10);
@@ -179,18 +132,17 @@ function addTerrain(scene) {
         float patch = smoothstep(193.0, 220.0, r) * smoothstep(0.38, 0.62, cellN);
         float sandF = max(tSand, patch);
 
-        // World-space UV tiling (avoids seams from mesh UV)
-        vec2 uvG = vTW / 4.5;    // grass ~4.5 m tiles
-        vec2 uvS = vTW / 4.2;    // sand  ~4.2 m tiles
+        // Procedural grass — cell noise gives subtle colour variation
+        vec2  gCell  = floor(vTW * 0.18);
+        float gN     = fract(sin(dot(gCell, vec2(93.9898, 78.233))) * 43758.5453);
+        vec3  cGrass = mix(vec3(0.19, 0.46, 0.13), vec3(0.28, 0.58, 0.17), gN);
 
-        vec4 cGrass = texture2D(map, uvG);
-        vec4 cSand  = texture2D(uSandTex, uvS);
+        // Sand PBR texture
+        vec2 uvS   = vTW / 4.2;
+        vec3 cSand = texture2D(uSandTex, uvS).rgb;
+        vec3 cWet  = cSand * vec3(0.58, 0.56, 0.53);
 
-        // Wet sand: darker & cooler tone (water-soaked surface)
-        vec3 cWet = cSand.rgb * vec3(0.58, 0.56, 0.53);
-
-        // Blend through zones
-        vec3 col = mix(cGrass.rgb, cSand.rgb, sandF);
+        vec3 col = mix(cGrass, cSand, sandF);
         col = mix(col, cWet, tWet);
 
         diffuseColor = vec4(col, 1.0);
@@ -283,19 +235,20 @@ function addTrees(scene, maxTrees = 62) {
     let x, z, tries = 0;
     do {
       const a = rng() * Math.PI * 2;
-      const r = 72 + rng() * 145; // stay inside beach ring (r<218)
+      const r = 65 + rng() * 120; // grass zone only: r 65–185
       x = Math.cos(a) * r; z = Math.sin(a) * r;
       tries++;
     } while (tries < 80 && (
-      Math.hypot(x, z) > 216 ||              // outside beach
+      Math.hypot(x, z) > 183 ||              // outside grass zone
       avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r) ||
       _onPath(x, z)
     ));
 
-    if (Math.hypot(x, z) > 216) continue;    // give up on this slot
+    if (Math.hypot(x, z) > 183) continue;   // give up on this slot
 
-    const scale = 0.65 + rng() * 0.60;
+    const scale = 0.55 + rng() * 0.45;
     const rotY  = rng() * Math.PI * 2;
-    spawnTree(scene, x, z, scale, rotY);
+    const y     = getSurfaceY(x, z);
+    spawnTree(scene, x, z, y, scale, rotY);
   }
 }
