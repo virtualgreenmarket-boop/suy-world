@@ -159,7 +159,7 @@ function _onPath(x, z) {
   if (Math.abs(x) < PW && z < -40 && z > -95)  return true; // N path
   if (Math.abs(x) < PW && z >  40 && z <  95)  return true; // S path
   if (Math.abs(z) < PW && x >  40 && x <  95)  return true; // E path
-  if (Math.abs(z) < PW && x < -40 && x > -115) return true; // W (marina) path
+  if (Math.abs(z) < PW && x < -40 && x > -195) return true; // W (marina) path
   return false;
 }
 
@@ -168,7 +168,7 @@ function addTrees(scene, maxTrees = 62) {
     { x:   0, z: -130, r: 62 }, // N hangar
     { x: 130, z:    0, r: 62 }, // E hangar
     { x:   0, z:  130, r: 62 }, // S hangar
-    { x:-150, z:    0, r: 85 }, // marina
+    { x:-230, z:    0, r: 85 }, // marina
     { x:   0, z:    0, r: 54 }, // plaza
   ];
 
