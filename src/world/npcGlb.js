@@ -200,9 +200,16 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     }
   });
 
-  // Compute actual floor offset from clone's own bounding box
-  const cloneBox    = new THREE.Box3().setFromObject(clone);
-  const cloneFloorY = -cloneBox.min.y;
+  // Compute floor offset from geometry bounding boxes (reliable for SkinnedMesh)
+  clone.updateWorldMatrix(true, true);
+  let lowestY = Infinity;
+  clone.traverse(n => {
+    if (!n.isMesh && !n.isSkinnedMesh) return;
+    if (!n.geometry.boundingBox) n.geometry.computeBoundingBox();
+    const tmp = n.geometry.boundingBox.clone().applyMatrix4(n.matrixWorld);
+    if (tmp.min.y < lowestY) lowestY = tmp.min.y;
+  });
+  const cloneFloorY = isFinite(lowestY) ? -lowestY : floorY;
 
   clone.position.set(x, cloneFloorY + surfaceY, z);
   clone.rotation.y = rotY;
