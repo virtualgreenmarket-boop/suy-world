@@ -112,7 +112,15 @@ export async function spawnAllPlazaNpcs(scene) {
     const npc = await _spawnFromEntry(scene, entry, startX, startZ, cfg.rot);
     if (!npc) continue;
 
-    if (i === 2) {
+    if (i === 3) {
+      // Jeny stands on the marina deck (deck y=3.2, world ~x=-222, z=10)
+      npc.group.position.set(-222, 3.2 + npc.floorOffset, 10);
+      npc.baseY       = 3.2 + npc.floorOffset;
+      npc.walkRadius  = 0;
+      npc.canWalk     = false;
+      npc.walkState   = 'idle';
+      npc.idleAction?.reset().play();
+    } else if (i === 2) {
       // Walks in a continuous loop around the plaza
       npc.walkMode     = 'circle';
       npc.circleRadius = 18;
