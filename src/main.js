@@ -28,7 +28,7 @@ import { initDogs, updateDogs }           from './world/dogs.js';
 import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
 import { initOceanLife, updateOceanLife } from './world/oceanLife.js';
-import { preloadTrees }                   from './world/trees.js';
+import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
@@ -146,6 +146,7 @@ initDecor(scene);
 initBeach(scene);
 initOceanLife(scene);
 initCollision();
+spawnPlazaTree(scene);
 
 // Kick off model + animation downloads immediately (all in parallel)
 preloadCharacter().catch(err => console.error('[character] model failed:', err));

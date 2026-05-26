@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
@@ -78,6 +79,59 @@ export function preloadTrees() {
     }, undefined, reject)
   );
   return _promise;
+}
+
+// ── Plaza centrepiece maple tree (FBX) ───────────────────────────────
+
+export function spawnPlazaTree(scene) {
+  const tl      = new THREE.TextureLoader();
+  const BASE    = '/models/nature/trees/plaza_tree/textures/';
+  const leafTex = tl.load(BASE + 'maplebranch.png');
+  const trunkTex = tl.load(BASE + 'HeroTreeTRUNK_Bake1_PBR_StoA_Diffuse.png');
+  leafTex.colorSpace  = THREE.SRGBColorSpace;
+  trunkTex.colorSpace = THREE.SRGBColorSpace;
+
+  const leafMat  = new THREE.MeshStandardMaterial({
+    map: leafTex, alphaTest: 0.40,
+    side: THREE.DoubleSide, roughness: 0.85, metalness: 0.0,
+  });
+  const trunkMat = new THREE.MeshStandardMaterial({
+    map: trunkTex, roughness: 0.92, metalness: 0.0,
+  });
+
+  new FBXLoader().load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
+    fbx.traverse(n => {
+      if (!n.isMesh) return;
+      const name = n.name.toLowerCase();
+      const isLeaf = name.includes('leaf') || name.includes('branch')
+                  || name.includes('foliage') || name.includes('canopy')
+                  || name.includes('maple');
+      n.material      = isLeaf ? leafMat : trunkMat;
+      n.castShadow    = true;
+      n.receiveShadow = !isLeaf;
+    });
+
+    // Upright correction (FBX sometimes loads on its side)
+    fbx.updateMatrixWorld(true);
+    const b0 = new THREE.Box3().setFromObject(fbx);
+    const s0 = b0.getSize(new THREE.Vector3());
+    if (s0.z > s0.y * 1.5) { fbx.rotation.x = -Math.PI / 2; fbx.updateMatrixWorld(true); }
+    else if (s0.x > s0.y * 1.5) { fbx.rotation.z = Math.PI / 2; fbx.updateMatrixWorld(true); }
+
+    // Scale to 22 m tall
+    const box1 = new THREE.Box3().setFromObject(fbx);
+    const h    = Math.max(box1.max.y - box1.min.y, 0.01);
+    fbx.scale.setScalar(22 / h);
+
+    // Seat feet on the ground
+    const box2 = new THREE.Box3().setFromObject(fbx);
+    fbx.position.set(0, -box2.min.y, 0);
+
+    scene.add(fbx);
+    console.log('[trees] plaza maple ready — h:', h.toFixed(2), '→ 22 m');
+  }, undefined, err => {
+    console.warn('[trees] plaza maple failed:', err?.message ?? err);
+  });
 }
 
 export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
