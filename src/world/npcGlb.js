@@ -113,13 +113,21 @@ export async function spawnAllPlazaNpcs(scene) {
     if (!npc) continue;
 
     if (i === 3) {
-      // Jeny stands on the marina deck (deck y=3.2, world ~x=-222, z=10)
-      npc.group.position.set(-222, 3.2 + npc.floorOffset, 10);
-      npc.baseY       = 3.2 + npc.floorOffset;
-      npc.walkRadius  = 0;
-      npc.canWalk     = false;
-      npc.walkState   = 'idle';
-      npc.idleAction?.reset().play();
+      // Jeny patrols along the marina deck (deck y=3.2, world x≈-222, z from -50 to +50)
+      const deckY = 3.2 + npc.floorOffset;
+      npc.group.position.set(-222, deckY, -45);
+      npc.baseY        = deckY;
+      npc.walkMode     = 'patrol';
+      npc.patrolA      = new THREE.Vector3(-222, deckY, -45);
+      npc.patrolB      = new THREE.Vector3(-222, deckY,  45);
+      npc.patrolForward = true;
+      npc.patrolPause  = 0;
+      if (npc.walkAction) {
+        npc.idleAction?.stop();
+        npc.walkAction.reset().play();
+      } else {
+        npc.idleAction?.reset().play();
+      }
     } else if (i === 2) {
       // Walks in a continuous loop around the plaza
       npc.walkMode     = 'circle';
@@ -284,6 +292,38 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
 
 export function updateNpc(npc, delta) {
   if (!npc) return;
+
+  // Patrol walk (back-and-forth between two points)
+  if (npc.walkMode === 'patrol') {
+    npc.mixer.update(delta);
+    if (npc.patrolPause > 0) {
+      npc.patrolPause -= delta;
+      if (npc.patrolPause <= 0) {
+        npc.idleAction?.fadeOut(0.3);
+        npc.walkAction?.reset().fadeIn(0.3).play();
+      }
+      return;
+    }
+    const target = npc.patrolForward ? npc.patrolB : npc.patrolA;
+    const dx = target.x - npc.group.position.x;
+    const dz = target.z - npc.group.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 0.5) {
+      npc.patrolForward = !npc.patrolForward;
+      npc.patrolPause   = 1.5 + Math.random() * 2;
+      npc.walkAction?.fadeOut(0.3);
+      npc.idleAction?.reset().fadeIn(0.3).play();
+    } else {
+      const speed = 1.4;
+      const nx = npc.group.position.x + (dx / dist) * speed * delta;
+      const nz = npc.group.position.z + (dz / dist) * speed * delta;
+      npc.group.position.x = nx;
+      npc.group.position.z = nz;
+      npc.group.position.y = getSurfaceY(nx, nz) + npc.floorOffset;
+      npc.group.rotation.y = Math.atan2(dx, dz);
+    }
+    return;
+  }
 
   // Circular walk (phone-woman)
   if (npc.walkMode === 'circle') {
