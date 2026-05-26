@@ -61,6 +61,6 @@ function _analytical(x, z) {
   if (Math.abs(x) <= PATH_HALF_W && z < -PLAZA_HALF && z > -92)  return PATH_SURFACE;
   if (Math.abs(x) <= PATH_HALF_W && z >  PLAZA_HALF && z < 92)   return PATH_SURFACE;
   if (Math.abs(z) <= PATH_HALF_W && x >  PLAZA_HALF && x < 92)   return PATH_SURFACE;
-  if (Math.abs(z) <= PATH_HALF_W && x < -PLAZA_HALF && x > -108) return PATH_SURFACE;
+  if (Math.abs(z) <= PATH_HALF_W && x < -PLAZA_HALF && x > -210) return PATH_SURFACE;
   return 0;
 }

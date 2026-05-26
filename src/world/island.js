@@ -258,7 +258,7 @@ function _onPath(x, z) {
   if (Math.abs(x) < PW && z < -40 && z > -95)  return true; // N path
   if (Math.abs(x) < PW && z >  40 && z <  95)  return true; // S path
   if (Math.abs(z) < PW && x >  40 && x <  95)  return true; // E path
-  if (Math.abs(z) < PW && x < -40 && x > -195) return true; // W (marina) path
+  if (Math.abs(z) < PW && x < -40 && x > -210) return true; // W (marina) path
   return false;
 }
 
