@@ -175,8 +175,8 @@ function _injectStyles() {
       flex: 1; overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      padding: 14px 12px 60px;
-      display: flex; flex-direction: column; gap: 16px;
+      padding: 12px 12px 56px;
+      display: flex; flex-direction: column; gap: 14px;
     }
 
     /* ── Section ── */
@@ -195,7 +195,7 @@ function _injectStyles() {
     .sp-row {
       display: flex; align-items: center;
       justify-content: space-between;
-      padding: 12px 14px; gap: 10px; min-height: 46px;
+      padding: 11px 14px; gap: 10px; min-height: 44px;
     }
     .sp-row + .sp-row,
     .sp-slider-row + .sp-row,
@@ -211,17 +211,19 @@ function _injectStyles() {
       border-top: 1px solid var(--sp-border);
     }
     .sp-row-label {
-      font-size: 14px; font-weight: 500; color: var(--sp-text);
+      font-size: 13px; font-weight: 500; color: var(--sp-text);
       flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
     /* ── Pill row (stacked: label above, pills below) ── */
     .sp-pill-row {
       display: flex; flex-direction: column;
-      padding: 11px 14px 12px; gap: 9px;
+      padding: 10px 14px 11px; gap: 8px;
     }
     .sp-pill-row-label {
-      font-size: 14px; font-weight: 500; color: var(--sp-text);
+      font-size: 13px; font-weight: 500; color: var(--sp-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
     /* ── Account info ── */
@@ -248,11 +250,12 @@ function _injectStyles() {
     /* ── Action buttons (Edit Profile, Change Password, etc.) ── */
     .sp-action-btn {
       display: block; width: 100%;
-      padding: 13px 14px;
+      padding: 12px 14px;
       background: none; border: none;
-      font-family: inherit; font-size: 14px; font-weight: 500;
+      font-family: inherit; font-size: 13px; font-weight: 500;
       color: var(--sp-text); text-align: left; cursor: pointer;
       transition: background .1s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sp-action-btn:active { background: rgba(255,255,255,0.06); }
     .sp-action-btn + .sp-action-btn { border-top: 1px solid var(--sp-border); }
@@ -279,15 +282,20 @@ function _injectStyles() {
     .sp-tog input:checked ~ .sp-tog-thumb { transform: translateX(19px); }
 
     /* ── Slider row ── */
-    .sp-slider-row { padding: 12px 14px 14px; }
+    .sp-slider-row { padding: 10px 14px 12px; }
     .sp-slider-head {
       display: flex; justify-content: space-between; align-items: baseline;
       margin-bottom: 9px;
     }
-    .sp-slider-name { font-size: 14px; font-weight: 500; color: var(--sp-text); }
+    .sp-slider-name {
+      font-size: 13px; font-weight: 500; color: var(--sp-text);
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .sp-slider-val {
       font-size: 12px; color: var(--sp-muted);
-      font-variant-numeric: tabular-nums; min-width: 32px; text-align: right;
+      font-variant-numeric: tabular-nums; min-width: 30px; text-align: right;
+      flex-shrink: 0;
     }
     .sp-range {
       -webkit-appearance: none; appearance: none;
@@ -349,7 +357,7 @@ function _injectStyles() {
     /* ── Disclosure row (chevron, for "Open" items) ── */
     .sp-disc {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 14px; gap: 10px; min-height: 48px;
+      padding: 11px 14px; gap: 10px; min-height: 44px;
       background: none; border: none; width: 100%;
       font-family: inherit; color: var(--sp-text); text-align: left;
       cursor: pointer; transition: background .1s;
@@ -360,7 +368,11 @@ function _injectStyles() {
     .sp-disc + .sp-slider-row,
     .sp-slider-row + .sp-disc { border-top: 1px solid var(--sp-border); }
     .sp-disc:active { background: rgba(255,255,255,0.05); }
-    .sp-disc-label { font-size: 14px; font-weight: 500; }
+    .sp-disc-label {
+      font-size: 13px; font-weight: 500;
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .sp-disc-chevron { color: var(--sp-muted); flex-shrink: 0; }
 
     /* ── Version card ── */
