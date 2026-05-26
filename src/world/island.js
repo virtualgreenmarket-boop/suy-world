@@ -180,7 +180,7 @@ function addShallowSeabed(scene) {
 
   // Sloped entry: r=246 (y=0) → r=260 (y=-0.25) — just below water surface
   const slopeMesh = new THREE.Mesh(
-    _slopedRing(246, 260, 0, -0.25, 128),
+    _slopedRing(246, 260, 0, -1.05, 128),
     new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0.0 })
   );
   slopeMesh.receiveShadow = true;
@@ -196,7 +196,7 @@ function addShallowSeabed(scene) {
     new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0 })
   );
   flatMesh.rotation.x = -Math.PI / 2;
-  flatMesh.position.y = -0.25;
+  flatMesh.position.y = -1.05;
   flatMesh.receiveShadow = true;
   scene.add(flatMesh);
   registerGround(flatMesh);
