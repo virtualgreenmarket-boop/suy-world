@@ -13,8 +13,7 @@ const NPC_URLS = [
   '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb',
   '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb',
   '/models/characters/npcs/texting_while_walking.glb',
-  '/models/characters/npcs/midnight_lace.glb',
-  '/models/characters/npcs/midnight_lace%20(1).glb',
+  '/models/characters/npcs/jeny_tpose_riged.glb',
 ];
 
 // Per-entry NPC template data
@@ -152,7 +151,7 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.walkTarget = new THREE.Vector3(cfg.x, 0, cfg.z);
       npc.walkState  = 'idle';
       npc.walkTimer  = 2 + Math.random() * 4;
-      npc.canWalk    = entry.hasWalkAnim || entry.hasSkel;
+      npc.canWalk    = (entry.hasWalkAnim || entry.hasSkel) && !!npc.walkAction;
     }
     _plazaNpcs.push(npc);
   }
@@ -165,7 +164,18 @@ export function updateAllPlazaNpcs(delta) {
 // ── Internal spawn helper ─────────────────────────────────────────────
 
 function _cloneMat(m) {
-  return m.clone(); // each NPC instance gets its own material so shared refs don't bleed
+  const c = m.clone();
+  for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'sheenColorMap']) {
+    if (c[key]) {
+      c[key] = c[key].clone();
+      c[key].colorSpace = (key === 'map' || key === 'emissiveMap' || key === 'sheenColorMap')
+        ? THREE.SRGBColorSpace
+        : THREE.LinearSRGBColorSpace;
+      c[key].needsUpdate = true;
+    }
+  }
+  c.needsUpdate = true;
+  return c;
 }
 
 async function _spawnFromEntry(scene, entry, x, z, rotY) {
@@ -182,9 +192,19 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     } else if (n.material) {
       n.material = _cloneMat(n.material);
     }
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    for (const mat of mats) {
+      if (!mat) continue;
+      mat.roughness = Math.min(mat.roughness ?? 1.0, 0.75);
+      mat.needsUpdate = true;
+    }
   });
 
-  clone.position.set(x, floorY + surfaceY, z);
+  // Compute actual floor offset from clone's own bounding box
+  const cloneBox    = new THREE.Box3().setFromObject(clone);
+  const cloneFloorY = -cloneBox.min.y;
+
+  clone.position.set(x, cloneFloorY + surfaceY, z);
   clone.rotation.y = rotY;
   scene.add(clone);
 
@@ -233,8 +253,8 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     mixer, group: clone, mode,
     idleAction, walkAction,
     idlePhase: Math.random() * Math.PI * 2,
-    baseY:     floorY + surfaceY,
-    floorOffset: floorY,
+    baseY:     cloneFloorY + surfaceY,
+    floorOffset: cloneFloorY,
     idleTime:  0,
     walkCenter: new THREE.Vector3(x, 0, z),
     walkRadius: 0,
