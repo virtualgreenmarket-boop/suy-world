@@ -155,7 +155,7 @@ function addShallowWater(scene) {
     new THREE.MeshStandardMaterial({
       color:       0x38C0D8,
       transparent: true,
-      opacity:     0.52,
+      opacity:     0.50,
       roughness:   0.05,
       metalness:   0.12,
       depthWrite:  false,
