@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const TARGET_HEIGHT = 7;
+const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
 const TEX_BASE = '/models/nature/trees/HighPoly%20Tree%20Model/Textures/';
 
