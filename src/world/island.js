@@ -52,29 +52,28 @@ function addSky(scene) {
   scene.add(sky);
 }
 
-// ── Terrain (grass → sand → wet sand gradient) ───────────────────────
+// ── Terrain (grass inner disc + sand outer ring) ─────────────────────
 
 function addTerrain(scene) {
   const tl  = new THREE.TextureLoader();
   const pfx = 'textures/beach/Ground054_2K-JPG_';
 
-  // Sand PBR textures — world-space tiled in shader
-  const sandTex  = tl.load(pfx + 'Color.jpg');
-  const sandRough = tl.load(pfx + 'Roughness.jpg');
-  [sandTex, sandRough].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; });
-  sandTex.colorSpace  = THREE.SRGBColorSpace;
-  sandTex.anisotropy  = 8;
+  const sandTex = tl.load(pfx + 'Color.jpg');
+  sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
+  sandTex.repeat.set(14, 14);
+  sandTex.colorSpace = THREE.SRGBColorSpace;
+  sandTex.anisotropy = 8;
 
-  // ── Island body: open tapered cylinder (visible cliff edge) ──────────
+  // Island body — visible tapered cliff edge
   const body = new THREE.Mesh(
     new THREE.CylinderGeometry(238, 258, 8, 48, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x8B7040, roughness: 0.97, metalness: 0.0 })
   );
-  body.position.y = -4;  // top at 0, bottom at -8
+  body.position.y = -4;
   body.receiveShadow = true;
   scene.add(body);
 
-  // Island bottom cap — prevents sky showing through from underwater
+  // Island bottom cap
   const bottom = new THREE.Mesh(
     new THREE.CircleGeometry(256, 48),
     new THREE.MeshStandardMaterial({ color: 0x6B5030, roughness: 0.97 })
@@ -83,102 +82,27 @@ function addTerrain(scene) {
   bottom.position.y = -8;
   scene.add(bottom);
 
-  // ── Terrain disc: flat top surface with zone-blended shader ─────────
-  //
-  //  r < 193         Zone 1 — pure grass (procedural)
-  //  r 193–215       Zone 2 — grass with scattered sand patches
-  //  r 215–235       Zone 3 — dry sand (PBR texture)
-  //  r 235–246       Zone 4 — wet sand (darker)
-  //
-  const terrainGeo = new THREE.CircleGeometry(246, 128);
+  // Grass disc — inner island (r < 197)
+  const grassMesh = new THREE.Mesh(
+    new THREE.CircleGeometry(197, 128),
+    new THREE.MeshStandardMaterial({ color: 0x4a8c35, roughness: 0.88, metalness: 0.0 })
+  );
+  grassMesh.rotation.x = -Math.PI / 2;
+  grassMesh.position.y = 0.02;
+  grassMesh.receiveShadow = true;
+  scene.add(grassMesh);
 
-  const terrainMat = new THREE.MeshStandardMaterial({
-    roughness: 0.92,
-    metalness: 0.0,
-  });
-  terrainMat.customProgramCacheKey = () => 'terrain-v4';
+  // Sand ring — beach zone (r 191–246); sits 1 cm below grass so depth test is clean
+  const sandMesh = new THREE.Mesh(
+    new THREE.RingGeometry(191, 246, 128),
+    new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95, metalness: 0.0 })
+  );
+  sandMesh.rotation.x = -Math.PI / 2;
+  sandMesh.position.y = 0.01;
+  sandMesh.receiveShadow = true;
+  scene.add(sandMesh);
 
-  terrainMat.onBeforeCompile = shader => {
-    shader.uniforms.uSandTex   = { value: sandTex   };
-    shader.uniforms.uSandRough = { value: sandRough  };
-
-    // ── Vertex: pass world XZ to fragment ────────────────────────────
-    shader.vertexShader = `varying vec2 vTW;\n` + shader.vertexShader;
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <project_vertex>',
-      `#include <project_vertex>
-       vTW = (modelMatrix * vec4(transformed, 1.0)).xz;`
-    );
-
-    // ── Fragment: sampler declarations ───────────────────────────────
-    shader.fragmentShader =
-      `varying vec2 vTW;
-       uniform sampler2D uSandTex;
-       uniform sampler2D uSandRough;\n` + shader.fragmentShader;
-
-    // ── Fragment: replace map_fragment with zone-blended colour ──────
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <map_fragment>',
-      `{
-        float r = length(vTW);
-
-        // Zone blend factors
-        float tSand = smoothstep(193.0, 215.0, r);   // grass→dry sand
-        float tWet  = smoothstep(222.0, 235.0, r);   // dry→wet sand
-
-        // Zone 2: organic sand patches in grass (cell noise)
-        vec2  cell  = floor(vTW * 0.10);
-        float cellN = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-        float patch = smoothstep(193.0, 220.0, r) * smoothstep(0.38, 0.62, cellN);
-        float sandF = max(tSand, patch);
-
-        // Procedural grass — cell noise gives subtle colour variation
-        vec2  gCell  = floor(vTW * 0.18);
-        float gN     = fract(sin(dot(gCell, vec2(93.9898, 78.233))) * 43758.5453);
-        vec3  cGrass = mix(vec3(0.19, 0.46, 0.13), vec3(0.28, 0.58, 0.17), gN);
-
-        // Sand PBR texture
-        vec2 uvS   = vTW / 4.2;
-        vec3 cSand = texture2D(uSandTex, uvS).rgb;
-        vec3 cWet  = cSand * vec3(0.58, 0.56, 0.53);
-
-        vec3 col = mix(cGrass, cSand, sandF);
-        col = mix(col, cWet, tWet);
-
-        diffuseColor = vec4(col, 1.0);
-      }`
-    );
-
-    // ── Fragment: zone-aware roughness & metalness ────────────────────
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <roughnessmap_fragment>',
-      `float roughnessFactor = roughness;
-       {
-         float r2   = length(vTW);
-         float tW2  = smoothstep(222.0, 238.0, r2);
-         // Wet sand lower roughness → surface water sheen
-         roughnessFactor = mix(roughnessFactor, 0.52, tW2);
-       }`
-    );
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <metalnessmap_fragment>',
-      `float metalnessFactor = metalness;
-       {
-         float r3  = length(vTW);
-         float tW3 = smoothstep(222.0, 238.0, r3);
-         // Very slight metalness on wet sand simulates water-film specular
-         metalnessFactor = mix(metalnessFactor, 0.06, tW3);
-       }`
-    );
-  };
-
-  const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
-  terrainMesh.rotation.x = -Math.PI / 2;
-  terrainMesh.position.y = 0.02;
-  terrainMesh.receiveShadow = true;
-  scene.add(terrainMesh);
-  registerGround(terrainMesh);
+  registerGround(grassMesh, sandMesh);
 }
 
 // ── Water (Three.js built-in Water shader) ────────────────────────────
