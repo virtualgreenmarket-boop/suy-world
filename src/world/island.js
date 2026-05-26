@@ -11,6 +11,7 @@ export function initIsland(scene, opts = {}) {
   addSky(scene);
   addTerrain(scene);
   addWater(scene);
+  addShallowWater(scene);
   addTrees(scene, opts.maxTrees ?? 62);
 }
 
@@ -144,6 +145,27 @@ function addWater(scene) {
   _water.rotation.x = -Math.PI / 2;
   _water.position.y = -0.5;
   scene.add(_water);
+}
+
+// ── Shallow wading zone (r 246–276, walkable, y = -0.15) ─────────────
+
+function addShallowWater(scene) {
+  const shallow = new THREE.Mesh(
+    new THREE.RingGeometry(246, 276, 128),
+    new THREE.MeshStandardMaterial({
+      color:       0x38C0D8,
+      transparent: true,
+      opacity:     0.52,
+      roughness:   0.05,
+      metalness:   0.12,
+      depthWrite:  false,
+    })
+  );
+  shallow.rotation.x  = -Math.PI / 2;
+  shallow.position.y  = -0.15;
+  shallow.renderOrder = 1;   // render after deep water so transparency composites correctly
+  scene.add(shallow);
+  registerGround(shallow);   // makes getSurfaceY return -0.15 here → player wades
 }
 
 // ── Trees (HighPoly FBX) ──────────────────────────────────────────────
