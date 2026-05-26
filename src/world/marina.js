@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildNpcCharacter } from './npc.js';
 import { registerBox } from '../systems/collision.js';
+import { registerGround } from '../systems/terrain.js';
 
 const HOUSE_URL = '/models/nature/marina/Medieval%20Village%20Houses%20GLB/Medieval%20Village%20Houses.glb';
 
@@ -122,6 +123,7 @@ function addElevatedDeck(group) {
   deckMesh.position.set(DX, DECK_Y + 0.19, DZ);
   deckMesh.castShadow = deckMesh.receiveShadow = true;
   group.add(deckMesh);
+  registerGround(deckMesh);
 
   // ── Structural rim beam ──────────────────────────────────────────────
   const rim = new THREE.Mesh(
@@ -204,6 +206,7 @@ function addStairs(group) {
     step.position.set(0, stepTopY - STEP_H / 2, stepZ);
     step.castShadow = step.receiveShadow = true;
     group.add(step);
+    registerGround(step);
   }
 
   // Side stringers
@@ -238,6 +241,7 @@ function addLandStairs(group) {
     step.position.set(0, stepTopY - LAND_STEP_H / 2, stepZ);
     step.castShadow = step.receiveShadow = true;
     group.add(step);
+    registerGround(step);
   }
   // Side stringers
   const strMat = solidMat(0x5C3D1A);
@@ -269,6 +273,7 @@ function addFishingPier(group) {
   pierMesh.position.set(0, PIER_Y + 0.175, PIER_CZ);
   pierMesh.castShadow = pierMesh.receiveShadow = true;
   group.add(pierMesh);
+  registerGround(pierMesh);
 
   // ── Rim beam ─────────────────────────────────────────────────────────
   const rim = new THREE.Mesh(
