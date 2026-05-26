@@ -168,7 +168,7 @@ function addTrees(scene, maxTrees = 62) {
     { x:   0, z: -130, r: 62 }, // N hangar
     { x: 130, z:    0, r: 62 }, // E hangar
     { x:   0, z:  130, r: 62 }, // S hangar
-    { x:-230, z:    0, r: 85 }, // marina
+    { x:-230, z:    0, r: 140 }, // marina (wide deck along shore)
     { x:   0, z:    0, r: 54 }, // plaza
   ];
 

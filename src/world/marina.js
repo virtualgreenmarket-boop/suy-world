@@ -96,7 +96,7 @@ function _fallbackHut(group) {
 //  Deck spans:     X ∈ [−13, +13]   Z ∈ [+1, −21]
 //  Surface at Y = DECK_Y
 
-const DW = 26;   // deck width  (X)
+const DW = 130;  // deck width  (X) — 5× original, runs along shoreline
 const DL = 22;   // deck length (Z, into sea)
 const DX = 0;
 const DZ = -10;  // centre Z of deck
@@ -122,18 +122,19 @@ function addElevatedDeck(group) {
   rim.castShadow = rim.receiveShadow = true;
   group.add(rim);
 
-  // ── Support pillars ──────────────────────────────────────────────────
-  const pillarH = DECK_Y + 1.2;
+  // ── Support pillars — extend to y=-9 (seabed) ───────────────────────
+  const pillarH = DECK_Y + 9;                          // 3.2 + 9 = 12.2 m
   const pMat    = solidMat(0x6B4820);
   const pGeo    = new THREE.CylinderGeometry(0.45, 0.55, pillarH, 10);
-  [DX - 12, DX, DX + 12].forEach(px => {
+  const pillarCY = DECK_Y - pillarH / 2;               // top flush with deck, bottom at y=-9
+  for (let px = -DW / 2 + 8; px <= DW / 2 - 8; px += 15) {
     [1, -10, -20].forEach(pz => {
       const p = new THREE.Mesh(pGeo, pMat);
-      p.position.set(px, pillarH / 2 - 1.2, pz);
+      p.position.set(px, pillarCY, pz);
       p.castShadow = true;
       group.add(p);
     });
-  });
+  }
 
   // ── Deck railings (sea-facing front + both sides) ────────────────────
   const frontZ = DZ - DL / 2;  // z = −21 (sea edge)
@@ -178,7 +179,7 @@ function _railSegment(group, cx, cz, length, axis) {
 // ── Stairs from deck down to pier ─────────────────────────────────────
 
 const STEP_COUNT = 8;
-const STEP_W     = 5.0;
+const STEP_W     = 25.0;
 const STEP_H     = (DECK_Y - PIER_Y) / STEP_COUNT;  // ≈ 0.33 m each
 const STEP_D     = 0.85;
 const STAIRS_Z   = DZ - DL / 2 - 0.2;  // just past front edge of deck
@@ -208,7 +209,7 @@ function addStairs(group) {
 
 // ── Fishing pier ──────────────────────────────────────────────────────
 
-const PIER_W   = 9;
+const PIER_W   = 45;
 const PIER_LEN = 52;
 const PIER_START_Z = STAIRS_Z - STEP_COUNT * STEP_D - 0.5;
 const PIER_CZ  = PIER_START_Z - PIER_LEN / 2;
@@ -234,17 +235,18 @@ function addFishingPier(group) {
   rim.castShadow = rim.receiveShadow = true;
   group.add(rim);
 
-  // ── Pillars every 6 m ────────────────────────────────────────────────
-  const pillarH = PIER_Y + 2.8;
+  // ── Pillars every 6 m, extend to y=-9 (seabed) ─────────────────────
+  const pierPillarH  = PIER_Y + 9;                     // 0.55 + 9 = 9.55 m
+  const pierPillarCY = PIER_Y - pierPillarH / 2;       // top at pier surface, bottom y=-9
   const pMat    = solidMat(0x6B4820);
-  const pGeo    = new THREE.CylinderGeometry(0.30, 0.38, pillarH, 8);
+  const pGeo    = new THREE.CylinderGeometry(0.30, 0.38, pierPillarH, 8);
   for (let pz = PIER_START_Z - 2; pz >= PIER_START_Z - PIER_LEN; pz -= 6) {
-    [-PIER_W / 2 + 0.5, PIER_W / 2 - 0.5].forEach(px => {
+    for (let px = -PIER_W / 2 + 2; px <= PIER_W / 2 - 2; px += (PIER_W - 4) / 4) {
       const p = new THREE.Mesh(pGeo, pMat);
-      p.position.set(px, pillarH / 2 - 2.3, pz);
+      p.position.set(px, pierPillarCY, pz);
       p.castShadow = true;
       group.add(p);
-    });
+    }
   }
 
   // ── Railings along both sides ────────────────────────────────────────
@@ -254,19 +256,20 @@ function addFishingPier(group) {
   // End cap railing
   _railSegment(group, 0, PIER_START_Z - PIER_LEN, PIER_W, 'x');
 
-  // ── Fishing spots (marked platforms at pier end) ─────────────────────
-  const spotMat = solidMat(0x3D2A0E, 0.98);
-  [-2.8, 0, 2.8].forEach(px => {
+  // ── Fishing spots — spread across full pier width at far end ────────
+  const spotMat  = solidMat(0x3D2A0E, 0.98);
+  const spotEndZ = PIER_START_Z - PIER_LEN + 1.5;
+  for (let sx = -PIER_W / 2 + 3; sx <= PIER_W / 2 - 3; sx += 6) {
     const spot = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 2.4), spotMat);
-    spot.position.set(px, PIER_Y + 0.37, PIER_START_Z - PIER_LEN + 1.5);
+    spot.position.set(sx, PIER_Y + 0.37, spotEndZ);
     spot.userData.isFishingSpot = true;
     spot.receiveShadow = true;
     group.add(spot);
-  });
+  }
 
-  // ── Side fishing alcoves mid-pier ────────────────────────────────────
+  // ── Side fishing alcoves — multiple along each side ──────────────────
   [-PIER_W / 2 - 1.5, PIER_W / 2 + 1.5].forEach(ax => {
-    [PIER_CZ - PIER_LEN * 0.25, PIER_CZ + PIER_LEN * 0.1].forEach(az => {
+    for (let az = PIER_CZ - PIER_LEN * 0.35; az <= PIER_CZ + PIER_LEN * 0.2; az += 14) {
       const alc = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.35, 2.5),
         woodMat(1.5, 1.0));
       alc.position.set(ax, PIER_Y + 0.175, az);
@@ -276,7 +279,7 @@ function addFishingPier(group) {
       alcSpot.position.set(ax, PIER_Y + 0.39, az);
       alcSpot.userData.isFishingSpot = true;
       group.add(alcSpot);
-    });
+    }
   });
 }
 
