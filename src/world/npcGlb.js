@@ -7,7 +7,7 @@ import { getSurfaceY } from '../systems/terrain.js';
 // ── NPC catalogue ─────────────────────────────────────────────────────
 // All GLB files in public/models/characters/npcs/.
 // Scale target: 1.75 m × 1.2 = 2.10 m (20% larger than standard height).
-const TARGET_HEIGHT = 2.10;
+const TARGET_HEIGHT = 2.625;
 
 const NPC_URLS = [
   '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb',
