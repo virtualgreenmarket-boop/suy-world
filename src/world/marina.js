@@ -102,13 +102,13 @@ function _fallbackHut(group) {
 // ── Elevated wooden deck (house platform) ─────────────────────────────
 //
 //  Local coords:   +Z = toward island (east)   −Z = into sea (west)
-//  Deck spans:     X ∈ [−13, +13]   Z ∈ [+1, −21]
+//  Deck spans:     X ∈ [−65, +65]   Z ∈ [−21, +23]
 //  Surface at Y = DECK_Y
 
-const DW = 130;  // deck width  (X) — 5× original, runs along shoreline
-const DL = 22;   // deck length (Z, into sea)
+const DW = 130;  // deck width  (X) — runs along shoreline
+const DL = 44;   // deck length (Z) — doubled toward land (+22 m grass side)
 const DX = 0;
-const DZ = -10;  // centre Z of deck
+const DZ = 1;    // centre Z of deck (sea edge stays at -21, land edge now +23)
 
 function addElevatedDeck(group) {
   const PLANK_TILE = 2.2;  // metres per texture repeat
@@ -137,7 +137,7 @@ function addElevatedDeck(group) {
   const pGeo    = new THREE.CylinderGeometry(0.45, 0.55, pillarH, 10);
   const pillarCY = DECK_Y - pillarH / 2;               // top flush with deck, bottom at y=-9
   for (let px = -DW / 2 + 8; px <= DW / 2 - 8; px += 15) {
-    [1, -10, -20].forEach(pz => {
+    [20, 9, -2, -14].forEach(pz => {
       const p = new THREE.Mesh(pGeo, pMat);
       p.position.set(px, pillarCY, pz);
       p.castShadow = true;
@@ -298,12 +298,14 @@ function addFishingPier(group) {
 // Stairs opening: localX∈[-12.5,+12.5] → worldZ∈[-12.5,+12.5]
 
 function _registerDeckCollision() {
-  // Back wall (land side, localZ=+1 → worldX=-229)
-  registerBox(-230.5, -228.5, -66, 66);
+  // Group at (-230,0,0) rot.y=PI/2 → worldX=-230+localZ, worldZ=-localX
+  // Deck: localZ∈[-21,+23] → worldX∈[-251,-207], localX∈[-65,+65] → worldZ∈[-65,+65]
+  // Back wall (land side, localZ=+23 → worldX=-207)
+  registerBox(-208, -206, -66, 66);
   // Left side wall (localX=-65 → worldZ=+65)
-  registerBox(-252, -228.5, 64, 66);
+  registerBox(-252, -206, 64, 66);
   // Right side wall (localX=+65 → worldZ=-65)
-  registerBox(-252, -228.5, -66, -64);
+  registerBox(-252, -206, -66, -64);
   // Front wall — left of stair gap (worldZ∈[13,66])
   registerBox(-252.5, -249.5, 13, 66);
   // Front wall — right of stair gap (worldZ∈[-66,-13])
