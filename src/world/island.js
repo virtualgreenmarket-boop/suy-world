@@ -12,6 +12,7 @@ export function initIsland(scene, opts = {}) {
   addTerrain(scene);
   addWater(scene);
   addShallowWater(scene);
+  addShallowSeabed(scene);
   addTrees(scene, opts.maxTrees ?? 62);
 }
 
@@ -163,9 +164,67 @@ function addShallowWater(scene) {
   );
   shallow.rotation.x  = -Math.PI / 2;
   shallow.position.y  = -0.15;
-  shallow.renderOrder = 1;   // render after deep water so transparency composites correctly
+  shallow.renderOrder = 1;
   scene.add(shallow);
-  registerGround(shallow);   // makes getSurfaceY return -0.15 here → player wades
+  // not registered as ground — player sinks to sandy seabed below
+}
+
+// ── Shallow seabed: sloped entry + flat bottom, sand texture ──────────
+
+function addShallowSeabed(scene) {
+  const tl  = new THREE.TextureLoader();
+  const tex = tl.load('textures/beach/Ground054_2K-JPG_Color.jpg');
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+
+  // Sloped entry: r=246 (y=0) → r=260 (y=-0.65) with world-space UV tiling
+  const slopeMesh = new THREE.Mesh(
+    _slopedRing(246, 260, 0, -0.65, 128),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0.0 })
+  );
+  slopeMesh.receiveShadow = true;
+  scene.add(slopeMesh);
+  registerGround(slopeMesh);
+
+  // Flat bottom: r=260→276, y=-0.65
+  const flatTex = tex.clone();
+  flatTex.repeat.set(4, 40);
+  flatTex.needsUpdate = true;
+  const flatMesh = new THREE.Mesh(
+    new THREE.RingGeometry(260, 276, 128),
+    new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0 })
+  );
+  flatMesh.rotation.x = -Math.PI / 2;
+  flatMesh.position.y = -0.65;
+  flatMesh.receiveShadow = true;
+  scene.add(flatMesh);
+  registerGround(flatMesh);
+}
+
+// Creates an annular mesh that slopes from yInner (at innerR) to yOuter (at outerR).
+// UVs are world-space (x/4, z/4) so the sand texture tiles at ~4 m per repeat.
+function _slopedRing(innerR, outerR, yInner, yOuter, segments) {
+  const pos = [], uv = [], idx = [];
+  const TILE = 4.0;
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * Math.PI * 2;
+    const c = Math.cos(theta), s = Math.sin(theta);
+    pos.push(innerR * c, yInner, innerR * s,
+             outerR * c, yOuter, outerR * s);
+    uv.push((innerR * c) / TILE, (innerR * s) / TILE,
+            (outerR * c) / TILE, (outerR * s) / TILE);
+  }
+  for (let i = 0; i < segments; i++) {
+    const a = i*2, b = a+1, c = a+2, d = a+3;
+    idx.push(a, c, b,  b, c, d);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setIndex(idx);
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uv,  2));
+  geo.computeVertexNormals();
+  return geo;
 }
 
 // ── Trees (HighPoly FBX) ──────────────────────────────────────────────
