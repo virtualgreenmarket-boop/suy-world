@@ -30,13 +30,14 @@ export function initPlaza(scene) {
     console.log('[plaza] Shop NPC says: Check out the hangars!');
   });
 
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + Math.PI / 8;
-    registerInteraction(
-      [Math.cos(a) * 3.8, 0.81, Math.sin(a) * 3.8],
-      'Sit', 3, () => { console.log('[plaza] Sitting on bench…'); }
-    );
-  }
+  // Sit interactions for each of the 8 side benches
+  const W = 39, P = 31, BY = FLOOR_Y + 0.5;
+  [
+    [-P, BY, -W], [P, BY, -W],
+    [-P, BY,  W], [P, BY,  W],
+    [-W, BY, -P], [-W, BY,  P],
+    [ W, BY, -P], [ W, BY,  P],
+  ].forEach(pos => registerInteraction(pos, 'Sit', 3, () => { console.log('[plaza] Sitting on bench…'); }));
 }
 
 export function updatePlaza(delta, time) {
@@ -68,10 +69,10 @@ function _loadBenches(scene) {
     for (const fn of _pendingFns) fn();
     _pendingFns = [];
 
-    addCornerBenches(scene, _benchTmpl);
+    addSideBenches(scene, _benchTmpl);
   }, undefined, err => {
     console.warn('[plaza] bench GLB failed, using procedural benches:', err?.message ?? err);
-    addCornerBenchesFallback(scene);
+    addSideBenchesFallback(scene);
   });
 }
 
@@ -84,114 +85,52 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
   scene.add(inst);
 }
 
-// ── Corner benches ────────────────────────────────────────────────────
+// ── Side benches (2 per wall, at ±31 along each edge, depth 39) ───────
 
-function addCornerBenches(scene, tmpl) {
-  // Each corner: L-shape, both benches flush to border, both facing inward.
-  const EDGE  = 39;  // distance from centre to border edge
-  const ALONG = 32;  // how far along the wall the bench sits (near the corner, not centre)
-  const corners = [
-    { sx: -1, sz: -1 },
-    { sx: -1, sz:  1 },
-    { sx:  1, sz: -1 },
-    { sx:  1, sz:  1 },
-  ];
-  corners.forEach(({ sx, sz }) => {
-    // Bench A: against Z-border, faces inward toward centre
-    const ryA = (sz < 0 ? 0 : Math.PI) - Math.PI / 2;
-    _placeBench(scene, tmpl, sx * ALONG, FLOOR_Y, sz * EDGE, ryA);
-
-    // Bench B: against X-border, faces inward toward centre
-    const ryB = (sx < 0 ? Math.PI / 2 : -Math.PI / 2) - Math.PI / 2;
-    _placeBench(scene, tmpl, sx * EDGE, FLOOR_Y, sz * ALONG, ryB);
-  });
+function addSideBenches(scene, tmpl) {
+  const WALL = 39, POS = 31;
+  [
+    // North wall (Z = -WALL), facing +Z toward center
+    { x: -POS, z: -WALL, ry: -Math.PI / 2 },
+    { x:  POS, z: -WALL, ry: -Math.PI / 2 },
+    // South wall (Z = +WALL), facing -Z toward center
+    { x: -POS, z:  WALL, ry:  Math.PI / 2 },
+    { x:  POS, z:  WALL, ry:  Math.PI / 2 },
+    // West wall (X = -WALL), facing +X toward center
+    { x: -WALL, z: -POS, ry: 0 },
+    { x: -WALL, z:  POS, ry: 0 },
+    // East wall (X = +WALL), facing -X toward center
+    { x:  WALL, z: -POS, ry: -Math.PI },
+    { x:  WALL, z:  POS, ry: -Math.PI },
+  ].forEach(({ x, z, ry }) => _placeBench(scene, tmpl, x, FLOOR_Y, z, ry));
 }
 
-function addCornerBenchesFallback(scene) {
+function addSideBenchesFallback(scene) {
   const seatMat = mat(0x9A7A58, 0.82);
   const legMat  = mat(0x7A5A3A, 0.90);
-  const EDGE = 39, ALONG = 4;
-  const corners = [{ sx:-1,sz:-1 },{ sx:-1,sz:1 },{ sx:1,sz:-1 },{ sx:1,sz:1 }];
-  corners.forEach(({ sx, sz }) => {
-    const pairs = [
-      { bx: sx * ALONG, bz: sz * EDGE,  ry: sz < 0 ? 0 : Math.PI },
-      { bx: sx * EDGE,  bz: sz * ALONG, ry: sx < 0 ? Math.PI / 2 : -Math.PI / 2 },
-    ];
-    pairs.forEach(({ bx, bz, ry }) => {
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.9), seatMat);
-      seat.position.set(bx, FLOOR_Y + 0.47, bz);
-      seat.rotation.y = ry;
-      seat.castShadow = seat.receiveShadow = true;
-      scene.add(seat);
-      const lGeo = new THREE.BoxGeometry(0.14, 0.47, 0.14);
-      [-0.7, 0.7].forEach(lo => {
-        const leg = new THREE.Mesh(lGeo, legMat);
-        leg.position.set(bx + Math.sin(ry)*lo, FLOOR_Y + 0.235, bz + Math.cos(ry)*lo);
-        leg.castShadow = true;
-        scene.add(leg);
-      });
+  const WALL = 39, POS = 31;
+  [
+    { x: -POS, z: -WALL, ry: 0          },
+    { x:  POS, z: -WALL, ry: 0          },
+    { x: -POS, z:  WALL, ry: Math.PI    },
+    { x:  POS, z:  WALL, ry: Math.PI    },
+    { x: -WALL, z: -POS, ry: Math.PI/2  },
+    { x: -WALL, z:  POS, ry: Math.PI/2  },
+    { x:  WALL, z: -POS, ry: -Math.PI/2 },
+    { x:  WALL, z:  POS, ry: -Math.PI/2 },
+  ].forEach(({ x, z, ry }) => {
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.9), seatMat);
+    seat.position.set(x, FLOOR_Y + 0.47, z);
+    seat.rotation.y = ry;
+    seat.castShadow = seat.receiveShadow = true;
+    scene.add(seat);
+    const lGeo = new THREE.BoxGeometry(0.14, 0.47, 0.14);
+    [-0.7, 0.7].forEach(lo => {
+      const leg = new THREE.Mesh(lGeo, legMat);
+      leg.position.set(x + Math.sin(ry) * lo, FLOOR_Y + 0.235, z + Math.cos(ry) * lo);
+      leg.castShadow = true;
+      scene.add(leg);
     });
-  });
-}
-
-// ── Central tree ring benches ─────────────────────────────────────────
-
-function addCentralBenches(scene, tmpl) {
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + Math.PI / 8;
-    _placeBench(scene, tmpl, Math.cos(a) * 3.8, 0, Math.sin(a) * 3.8, -a);
-  }
-}
-
-function addCentralBenchesFallback(scene) {
-  const bm = mat(0x7A6248, 0.88);
-  for (let i = 0; i < 4; i++) {
-    const a     = (i / 4) * Math.PI * 2 + Math.PI / 8;
-    const bench = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.22, 0.9), bm);
-    bench.position.set(Math.cos(a) * 3.8, 0.81, Math.sin(a) * 3.8);
-    bench.rotation.y = -a;
-    bench.castShadow = bench.receiveShadow = true;
-    scene.add(bench);
-  }
-}
-
-// ── Edge benches ──────────────────────────────────────────────────────
-
-function addEdgeBenches(scene, tmpl) {
-  const sides = [
-    { x:0,  z:-38, ry: 0          },
-    { x:0,  z: 38, ry: Math.PI    },
-    { x:-38,z:0,   ry: Math.PI/2  },
-    { x: 38,z:0,   ry:-Math.PI/2  },
-  ];
-  sides.forEach(({ x, z, ry }) => {
-    for (let i = -1; i <= 1; i++) {
-      const ox = (ry === 0 || ry === Math.PI) ? i * 9 : 0;
-      const oz = (Math.abs(ry) === Math.PI / 2) ? i * 9 : 0;
-      _placeBench(scene, tmpl, x + ox, 0, z + oz, ry);
-    }
-  });
-}
-
-function addEdgeBenchesFallback(scene) {
-  const seatMat = mat(0x7A6248, 0.88);
-  const legMat  = mat(0x5C4A38, 0.90);
-  const sides = [
-    { x:0, z:-38, ry:0 }, { x:0, z:38, ry:Math.PI },
-    { x:-38, z:0, ry:Math.PI/2 }, { x:38, z:0, ry:-Math.PI/2 },
-  ];
-  sides.forEach(({ x, z, ry }) => {
-    for (let i = -1; i <= 1; i++) {
-      const ox = ry===0||ry===Math.PI ? i*9 : 0, oz = Math.abs(ry)===Math.PI/2 ? i*9 : 0;
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.24, 1.1), seatMat);
-      seat.position.set(x+ox, 0.82, z+oz); seat.rotation.y=ry;
-      seat.castShadow=seat.receiveShadow=true; scene.add(seat);
-      const lGeo=new THREE.BoxGeometry(0.2,0.82,0.2);
-      (ry===0||ry===Math.PI?[[-2.8,0],[2.8,0]]:[[0,-2.8],[0,2.8]]).forEach(([lox,loz])=>{
-        const leg=new THREE.Mesh(lGeo,legMat);
-        leg.position.set(x+ox+lox,0.41,z+oz+loz); leg.castShadow=true; scene.add(leg);
-      });
-    }
   });
 }
 
