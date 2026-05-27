@@ -88,8 +88,8 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
 
 function addCornerBenches(scene, tmpl) {
   // Each corner: L-shape, both benches flush to border, both facing inward.
-  const EDGE = 39;  // distance from centre to border edge
-  const ALONG = 4;  // offset along the wall from the corner point
+  const EDGE  = 39;  // distance from centre to border edge
+  const ALONG = 32;  // how far along the wall the bench sits (near the corner, not centre)
   const corners = [
     { sx: -1, sz: -1 },
     { sx: -1, sz:  1 },
@@ -114,7 +114,7 @@ function addCornerBenchesFallback(scene) {
   const corners = [{ sx:-1,sz:-1 },{ sx:-1,sz:1 },{ sx:1,sz:-1 },{ sx:1,sz:1 }];
   corners.forEach(({ sx, sz }) => {
     const pairs = [
-      { bx: sx * ALONG, bz: sz * EDGE, ry: sz < 0 ? 0 : Math.PI },
+      { bx: sx * ALONG, bz: sz * EDGE,  ry: sz < 0 ? 0 : Math.PI },
       { bx: sx * EDGE,  bz: sz * ALONG, ry: sx < 0 ? Math.PI / 2 : -Math.PI / 2 },
     ];
     pairs.forEach(({ bx, bz, ry }) => {
