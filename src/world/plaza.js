@@ -97,12 +97,12 @@ function addCornerBenches(scene, tmpl) {
     { sx:  1, sz:  1 },
   ];
   corners.forEach(({ sx, sz }) => {
-    // Bench A: against Z-border, faces inward (±Z toward centre)
-    const ryA = sz < 0 ? 0 : Math.PI;
+    // Bench A: against Z-border, faces inward (+90°)
+    const ryA = (sz < 0 ? 0 : Math.PI) + Math.PI / 2;
     _placeBench(scene, tmpl, sx * ALONG, FLOOR_Y, sz * EDGE, ryA);
 
-    // Bench B: against X-border, faces inward (±X toward centre)
-    const ryB = sx < 0 ? Math.PI / 2 : -Math.PI / 2;
+    // Bench B: against X-border, faces inward (+90°)
+    const ryB = (sx < 0 ? Math.PI / 2 : -Math.PI / 2) + Math.PI / 2;
     _placeBench(scene, tmpl, sx * EDGE, FLOOR_Y, sz * ALONG, ryB);
   });
 }
