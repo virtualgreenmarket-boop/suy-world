@@ -5,7 +5,7 @@ import { spawnTree } from './trees.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, setActiveInteractionLabel } from '../ui/interactionUI.js';
-import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
+import { sitOnBench, standUp, isPlayerSitting, getLocalPlayerPosition } from '../player/localPlayer.js';
 
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
@@ -31,40 +31,36 @@ export function initPlaza(scene) {
     console.log('[plaza] Shop NPC says: Check out the hangars!');
   });
 
-  // 2 sitting spots per bench at marks 2 and 4 of 5 (±0.5 m from bench centre)
+  // One E-prompt per bench; callback picks the nearer of the 2 seat spots (±0.5 m)
   const W = 39, P = 31, BY = FLOOR_Y + 0.5, SO = 0.5;
-  const _seat = (ix, iy, iz, sx, sz, facingY) => {
-    registerInteraction([ix, iy, iz], 'Sit', 3, () => {
+
+  const _bench = (benchX, benchZ, alongX, facingY) => {
+    registerInteraction([benchX, BY, benchZ], 'Sit', 3, () => {
       if (isPlayerSitting()) {
         standUp();
         setActiveInteractionLabel('Sit');
-      } else {
-        sitOnBench(sx, FLOOR_Y, sz, facingY);
-        setActiveInteractionLabel('Stand Up');
+        return;
       }
+      const pp = getLocalPlayerPosition();
+      let sx, sz;
+      if (alongX) {
+        sx = Math.abs((benchX - SO) - pp.x) < Math.abs((benchX + SO) - pp.x)
+          ? benchX - SO : benchX + SO;
+        sz = benchZ;
+      } else {
+        sx = benchX;
+        sz = Math.abs((benchZ - SO) - pp.z) < Math.abs((benchZ + SO) - pp.z)
+          ? benchZ - SO : benchZ + SO;
+      }
+      sitOnBench(sx, FLOOR_Y, sz, facingY);
+      setActiveInteractionLabel('Stand Up');
     });
   };
 
-  // North wall (Z = -W), bench runs along X
-  for (const bx of [-P, P]) {
-    _seat(bx - SO, BY, -W,  bx - SO, -W,  Math.PI);
-    _seat(bx + SO, BY, -W,  bx + SO, -W,  Math.PI);
-  }
-  // South wall (Z = +W), bench runs along X
-  for (const bx of [-P, P]) {
-    _seat(bx - SO, BY,  W,  bx - SO,  W,  0);
-    _seat(bx + SO, BY,  W,  bx + SO,  W,  0);
-  }
-  // West wall (X = -W), bench runs along Z
-  for (const bz of [-P, P]) {
-    _seat(-W, BY, bz - SO,  -W, bz - SO, -Math.PI / 2);
-    _seat(-W, BY, bz + SO,  -W, bz + SO, -Math.PI / 2);
-  }
-  // East wall (X = +W), bench runs along Z
-  for (const bz of [-P, P]) {
-    _seat(W, BY, bz - SO,  W, bz - SO,  Math.PI / 2);
-    _seat(W, BY, bz + SO,  W, bz + SO,  Math.PI / 2);
-  }
+  for (const bx of [-P, P]) _bench(bx, -W, true,  Math.PI);      // North wall
+  for (const bx of [-P, P]) _bench(bx,  W, true,  0);             // South wall
+  for (const bz of [-P, P]) _bench(-W, bz, false, -Math.PI / 2);  // West wall
+  for (const bz of [-P, P]) _bench( W, bz, false,  Math.PI / 2);  // East wall
 }
 
 export function updatePlaza(delta, time) {
