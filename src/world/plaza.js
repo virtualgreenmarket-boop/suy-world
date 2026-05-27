@@ -31,19 +31,9 @@ export function initPlaza(scene) {
     console.log('[plaza] Shop NPC says: Check out the hangars!');
   });
 
-  // Sit / Stand-Up interactions for the 8 side benches
-  const W = 39, P = 31, BY = FLOOR_Y + 0.5;
-  [
-    // [interactionX, interactionY, interactionZ, seatX, seatZ, playerFacingY]
-    [-P, BY, -W,  -P, -W,  Math.PI      ],  // North wall, face toward +Z
-    [ P, BY, -W,   P, -W,  Math.PI      ],
-    [-P, BY,  W,  -P,  W,  0            ],  // South wall, face toward -Z
-    [ P, BY,  W,   P,  W,  0            ],
-    [-W, BY, -P,  -W, -P, -Math.PI / 2  ],  // West wall, face toward +X
-    [-W, BY,  P,  -W,  P, -Math.PI / 2  ],
-    [ W, BY, -P,   W, -P,  Math.PI / 2  ],  // East wall, face toward -X
-    [ W, BY,  P,   W,  P,  Math.PI / 2  ],
-  ].forEach(([ix, iy, iz, sx, sz, facingY]) => {
+  // 2 sitting spots per bench at marks 2 and 4 of 5 (±0.5 m from bench centre)
+  const W = 39, P = 31, BY = FLOOR_Y + 0.5, SO = 0.5;
+  const _seat = (ix, iy, iz, sx, sz, facingY) => {
     registerInteraction([ix, iy, iz], 'Sit', 3, () => {
       if (isPlayerSitting()) {
         standUp();
@@ -53,7 +43,28 @@ export function initPlaza(scene) {
         setActiveInteractionLabel('Stand Up');
       }
     });
-  });
+  };
+
+  // North wall (Z = -W), bench runs along X
+  for (const bx of [-P, P]) {
+    _seat(bx - SO, BY, -W,  bx - SO, -W,  Math.PI);
+    _seat(bx + SO, BY, -W,  bx + SO, -W,  Math.PI);
+  }
+  // South wall (Z = +W), bench runs along X
+  for (const bx of [-P, P]) {
+    _seat(bx - SO, BY,  W,  bx - SO,  W,  0);
+    _seat(bx + SO, BY,  W,  bx + SO,  W,  0);
+  }
+  // West wall (X = -W), bench runs along Z
+  for (const bz of [-P, P]) {
+    _seat(-W, BY, bz - SO,  -W, bz - SO, -Math.PI / 2);
+    _seat(-W, BY, bz + SO,  -W, bz + SO, -Math.PI / 2);
+  }
+  // East wall (X = +W), bench runs along Z
+  for (const bz of [-P, P]) {
+    _seat(W, BY, bz - SO,  W, bz - SO,  Math.PI / 2);
+    _seat(W, BY, bz + SO,  W, bz + SO,  Math.PI / 2);
+  }
 }
 
 export function updatePlaza(delta, time) {
