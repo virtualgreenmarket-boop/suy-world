@@ -165,7 +165,7 @@ export function setActiveInteractionLabel(label) {
 
 // ── NPC Dialogue Modal ────────────────────────────────────────────────
 
-export function showNpcDialog(paragraphs) {
+export function showNpcDialog(paragraphs, title = 'Welcome to Suy-World') {
   if (document.getElementById('npc-dialog')) return;
 
   const style = document.createElement('style');
@@ -233,7 +233,7 @@ export function showNpcDialog(paragraphs) {
 
   overlay.innerHTML = `
     <div id="npc-dialog-box">
-      <div id="npc-dialog-title">Welcome to Suy-World</div>
+      <div id="npc-dialog-title">${title}</div>
       <div id="npc-dialog-body">${lines}</div>
       <button id="npc-dialog-close">Close  [Esc]</button>
     </div>

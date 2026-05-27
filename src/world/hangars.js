@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildNpcCharacter } from './npc.js';
-import { registerInteraction } from '../ui/interactionUI.js';
+import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 
 // ── PBR brick material (shared across all three hangars) ──────────────
 
@@ -75,16 +75,31 @@ export function initHangars(scene) {
   const sinS = Math.sin(Math.PI),   cosS = Math.cos(Math.PI);
 
   // North: x=0, z=-130, rotY=0
-  registerInteraction([0 + halfD*sin0, 0, -130 + halfD*cos0], 'Shop', 7, () => {
-    console.log('[hangar] North Hangar — browse store slots');
+  registerInteraction([0 + halfD*sin0, 0, -130 + halfD*cos0], 'Talk', 7, () => {
+    showNpcDialog([
+      'Welcome to the North Hangar!',
+      'This hangar is home to a variety of stores and creators. Walk along both sides and explore the rooms — each one belongs to a different seller or brand.',
+      'Take your time, look around, and click on anything that interests you to learn more.',
+      'Enjoy your visit to the North Hangar!',
+    ], 'North Hangar');
   });
-  // East: x=130, z=0, rotY=-PI/2
-  registerInteraction([130 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Shop', 7, () => {
-    console.log('[hangar] East Hangar — browse store slots');
+  // Center: x=130, z=0, rotY=-PI/2
+  registerInteraction([130 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Talk', 7, () => {
+    showNpcDialog([
+      'Welcome to the Central Hangar!',
+      'You are standing at the heart of Suy-World. This hangar connects all directions and is filled with rooms from all kinds of sellers, creators, and brands.',
+      'Browse both sides and the far wall — there is always something new to discover here.',
+      'Enjoy your visit to the Central Hangar!',
+    ], 'Central Hangar');
   });
   // South: x=0, z=130, rotY=PI
-  registerInteraction([0 + halfD*sinS, 0, 130 + halfD*cosS], 'Shop', 7, () => {
-    console.log('[hangar] South Hangar — browse store slots');
+  registerInteraction([0 + halfD*sinS, 0, 130 + halfD*cosS], 'Talk', 7, () => {
+    showNpcDialog([
+      'Welcome to the South Hangar!',
+      'This hangar is packed with unique rooms and products. Each door you open leads to a different world — a different seller with their own style and story.',
+      'Walk in, explore, and click on anything that catches your eye.',
+      'Enjoy your visit to the South Hangar!',
+    ], 'South Hangar');
   });
 }
 
