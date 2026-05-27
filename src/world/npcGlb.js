@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { preloadAnimations, buildClipForSkeleton } from '../player/animations.js';
 import { getSurfaceY } from '../systems/terrain.js';
+import { registerInteraction } from '../ui/interactionUI.js';
 
 // ── NPC catalogue ─────────────────────────────────────────────────────
 // All GLB files in public/models/characters/npcs/.
@@ -128,6 +129,15 @@ export async function spawnAllPlazaNpcs(scene) {
       } else {
         npc.idleAction?.reset().play();
       }
+
+      registerInteraction([-222, deckY + 2, 0], 'Talk', 3, null, () => {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance('Hello, how can I help you?');
+        utt.rate  = 0.92;
+        utt.pitch = 1.1;
+        window.speechSynthesis.speak(utt);
+      });
     } else if (i === 2) {
       // Walks in a continuous loop around the plaza
       npc.walkMode     = 'circle';

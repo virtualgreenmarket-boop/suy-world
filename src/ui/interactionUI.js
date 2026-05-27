@@ -16,9 +16,14 @@ const _v = new THREE.Vector3();
 export function initInteractionUI() {
   _buildDom();
   window.addEventListener('keydown', e => {
-    if (e.code === 'KeyE' && _activeTarget && !isChatOpen()) {
+    if (isChatOpen()) return;
+    if (e.code === 'KeyE' && _activeTarget?.callback) {
       e.preventDefault();
-      _activeTarget.callback?.();
+      _activeTarget.callback();
+    }
+    if (e.code === 'KeyG' && _activeTarget?.talkCallback) {
+      e.preventDefault();
+      _activeTarget.talkCallback();
     }
   });
 }
@@ -76,14 +81,21 @@ function _buildDom() {
   _btnEl = document.createElement('div');
   _btnEl.id = 'ib-wrap';
   _btnEl.innerHTML = `
-    <div class="ib-inner">
+    <div id="ib-row-e" class="ib-inner" style="display:none">
       <span class="ib-key">E</span>
       <span class="ib-label">Interact</span>
     </div>
+    <div id="ib-row-g" class="ib-inner" style="display:none; margin-top:4px">
+      <span class="ib-key">G</span>
+      <span class="ib-label">Talk</span>
+    </div>
     <div class="ib-tail"></div>
   `;
-  _labelEl = _btnEl.querySelector('.ib-label');
-  _btnEl.addEventListener('click', () => { _activeTarget?.callback?.(); });
+  _labelEl = _btnEl.querySelector('#ib-row-e .ib-label');
+  _btnEl.addEventListener('click', () => {
+    if (_activeTarget?.talkCallback) _activeTarget.talkCallback();
+    else _activeTarget?.callback?.();
+  });
   document.body.appendChild(_btnEl);
 }
 
@@ -96,11 +108,11 @@ function _buildDom() {
  *   range     — activation radius in metres (default 4.5)
  *   callback  — called when player presses E or taps the button
  */
-export function registerInteraction(worldPos, label, range = 4.5, callback) {
+export function registerInteraction(worldPos, label, range = 4.5, callback, talkCallback = null) {
   const pos = worldPos instanceof THREE.Vector3
     ? worldPos.clone()
     : new THREE.Vector3(...worldPos);
-  _targets.push({ worldPos: pos, label, range, callback });
+  _targets.push({ worldPos: pos, label, range, callback, talkCallback });
 }
 
 /**
@@ -122,6 +134,11 @@ export function updateInteractions(camera, playerPos) {
 
   _activeTarget = best;
   _labelEl.textContent = best.label;
+
+  const rowE = document.getElementById('ib-row-e');
+  const rowG = document.getElementById('ib-row-g');
+  if (rowE) rowE.style.display = best.callback    ? 'flex' : 'none';
+  if (rowG) rowG.style.display = best.talkCallback ? 'flex' : 'none';
 
   // Project the interaction anchor (slightly above the target) to screen space
   _v.copy(best.worldPos).y += best.anchorY ?? 2.5;

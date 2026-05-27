@@ -186,6 +186,15 @@ function addNpc(scene) {
   const npc = buildNpcCharacter(0xFFB300, 'mainStore');
   npc.position.set(6, 0.7, 6);
   scene.add(npc);
+
+  registerInteraction([6, 2.5, 6], 'Talk', 3, null, () => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance('Hello, how can I help you?');
+    utt.rate  = 0.92;
+    utt.pitch = 1.1;
+    window.speechSynthesis.speak(utt);
+  });
 }
 
 // ── Birds ─────────────────────────────────────────────────────────────
