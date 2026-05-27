@@ -87,11 +87,9 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
 // ── Corner benches ────────────────────────────────────────────────────
 
 function addCornerBenches(scene, tmpl) {
-  // Each corner: 2 benches flush to the plaza border, 90° to each other.
-  // Bench A — against the Z-border edge, faces inward.
-  // Bench B — against the X-border edge, rotated 180° (faces outward).
-  const EDGE = 39;   // distance from centre to border (half of PLAZA_SIZE ≈ 41, minus bench depth)
-  const ALONG = 4;   // how far along the wall from the corner
+  // Each corner: L-shape, both benches flush to border, both facing inward.
+  const EDGE = 39;  // distance from centre to border edge
+  const ALONG = 4;  // offset along the wall from the corner point
   const corners = [
     { sx: -1, sz: -1 },
     { sx: -1, sz:  1 },
@@ -99,13 +97,12 @@ function addCornerBenches(scene, tmpl) {
     { sx:  1, sz:  1 },
   ];
   corners.forEach(({ sx, sz }) => {
-    // Bench A: along Z-border (top/bottom edge), faces inward
-    const ryA = sz < 0 ? 0 : Math.PI;   // south edge → face north; north edge → face south
+    // Bench A: against Z-border, faces inward (±Z toward centre)
+    const ryA = sz < 0 ? 0 : Math.PI;
     _placeBench(scene, tmpl, sx * ALONG, FLOOR_Y, sz * EDGE, ryA);
 
-    // Bench B: along X-border (left/right edge), rotated 180° from what inward would be
-    const ryB_inward  = sx < 0 ? Math.PI / 2 : -Math.PI / 2;
-    const ryB = ryB_inward + Math.PI;   // 180° flip
+    // Bench B: against X-border, faces inward (±X toward centre)
+    const ryB = sx < 0 ? Math.PI / 2 : -Math.PI / 2;
     _placeBench(scene, tmpl, sx * EDGE, FLOOR_Y, sz * ALONG, ryB);
   });
 }
@@ -118,7 +115,7 @@ function addCornerBenchesFallback(scene) {
   corners.forEach(({ sx, sz }) => {
     const pairs = [
       { bx: sx * ALONG, bz: sz * EDGE, ry: sz < 0 ? 0 : Math.PI },
-      { bx: sx * EDGE,  bz: sz * ALONG, ry: (sx < 0 ? Math.PI / 2 : -Math.PI / 2) + Math.PI },
+      { bx: sx * EDGE,  bz: sz * ALONG, ry: sx < 0 ? Math.PI / 2 : -Math.PI / 2 },
     ];
     pairs.forEach(({ bx, bz, ry }) => {
       const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.9), seatMat);
