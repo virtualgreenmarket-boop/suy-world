@@ -240,7 +240,7 @@ export function sitOnBench(x, y, z, facingY) {
   _isSitting = true;
   velocityY  = 0;
   playerGroup.position.set(x, y, z);
-  playerGroup.rotation.y = facingY;
+  playerGroup.rotation.y = facingY + Math.PI;
   setAnimState(playerGroup, 'sit');
 }
 
