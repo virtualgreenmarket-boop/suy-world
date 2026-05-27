@@ -32,10 +32,10 @@ export function initPlaza(scene) {
   });
 
   // One E-prompt per bench; callback picks the nearer of the 2 seat spots (±0.5 m)
-  const W = 39, P = 31, BY = FLOOR_Y + 0.5, SO = 0.5;
+  const W = 39, P = 31, SO = 0.5;
 
   const _bench = (benchX, benchZ, alongX, facingY) => {
-    registerInteraction([benchX, BY, benchZ], 'Sit', 3, () => {
+    registerInteraction([benchX, FLOOR_Y, benchZ], 'Sit', 5, () => {
       if (isPlayerSitting()) {
         standUp();
         setActiveInteractionLabel('Sit');
