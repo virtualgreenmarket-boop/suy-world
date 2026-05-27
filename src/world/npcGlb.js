@@ -98,6 +98,12 @@ const PLAZA_POSITIONS = [
   { x:   6, z: -22, rot: Math.PI * 1.2  },
 ];
 
+// Bench positions where GLB NPCs 0 & 1 will sit (matches plaza.js bench layout)
+const SIT_POSITIONS = [
+  { x:  31, z: -39, facingY: Math.PI      },  // North bench
+  { x: -39, z: -31, facingY: -Math.PI / 2 },  // West bench
+];
+
 const _plazaNpcs = [];
 
 export async function spawnAllPlazaNpcs(scene) {
@@ -163,6 +169,37 @@ export async function spawnAllPlazaNpcs(scene) {
       } else {
         npc.idleAction?.stop();
         npc.walkAction.reset().play();
+      }
+    } else if (i === 0 || i === 1) {
+      // Sit on a plaza bench
+      const sitCfg      = SIT_POSITIONS[i];
+      const finalFacing = sitCfg.facingY + Math.PI;
+      const ox = sitCfg.x - Math.sin(finalFacing) * 0.3;
+      const oz = sitCfg.z - Math.cos(finalFacing) * 0.3;
+      npc.group.position.set(ox, npc.floorOffset + getSurfaceY(ox, oz), oz);
+      npc.group.rotation.y = finalFacing;
+      npc.baseY    = npc.floorOffset + getSurfaceY(ox, oz);
+      npc.walkMode = 'sit';
+
+      // Build sit clip via retargeting if no built-in sit
+      if (!npc.sitAction) {
+        await preloadAnimations();
+        const boneNames = new Set();
+        npc.group.traverse(n => {
+          if (n.isBone)        boneNames.add(n.name);
+          if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
+        });
+        const sitClip = buildClipForSkeleton('sit', boneNames);
+        if (sitClip?.tracks.length > 0) {
+          npc.sitAction = npc.mixer.clipAction(sitClip);
+        }
+      }
+
+      npc.idleAction?.stop();
+      if (npc.sitAction) {
+        npc.sitAction.reset().play();
+      } else {
+        npc.idleAction?.reset().play();
       }
     } else {
       npc.walkCenter = new THREE.Vector3(cfg.x, 0, cfg.z);
@@ -235,10 +272,10 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
   scene.add(clone);
 
   const mixer = new THREE.AnimationMixer(clone);
-  let mode = 'procedural', idleAction = null, walkAction = null;
+  let mode = 'procedural', idleAction = null, walkAction = null, sitAction = null;
 
   if (builtinClips.length > 0) {
-    // Use built-in animations — find idle + walk by name
+    // Use built-in animations — find idle + walk + sit by name
     const findClip = (...keywords) => builtinClips.find(c => {
       const n = c.name.toLowerCase();
       return keywords.some(k => n.includes(k));
@@ -248,10 +285,12 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     const walkClip = findClip('walk', 'run', 'walking', 'jog', 'move', 'locomotion')
                   ?? (builtinClips.length > 1 ? builtinClips[1] : builtinClips[0])
                   ?? null;
+    const sitClip  = findClip('sit', 'sitting', 'seated', 'chair') ?? null;
 
     idleAction = mixer.clipAction(idleClip);
     idleAction.play();
     if (walkClip) walkAction = mixer.clipAction(walkClip);
+    if (sitClip)  sitAction  = mixer.clipAction(sitClip);
     mode = 'builtin';
 
   } else if (hasSkel) {
@@ -277,7 +316,7 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
 
   return {
     mixer, group: clone, mode,
-    idleAction, walkAction,
+    idleAction, walkAction, sitAction,
     idlePhase: Math.random() * Math.PI * 2,
     baseY:     cloneFloorY + surfaceY,
     floorOffset: cloneFloorY,
@@ -295,6 +334,12 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
 
 export function updateNpc(npc, delta) {
   if (!npc) return;
+
+  // Sitting — just tick the animation, no movement
+  if (npc.walkMode === 'sit') {
+    npc.mixer.update(delta);
+    return;
+  }
 
   // Patrol walk (back-and-forth between two points)
   if (npc.walkMode === 'patrol') {
