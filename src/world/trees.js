@@ -87,44 +87,52 @@ export function spawnPlazaTree(scene) {
   const tl   = new THREE.TextureLoader();
   const BASE = '/models/nature/trees/plaza_tree/textures/';
 
-  const leafTex  = tl.load(BASE + 'maplebranch.png');
-  const atlasTex = tl.load(BASE + 'HeroTreeTRUNK_Bake1_PBR_StoA_Diffuse.png');
-  const barkTex  = tl.load(BASE + 'Trunk_D_Tiled2.png');
-
-  [leafTex, atlasTex, barkTex].forEach(t => {
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
-  });
+  // FBXLoader will auto-resolve texture references via setResourcePath.
+  // We still pre-load the ones we know we need for fallback / override.
+  const barkTex = tl.load(BASE + 'Trunk_D_Tiled2.png');
+  barkTex.colorSpace = THREE.SRGBColorSpace;
   barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
+  barkTex.anisotropy = 16;
 
-  // Leaves — alphaTest cuts white background; DoubleSide for flat cards
-  const leafMat = new THREE.MeshStandardMaterial({
-    map: leafTex, alphaTest: 0.12, transparent: true,
-    side: THREE.DoubleSide, roughness: 0.82, metalness: 0.0,
-    depthWrite: false,
-  });
-  // Trunk atlas — black = transparent in the atlas texture
-  const atlasMat = new THREE.MeshStandardMaterial({
-    map: atlasTex, alphaTest: 0.08, transparent: true,
-    roughness: 0.90, metalness: 0.0,
-  });
-  // Cylindrical bark sections — tileable texture, fully opaque
-  const barkMat = new THREE.MeshStandardMaterial({
-    map: barkTex, roughness: 0.92, metalness: 0.0,
-  });
+  const loader = new FBXLoader();
+  loader.setResourcePath(BASE);   // FBX references textures by filename — find them here
 
-  new FBXLoader().load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
+  loader.load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
     const meshNames = [];
     fbx.traverse(n => {
       if (!n.isMesh) return;
       meshNames.push(n.name);
       const name = n.name.toLowerCase();
-      const isLeaf     = name.includes('leaf') || name.includes('leaves')
-                      || name.includes('foliage') || name.includes('maple')
-                      || name.includes('branch');
-      const isCylinder = name.includes('cylinder') || name.includes('bark_tile')
-                      || name.includes('trunk_d');
-      n.material      = isLeaf ? leafMat : isCylinder ? barkMat : atlasMat;
+      const isLeaf = name.includes('leaf') || name.includes('leaves')
+                  || name.includes('foliage') || name.includes('maple')
+                  || name.includes('branch');
+
+      // Fix up materials the FBXLoader created from the file
+      const mats = Array.isArray(n.material) ? n.material : [n.material];
+      mats.forEach(mat => {
+        if (!mat) return;
+        // Correct colour space on every loaded texture
+        for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap']) {
+          if (mat[key]) {
+            if (key === 'map' || key === 'emissiveMap') mat[key].colorSpace = THREE.SRGBColorSpace;
+            mat[key].anisotropy = 16;
+            mat[key].needsUpdate = true;
+          }
+        }
+        // If FBX didn't load a diffuse map, assign the tileable bark texture
+        if (!mat.map && !isLeaf) { mat.map = barkTex; mat.needsUpdate = true; }
+
+        if (isLeaf) {
+          mat.side        = THREE.DoubleSide;
+          mat.alphaTest   = 0.65;
+          mat.transparent = false;
+          mat.depthWrite  = true;
+        }
+        mat.roughness = isLeaf ? 0.82 : 0.90;
+        mat.metalness = 0.0;
+        mat.needsUpdate = true;
+      });
+
       n.castShadow    = true;
       n.receiveShadow = !isLeaf;
     });
@@ -144,8 +152,23 @@ export function spawnPlazaTree(scene) {
     // Seat on ground
     const box2 = new THREE.Box3().setFromObject(fbx);
     fbx.position.set(0, -box2.min.y, 0);
-
     scene.add(fbx);
+
+    // Ground AO shadow decal — multiply-blend darkens the ground around the base
+    const aoTex = tl.load(BASE + 'internal_ground_ao_texture.jpeg');
+    aoTex.colorSpace = THREE.SRGBColorSpace;
+    const aoDecal = new THREE.Mesh(
+      new THREE.CircleGeometry(8, 48),
+      new THREE.MeshStandardMaterial({
+        map: aoTex, transparent: true,
+        blending: THREE.MultiplyBlending,
+        depthWrite: false, roughness: 1.0, metalness: 0.0,
+      })
+    );
+    aoDecal.rotation.x = -Math.PI / 2;
+    aoDecal.position.set(0, 0.03, 0);
+    scene.add(aoDecal);
+
     console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 22 m');
   }, undefined, err => console.warn('[trees] plaza maple failed:', err?.message ?? err));
 }

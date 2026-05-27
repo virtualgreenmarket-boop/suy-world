@@ -87,30 +87,30 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
 // ── Corner benches ────────────────────────────────────────────────────
 
 function addCornerBenches(scene, tmpl) {
+  // Each corner gets 2 benches at 90° to each other (L-shape facing inward)
+  const OFF = 3.5; // distance from corner edge
   const corners = [[-36, -36], [-36, 36], [36, -36], [36, 36]];
   corners.forEach(([cx, cz]) => {
-    const d     = Math.hypot(cx, cz);
-    const ry    = Math.atan2(-cx, -cz);   // face toward plaza centre
-    const perpX = -cz / d;
-    const perpZ =  cx / d;
-    [-2.5, 2.5].forEach(s => {
-      _placeBench(scene, tmpl, cx + perpX * s, FLOOR_Y, cz + perpZ * s, ry);
-    });
+    // Bench along the X-edge: faces inward along Z axis
+    const ryZ = cz > 0 ? Math.PI : 0;
+    _placeBench(scene, tmpl, cx, FLOOR_Y, cz + (cz > 0 ? -OFF : OFF), ryZ);
+    // Bench along the Z-edge: faces inward along X axis
+    const ryX = cx > 0 ? -Math.PI / 2 : Math.PI / 2;
+    _placeBench(scene, tmpl, cx + (cx > 0 ? -OFF : OFF), FLOOR_Y, cz, ryX);
   });
 }
 
 function addCornerBenchesFallback(scene) {
   const seatMat = mat(0x9A7A58, 0.82);
   const legMat  = mat(0x7A5A3A, 0.90);
+  const OFF = 3.5;
   const corners = [[-36, -36], [-36, 36], [36, -36], [36, 36]];
   corners.forEach(([cx, cz]) => {
-    const d     = Math.hypot(cx, cz);
-    const ry    = Math.atan2(-cx, -cz);
-    const perpX = -cz / d;
-    const perpZ =  cx / d;
-    [-2.5, 2.5].forEach(s => {
-      const bx = cx + perpX * s;
-      const bz = cz + perpZ * s;
+    const pairs = [
+      { bx: cx,                    bz: cz + (cz > 0 ? -OFF : OFF), ry: cz > 0 ? Math.PI : 0 },
+      { bx: cx + (cx > 0 ? -OFF : OFF), bz: cz, ry: cx > 0 ? -Math.PI / 2 : Math.PI / 2 },
+    ];
+    pairs.forEach(({ bx, bz, ry }) => {
       const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.9), seatMat);
       seat.position.set(bx, FLOOR_Y + 0.47, bz);
       seat.rotation.y = ry;
@@ -119,7 +119,8 @@ function addCornerBenchesFallback(scene) {
       const lGeo = new THREE.BoxGeometry(0.14, 0.47, 0.14);
       [-0.7, 0.7].forEach(lo => {
         const leg = new THREE.Mesh(lGeo, legMat);
-        leg.position.set(bx + perpX * lo, FLOOR_Y + 0.235, bz + perpZ * lo);
+        const ox = Math.sin(ry) * lo, oz = Math.cos(ry) * lo;
+        leg.position.set(bx + ox, FLOOR_Y + 0.235, bz + oz);
         leg.castShadow = true;
         scene.add(leg);
       });
