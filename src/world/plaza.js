@@ -87,28 +87,38 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
 // ── Corner benches ────────────────────────────────────────────────────
 
 function addCornerBenches(scene, tmpl) {
-  // Each corner gets 2 benches at 90° to each other (L-shape facing inward)
-  const OFF = 3.5; // distance from corner edge
-  const corners = [[-36, -36], [-36, 36], [36, -36], [36, 36]];
-  corners.forEach(([cx, cz]) => {
-    // Bench along the X-edge: faces inward along Z axis
-    const ryZ = cz > 0 ? Math.PI : 0;
-    _placeBench(scene, tmpl, cx, FLOOR_Y, cz + (cz > 0 ? -OFF : OFF), ryZ);
-    // Bench along the Z-edge: faces inward along X axis
-    const ryX = cx > 0 ? -Math.PI / 2 : Math.PI / 2;
-    _placeBench(scene, tmpl, cx + (cx > 0 ? -OFF : OFF), FLOOR_Y, cz, ryX);
+  // Each corner: 2 benches flush to the plaza border, 90° to each other.
+  // Bench A — against the Z-border edge, faces inward.
+  // Bench B — against the X-border edge, rotated 180° (faces outward).
+  const EDGE = 39;   // distance from centre to border (half of PLAZA_SIZE ≈ 41, minus bench depth)
+  const ALONG = 4;   // how far along the wall from the corner
+  const corners = [
+    { sx: -1, sz: -1 },
+    { sx: -1, sz:  1 },
+    { sx:  1, sz: -1 },
+    { sx:  1, sz:  1 },
+  ];
+  corners.forEach(({ sx, sz }) => {
+    // Bench A: along Z-border (top/bottom edge), faces inward
+    const ryA = sz < 0 ? 0 : Math.PI;   // south edge → face north; north edge → face south
+    _placeBench(scene, tmpl, sx * ALONG, FLOOR_Y, sz * EDGE, ryA);
+
+    // Bench B: along X-border (left/right edge), rotated 180° from what inward would be
+    const ryB_inward  = sx < 0 ? Math.PI / 2 : -Math.PI / 2;
+    const ryB = ryB_inward + Math.PI;   // 180° flip
+    _placeBench(scene, tmpl, sx * EDGE, FLOOR_Y, sz * ALONG, ryB);
   });
 }
 
 function addCornerBenchesFallback(scene) {
   const seatMat = mat(0x9A7A58, 0.82);
   const legMat  = mat(0x7A5A3A, 0.90);
-  const OFF = 3.5;
-  const corners = [[-36, -36], [-36, 36], [36, -36], [36, 36]];
-  corners.forEach(([cx, cz]) => {
+  const EDGE = 39, ALONG = 4;
+  const corners = [{ sx:-1,sz:-1 },{ sx:-1,sz:1 },{ sx:1,sz:-1 },{ sx:1,sz:1 }];
+  corners.forEach(({ sx, sz }) => {
     const pairs = [
-      { bx: cx,                    bz: cz + (cz > 0 ? -OFF : OFF), ry: cz > 0 ? Math.PI : 0 },
-      { bx: cx + (cx > 0 ? -OFF : OFF), bz: cz, ry: cx > 0 ? -Math.PI / 2 : Math.PI / 2 },
+      { bx: sx * ALONG, bz: sz * EDGE, ry: sz < 0 ? 0 : Math.PI },
+      { bx: sx * EDGE,  bz: sz * ALONG, ry: (sx < 0 ? Math.PI / 2 : -Math.PI / 2) + Math.PI },
     ];
     pairs.forEach(({ bx, bz, ry }) => {
       const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.9), seatMat);
@@ -119,8 +129,7 @@ function addCornerBenchesFallback(scene) {
       const lGeo = new THREE.BoxGeometry(0.14, 0.47, 0.14);
       [-0.7, 0.7].forEach(lo => {
         const leg = new THREE.Mesh(lGeo, legMat);
-        const ox = Math.sin(ry) * lo, oz = Math.cos(ry) * lo;
-        leg.position.set(bx + ox, FLOOR_Y + 0.235, bz + oz);
+        leg.position.set(bx + Math.sin(ry)*lo, FLOOR_Y + 0.235, bz + Math.cos(ry)*lo);
         leg.castShadow = true;
         scene.add(leg);
       });
