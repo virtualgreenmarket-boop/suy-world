@@ -38,8 +38,12 @@ let _settings = _load();
 let _visible  = false;
 let _renderer = null;
 let _savePosCb = null;
+let _onMusicVolume = null;
+let _onMuteAll     = null;
 
-export function setSavePositionCallback(fn) { _savePosCb = fn; }
+export function setSavePositionCallback(fn)  { _savePosCb = fn; }
+export function setMusicVolumeCallback(fn)   { _onMusicVolume = fn; }
+export function setMuteAllCallback(fn)       { _onMuteAll = fn; }
 
 function _load() {
   try {
@@ -433,20 +437,19 @@ function _injectStyles() {
     #sp-pos-footer {
       flex-shrink: 0;
       padding: 10px 14px 22px;
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; justify-content: space-between;
       border-top: 1px solid var(--sp-border);
     }
-    #sp-pos-footer-label {
-      flex: 1; min-width: 0;
+    #sp-pos-logout-btn {
+      flex-shrink: 0;
+      padding: 8px 18px; border-radius: 10px;
+      border: 1.5px solid var(--sp-danger);
+      background: transparent;
+      color: var(--sp-danger); font-family: inherit;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: opacity .15s;
     }
-    #sp-pos-footer-label .sp-pos-title {
-      font-size: 13px; font-weight: 600; color: var(--sp-text);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    #sp-pos-footer-label .sp-pos-sub {
-      font-size: 11px; color: var(--sp-muted); margin-top: 2px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
+    #sp-pos-logout-btn:active { opacity: .75; }
     #sp-pos-save-btn {
       flex-shrink: 0;
       padding: 8px 18px; border-radius: 10px;
@@ -723,29 +726,29 @@ function _buildPanel() {
   const posFooter = document.createElement('div');
   posFooter.id = 'sp-pos-footer';
 
-  const posLabel = document.createElement('div');
-  posLabel.id = 'sp-pos-footer-label';
-  posLabel.innerHTML = `
-    <div class="sp-pos-title">📍 Save Position</div>
-    <div class="sp-pos-sub" id="sp-pos-sub">${_savedPosLabel()}</div>`;
+  const logoutBtn = document.createElement('button');
+  logoutBtn.id = 'sp-pos-logout-btn';
+  logoutBtn.textContent = 'Log Out';
+  logoutBtn.addEventListener('click', () => {
+    if (confirm('Log out?')) alert('Logged out.');
+  });
 
   const posSaveBtn = document.createElement('button');
   posSaveBtn.id = 'sp-pos-save-btn';
-  posSaveBtn.textContent = 'Save';
+  posSaveBtn.textContent = 'Save Position';
   posSaveBtn.addEventListener('click', () => {
     if (_savePosCb) {
       _savePosCb();
-      document.getElementById('sp-pos-sub').textContent = _savedPosLabel();
       posSaveBtn.textContent = '✓ Saved';
       posSaveBtn.classList.add('saved');
       setTimeout(() => {
-        posSaveBtn.textContent = 'Save';
+        posSaveBtn.textContent = 'Save Position';
         posSaveBtn.classList.remove('saved');
       }, 1200);
     }
   });
 
-  posFooter.append(posLabel, posSaveBtn);
+  posFooter.append(logoutBtn, posSaveBtn);
 
   panel.append(header, playerWrap, tabBar, body, posFooter);
   overlay.appendChild(panel);
@@ -784,6 +787,7 @@ function _toggleRow(label, key, initial) {
   inp.addEventListener('change', () => {
     _settings[key] = inp.checked;
     _save();
+    if (key === 'muteAll' && _onMuteAll) _onMuteAll(inp.checked);
   });
   const track = document.createElement('span');
   track.className = 'sp-tog-track';
@@ -834,6 +838,7 @@ function _sliderRow(label, key, initial, opts = {}) {
       _settings[key] = v;
     }
     _save();
+    if (key === 'musicVolume' && _onMusicVolume) _onMusicVolume(v / 100);
   });
 
   wrap.append(head, input);

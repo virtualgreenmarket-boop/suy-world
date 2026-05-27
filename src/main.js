@@ -36,7 +36,8 @@ import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
 import { initInteractionUI, updateInteractions }         from './ui/interactionUI.js';
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
-import { initSettingsPanel, applyQualitySettings, setSavePositionCallback } from './ui/settingsPanel.js';
+import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
+import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -165,6 +166,13 @@ onEquipChange((cat, file) => equipLocalPlayerItem(cat, file));
 initSettingsPanel(renderer);
 applyQualitySettings(renderer);
 setSavePositionCallback(savePlayerPosition);
+
+initMusic();
+const _s = getSettings();
+setMusicVolume(_s.musicVolume / 100);
+setMuteAll(_s.muteAll);
+setMusicVolumeCallback(v => setMusicVolume(v));
+setMuteAllCallback(b => setMuteAll(b));
 
 // ── Multiplayer ────────────────────────────────────────────────────────
 initRemotePlayers(scene);
