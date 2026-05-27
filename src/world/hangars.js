@@ -49,7 +49,10 @@ const SLOT_W_SIDE  = SIDE_SPAN  / SIDE_COUNT;   // 4.2 m
 const SLOT_W_FRONT = FRONT_SPAN / FRONT_COUNT;  // 5.0 m
 
 // Accent colours per hangar
-const ACCENT = [0x1565C0, 0xE64A19, 0x6A1B9A]; // blue, orange, purple
+const ACCENT = [0xC0392B, 0x27AE60, 0xF1C40F]; // red, green, yellow
+
+// Roof colours per hangar (North, East/Center, South)
+const ROOF_COLOR = [0xC0392B, 0x27AE60, 0xF1C40F]; // red, green, yellow
 
 export const allSlots = []; // populated during init, used by stores.js
 
@@ -93,7 +96,7 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   group.rotation.y = rotY;
 
   const wallMat   = getBrickMat();
-  const roofMat   = stdMat(0xD4CEC6, 0.9);
+  const roofMat   = stdMat(ROOF_COLOR[hangarIndex], 0.85, 0.05);
   const accentMat = stdMat(ACCENT[hangarIndex], 0.7, 0.1);
   const floorMat  = stdMat(0xD8D2C8, 0.92);
   const colMat    = stdMat(0xF0EBE3, 0.78, 0.05);

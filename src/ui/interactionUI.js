@@ -162,3 +162,98 @@ export function setActiveInteractionLabel(label) {
   _activeTarget.label = label;
   if (_labelEl) _labelEl.textContent = label;
 }
+
+// ── NPC Dialogue Modal ────────────────────────────────────────────────
+
+export function showNpcDialog(paragraphs) {
+  if (document.getElementById('npc-dialog')) return;
+
+  const style = document.createElement('style');
+  style.id = 'npc-dialog-style';
+  style.textContent = `
+    #npc-dialog {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 900;
+      background: rgba(0,0,0,0.60);
+      backdrop-filter: blur(4px);
+      animation: npc-fade-in 0.25s ease;
+    }
+    @keyframes npc-fade-in { from { opacity:0 } to { opacity:1 } }
+    #npc-dialog-box {
+      background: rgba(10,12,26,0.97);
+      border: 1.5px solid rgba(255,200,60,0.35);
+      border-radius: 18px;
+      box-shadow: 0 8px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,200,60,0.08) inset;
+      padding: 36px 40px 30px;
+      max-width: 580px; width: 90%;
+      max-height: 82vh;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,200,60,0.3) transparent;
+      position: relative;
+    }
+    #npc-dialog-title {
+      font-size: 20px; font-weight: 700;
+      color: #FFB300;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #npc-dialog-body p {
+      font-size: 14px; line-height: 1.75;
+      color: rgba(255,255,255,0.88);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0 0 12px;
+    }
+    #npc-dialog-body p:last-child { margin-bottom: 0; }
+    #npc-dialog-close {
+      display: block; margin: 24px auto 0;
+      background: rgba(255,179,0,0.15);
+      border: 1.5px solid rgba(255,179,0,0.45);
+      border-radius: 30px;
+      padding: 8px 32px;
+      font-size: 13px; font-weight: 600;
+      color: #FFB300;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #npc-dialog-close:hover { background: rgba(255,179,0,0.28); }
+  `;
+  document.head.appendChild(style);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'npc-dialog';
+
+  const lines = paragraphs
+    .map(p => `<p>${p}</p>`)
+    .join('');
+
+  overlay.innerHTML = `
+    <div id="npc-dialog-box">
+      <div id="npc-dialog-title">Welcome to Suy-World</div>
+      <div id="npc-dialog-body">${lines}</div>
+      <button id="npc-dialog-close">Close  [Esc]</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const box = overlay.querySelector('#npc-dialog-box');
+
+  box.addEventListener('wheel', e => {
+    e.stopPropagation();
+    box.scrollTop += e.deltaY;
+  }, { passive: true });
+
+  const close = () => {
+    overlay.remove();
+    document.getElementById('npc-dialog-style')?.remove();
+    window.removeEventListener('keydown', onKey);
+  };
+  const onKey = e => { if (e.code === 'Escape' || e.code === 'KeyE') close(); };
+  overlay.querySelector('#npc-dialog-close').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  window.addEventListener('keydown', onKey);
+}

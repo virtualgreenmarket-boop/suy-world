@@ -4,7 +4,7 @@ import { buildNpcCharacter } from './npc.js';
 import { spawnTree } from './trees.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
-import { registerInteraction, setActiveInteractionLabel } from '../ui/interactionUI.js';
+import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
 import { sitOnBench, standUp, isPlayerSitting, getLocalPlayerPosition } from '../player/localPlayer.js';
 
 const PLAZA_SIZE        = 82;
@@ -26,10 +26,6 @@ export function initPlaza(scene) {
   _birds = createBirds(scene);
 
   spawnAllPlazaNpcs(scene).catch(err => console.error('[plaza] NPC spawn failed:', err));
-
-  registerInteraction([6, 0.7, 6], 'Talk', 4.5, () => {
-    console.log('[plaza] Shop NPC says: Check out the hangars!');
-  });
 
   // Two anchors per bench (front + back, 1 m offset) so E shows from both sides.
   // updateInteractions always picks the single closest anchor, so only one E shows.
@@ -212,16 +208,26 @@ function addCentralTree(scene) {
 function addNpc(scene) {
   const npc = buildNpcCharacter(0xFFB300, 'mainStore');
   npc.position.set(6, 0.7, 6);
+  npc.userData.animType = 'dance';
   scene.add(npc);
 
-  registerInteraction([6, 2.5, 6], 'Talk', 3, null, () => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance('Hello, how can I help you?');
-    utt.rate  = 0.92;
-    utt.pitch = 1.1;
-    window.speechSynthesis.speak(utt);
-  });
+  registerInteraction([6, 2.5, 6], 'Talk', 3, () => showNpcDialog([
+    'You have arrived at Suy-World, a living marketplace island where every door can lead to a new discovery.',
+    'This is not a regular shop, and it is not just a game.',
+    'Here, you can explore different areas, enter virtual rooms, meet brands, discover products, and build your own identity inside the world.',
+    'In front of you, there are three paths: North, Central, and South.',
+    'Each path leads to a different marketplace hangar, filled with doors on both sides.',
+    'Behind every door, there is a room owned by a seller, creator, or brand.',
+    'Inside each room, you will find products displayed on the walls, shelves, signs, and screens.',
+    'Click on anything that interests you, and you will be able to see more details.',
+    'Some rooms are simple. Some rooms are fully designed with colors, lights, banners, decorations, and special advertisements.',
+    'The better the room looks, the more attention it may receive from visitors like you.',
+    'But remember — you are not only here to look around.',
+    'You can also customize your own character, choose your style, add accessories, and even bring pets with you.',
+    'This world is made for exploring, discovering, and connecting.',
+    'So choose your path, enter the hangar, and start your journey.',
+    'Welcome to Suy-World.',
+  ]));
 }
 
 // ── Birds ─────────────────────────────────────────────────────────────
