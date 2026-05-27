@@ -19,6 +19,7 @@ const BUILTIN_MAP = {
   walk: ['walk'],
   run:  ['run', 'jog', 'sprint'],
   jump: ['jump', 'leap'],
+  sit:  ['sit', 'sitting', 'seated', 'chair'],
 };
 
 let _builtinClips = null;   // non-null when GLB has its own animations
@@ -67,7 +68,7 @@ async function ensureLoaded() {
 }
 
 function _mapBuiltinClips(clips) {
-  const result = { idle: null, walk: null, run: null, jump: null };
+  const result = { idle: null, walk: null, run: null, jump: null, sit: null };
   for (const [key, keywords] of Object.entries(BUILTIN_MAP)) {
     result[key] = clips.find(c => {
       const n = c.name.toLowerCase();
@@ -104,12 +105,13 @@ export async function spawnCharacter(parentGroup) {
       }
       actions[name] = action;
     }
-    // If there's no separate walk/run clip, alias idle so setAnimState doesn't warn
+    // Alias missing clips to idle so setAnimState never warns
     if (!actions.walk && actions.idle) actions.walk = actions.idle;
     if (!actions.run  && actions.idle) actions.run  = actions.idle;
+    if (!actions.sit  && actions.idle) actions.sit  = actions.idle;
   } else {
     // Mixamo retargeted clips
-    for (const name of ['idle', 'walk', 'run', 'jump']) {
+    for (const name of ['idle', 'walk', 'run', 'jump', 'sit']) {
       const clip = getClip(name);
       if (!clip) continue;
       const action = mixer.clipAction(clip);
@@ -119,6 +121,7 @@ export async function spawnCharacter(parentGroup) {
       }
       actions[name] = action;
     }
+    if (!actions.sit && actions.idle) actions.sit = actions.idle;
   }
 
   const clipCount = Object.keys(actions).length;

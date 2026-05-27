@@ -104,10 +104,13 @@ export function preloadAnimations() {
   if (_loadPromise) return _loadPromise;
   const base = '/models/animations/';
   _loadPromise = Promise.all([
-    loadFbx(base + 'Remy@Idle.fbx').then(s    => { _fbxScenes.idle = s; }),
-    loadFbx(base + 'Remy@Walking.fbx').then(s  => { _fbxScenes.walk = s; }),
-    loadFbx(base + 'Remy@Running.fbx').then(s  => { _fbxScenes.run  = s; }),
-    loadFbx(base + 'Remy@Jump.fbx').then(s     => { _fbxScenes.jump = s; }),
+    loadFbx(base + 'Remy@Idle.fbx').then(s        => { _fbxScenes.idle = s; }),
+    loadFbx(base + 'Remy@Walking.fbx').then(s      => { _fbxScenes.walk = s; }),
+    loadFbx(base + 'Remy@Running.fbx').then(s      => { _fbxScenes.run  = s; }),
+    loadFbx(base + 'Remy@Jump.fbx').then(s         => { _fbxScenes.jump = s; }),
+    loadFbx(base + 'Remy@SittingIdle.fbx')
+      .then(s => { _fbxScenes.sit = s; })
+      .catch(() => { /* optional — gracefully absent */ }),
   ]).then(() => console.log('[animations] FBX files loaded'));
   return _loadPromise;
 }

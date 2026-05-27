@@ -156,3 +156,9 @@ export function updateInteractions(camera, playerPos) {
 function _hide() {
   if (_btnEl) _btnEl.style.display = 'none';
 }
+
+export function setActiveInteractionLabel(label) {
+  if (!_activeTarget) return;
+  _activeTarget.label = label;
+  if (_labelEl) _labelEl.textContent = label;
+}

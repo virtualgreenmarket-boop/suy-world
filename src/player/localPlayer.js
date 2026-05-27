@@ -26,6 +26,7 @@ let cameraPitch = 0.42;
 let _camDist    = 10;   // mutable — changed by wheel and pinch-to-zoom
 let velocityY   = 0;
 let _isJumping  = false;
+let _isSitting  = false;
 
 const keys = {};
 let isDragging = false, lastMouseX = 0, lastMouseY = 0;
@@ -105,6 +106,13 @@ export function updateLocalPlayer(delta) {
     const sens = getSettings().sensitivity * 0.005;
     cameraYaw   -= dx * sens;
     cameraPitch  = Math.max(-1.45, Math.min(1.55, cameraPitch - dy * sens));
+  }
+
+  // Sitting: locked to bench — no movement, no gravity, just animate + camera
+  if (_isSitting) {
+    updateCharacterMixer(playerGroup, delta);
+    syncCamera();
+    return;
   }
 
   // Block all movement while chat is open
@@ -223,4 +231,21 @@ export function setLocalPlayerPosition(x, z) {
   playerGroup.position.set(x, y, z);
   velocityY = 0;
   syncCamera();
+}
+
+export function isPlayerSitting() { return _isSitting; }
+
+export function sitOnBench(x, y, z, facingY) {
+  if (!playerGroup || _isSitting) return;
+  _isSitting = true;
+  velocityY  = 0;
+  playerGroup.position.set(x, y, z);
+  playerGroup.rotation.y = facingY;
+  setAnimState(playerGroup, 'sit');
+}
+
+export function standUp() {
+  if (!playerGroup || !_isSitting) return;
+  _isSitting = false;
+  setAnimState(playerGroup, 'idle');
 }

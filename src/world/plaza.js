@@ -4,7 +4,8 @@ import { buildNpcCharacter } from './npc.js';
 import { spawnTree } from './trees.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
-import { registerInteraction } from '../ui/interactionUI.js';
+import { registerInteraction, setActiveInteractionLabel } from '../ui/interactionUI.js';
+import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
@@ -30,14 +31,29 @@ export function initPlaza(scene) {
     console.log('[plaza] Shop NPC says: Check out the hangars!');
   });
 
-  // Sit interactions for each of the 8 side benches
+  // Sit / Stand-Up interactions for the 8 side benches
   const W = 39, P = 31, BY = FLOOR_Y + 0.5;
   [
-    [-P, BY, -W], [P, BY, -W],
-    [-P, BY,  W], [P, BY,  W],
-    [-W, BY, -P], [-W, BY,  P],
-    [ W, BY, -P], [ W, BY,  P],
-  ].forEach(pos => registerInteraction(pos, 'Sit', 3, () => { console.log('[plaza] Sitting on bench…'); }));
+    // [interactionX, interactionY, interactionZ, seatX, seatZ, playerFacingY]
+    [-P, BY, -W,  -P, -W,  Math.PI      ],  // North wall, face toward +Z
+    [ P, BY, -W,   P, -W,  Math.PI      ],
+    [-P, BY,  W,  -P,  W,  0            ],  // South wall, face toward -Z
+    [ P, BY,  W,   P,  W,  0            ],
+    [-W, BY, -P,  -W, -P, -Math.PI / 2  ],  // West wall, face toward +X
+    [-W, BY,  P,  -W,  P, -Math.PI / 2  ],
+    [ W, BY, -P,   W, -P,  Math.PI / 2  ],  // East wall, face toward -X
+    [ W, BY,  P,   W,  P,  Math.PI / 2  ],
+  ].forEach(([ix, iy, iz, sx, sz, facingY]) => {
+    registerInteraction([ix, iy, iz], 'Sit', 3, () => {
+      if (isPlayerSitting()) {
+        standUp();
+        setActiveInteractionLabel('Sit');
+      } else {
+        sitOnBench(sx, FLOOR_Y, sz, facingY);
+        setActiveInteractionLabel('Stand Up');
+      }
+    });
+  });
 }
 
 export function updatePlaza(delta, time) {
