@@ -31,11 +31,12 @@ export function initPlaza(scene) {
     console.log('[plaza] Shop NPC says: Check out the hangars!');
   });
 
-  // One E-prompt per bench; callback picks the nearer of the 2 seat spots (±0.5 m)
-  const W = 39, P = 31, SO = 0.5;
+  // Two anchors per bench (front + back, 1 m offset) so E shows from both sides.
+  // updateInteractions always picks the single closest anchor, so only one E shows.
+  const W = 39, P = 31, SO = 0.5, RANGE = 3, SIDE = 1;
 
-  const _bench = (benchX, benchZ, alongX, facingY) => {
-    registerInteraction([benchX, FLOOR_Y, benchZ], 'Sit', 5, () => {
+  const _bench = (benchX, benchZ, alongX, facingY, offX, offZ) => {
+    const cb = () => {
       if (isPlayerSitting()) {
         standUp();
         setActiveInteractionLabel('Sit');
@@ -54,13 +55,16 @@ export function initPlaza(scene) {
       }
       sitOnBench(sx, FLOOR_Y, sz, facingY);
       setActiveInteractionLabel('Stand Up');
-    });
+    };
+    // front anchor (toward centre) + back anchor (toward wall)
+    registerInteraction([benchX + offX, FLOOR_Y, benchZ + offZ], 'Sit', RANGE, cb);
+    registerInteraction([benchX - offX, FLOOR_Y, benchZ - offZ], 'Sit', RANGE, cb);
   };
 
-  for (const bx of [-P, P]) _bench(bx, -W, true,  Math.PI);      // North wall
-  for (const bx of [-P, P]) _bench(bx,  W, true,  0);             // South wall
-  for (const bz of [-P, P]) _bench(-W, bz, false, -Math.PI / 2);  // West wall
-  for (const bz of [-P, P]) _bench( W, bz, false,  Math.PI / 2);  // East wall
+  for (const bx of [-P, P]) _bench(bx, -W, true,  Math.PI,     0,    SIDE); // North
+  for (const bx of [-P, P]) _bench(bx,  W, true,  0,           0,   -SIDE); // South
+  for (const bz of [-P, P]) _bench(-W, bz, false, -Math.PI/2,  SIDE, 0);    // West
+  for (const bz of [-P, P]) _bench( W, bz, false,  Math.PI/2, -SIDE, 0);    // East
 }
 
 export function updatePlaza(delta, time) {
