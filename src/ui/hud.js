@@ -17,8 +17,20 @@ export function initHud() {
   const topLeft = el('div', { id: 'hud-topleft' });
 
   const bagBtn = el('button', { id: 'hud-bag' });
-  bagBtn.title = 'Character / Inventory';
-  bagBtn.innerHTML = '🎒';
+  bagBtn.title = 'Character / Inventory (I)';
+  bagBtn.innerHTML = `<svg viewBox="0 0 32 32" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M11 13 C11 7 21 7 21 13" stroke="#5C2D0E" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="3" y="13" width="26" height="17" rx="5" fill="#8B4513"/>
+    <rect x="3" y="24" width="26" height="6" rx="5" fill="#7A3C10"/>
+    <path d="M3 20 L3 16 Q3 13 7 13 L25 13 Q29 13 29 16 L29 20 Q29 24 16 24 Q3 24 3 20Z" fill="#9E5520"/>
+    <path d="M4 20.5 Q16 25 28 20.5" fill="none" stroke="#7A3C10" stroke-width="1" opacity="0.5"/>
+    <path d="M6 16 Q16 17.5 26 16" fill="none" stroke="#7A3F18" stroke-width="0.8" stroke-dasharray="2,1.5" opacity="0.7"/>
+    <rect x="12" y="20" width="8" height="5.5" rx="1.5" fill="#C8861A" stroke="#9B6515" stroke-width="1"/>
+    <rect x="14" y="21.5" width="4" height="2.5" rx="0.8" fill="#9B6515"/>
+    <circle cx="7.5" cy="21" r="1.4" fill="#C8861A" stroke="#9B6515" stroke-width="0.7"/>
+    <circle cx="24.5" cy="21" r="1.4" fill="#C8861A" stroke="#9B6515" stroke-width="0.7"/>
+    <rect x="5" y="15" width="22" height="13" rx="3.5" fill="none" stroke="#7A3F18" stroke-width="0.7" stroke-dasharray="2,2" opacity="0.3"/>
+  </svg>`;
   bagBtn.addEventListener('click', toggleInventoryPanel);
   topLeft.appendChild(bagBtn);
 

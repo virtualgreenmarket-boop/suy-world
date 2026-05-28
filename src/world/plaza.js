@@ -26,10 +26,7 @@ export function initPlaza(scene) {
   _birds = createBirds(scene);
 
   spawnAllPlazaNpcs(scene).catch(err => console.error('[plaza] NPC spawn failed:', err));
-
-  registerInteraction([6, 0.7, 6], 'Talk', 4.5, () => {
-    console.log('[plaza] Shop NPC says: Check out the hangars!');
-  });
+  _addBenchLabels(scene);
 
   // Two seat anchors per bench at ±SO from centre (≈ 1/3 and 2/3 of bench length).
   // Small range ensures only the nearest seat prompt is ever shown.
@@ -287,6 +284,105 @@ function _updateBird(b, delta, time) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
+
+// ── Bench number labels ───────────────────────────────────────────────
+
+function _addBenchLabels(scene) {
+  const WALL = 39, POS = 31;
+  const benches = [
+    { n: 1, x: -POS, z: -WALL },
+    { n: 2, x:  POS, z: -WALL },
+    { n: 3, x: -WALL, z: -POS },
+    { n: 4, x: -WALL, z:  POS },
+    { n: 5, x:  WALL, z: -POS },
+    { n: 6, x:  WALL, z:  POS },
+    { n: 7, x: -POS, z:  WALL },
+    { n: 8, x:  POS, z:  WALL },
+  ];
+
+  for (const { n, x, z } of benches) {
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: _makeLabelTexture(n),
+      transparent: true,
+      depthWrite: false,
+    }));
+    sprite.position.set(x, FLOOR_Y + 2.6, z);
+    sprite.scale.set(1.8, 1.0, 1);
+    scene.add(sprite);
+  }
+}
+
+function _makeLabelTexture(n) {
+  const W = 160, H = 90;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Drop shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur  = 8;
+  ctx.shadowOffsetY = 3;
+
+  // Parchment background
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#F5E6C0');
+  grad.addColorStop(1, '#E8D09A');
+  _rrect(ctx, 8, 6, W - 16, H - 14, 12);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Border
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = '#8B5E2A';
+  ctx.lineWidth = 3;
+  _rrect(ctx, 8, 6, W - 16, H - 14, 12);
+  ctx.stroke();
+
+  // Inner border (decorative)
+  ctx.strokeStyle = 'rgba(139,94,42,0.35)';
+  ctx.lineWidth = 1;
+  _rrect(ctx, 13, 11, W - 26, H - 24, 8);
+  ctx.stroke();
+
+  // Tag hole at top
+  ctx.beginPath();
+  ctx.arc(W / 2, 6, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#C8A870';
+  ctx.fill();
+  ctx.strokeStyle = '#8B5E2A';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Number
+  ctx.fillStyle = '#3E1F08';
+  ctx.font = 'bold 42px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(n), W / 2, H / 2 - 2);
+
+  // "Bench" label
+  ctx.font = '16px Georgia, serif';
+  ctx.fillStyle = '#7A4F1C';
+  ctx.fillText('Bench', W / 2, H - 20);
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+function _rrect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 
 function mat(color, rough=0.82) {
   return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.04 });

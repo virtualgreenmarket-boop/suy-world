@@ -1,24 +1,24 @@
-// Background music using an <audio> element.
+// Background music playlist — tracks play in order, then loop back.
 // Autoplay policy: music starts on the first user interaction.
 
-const TRACK = '/audio/woodland-fantasy.mp3';
+const PLAYLIST = [
+  '/audio/woodland-fantasy.mp3',
+  '/audio/soliloquy.mp3',
+];
 
-let _audio   = null;
-let _volume  = 0.8;
-let _muted   = false;
-let _started = false;
+let _audio      = null;
+let _trackIndex = 0;
+let _volume     = 0.8;
+let _muted      = false;
+let _started    = false;
 
 export function initMusic() {
-  _audio = new Audio(TRACK);
-  _audio.loop   = true;
-  _audio.volume = _effectiveVolume();
-
   const onInteract = () => {
     if (_started) return;
     _started = true;
     document.removeEventListener('pointerdown', onInteract, true);
     document.removeEventListener('keydown',     onInteract, true);
-    _audio.play().catch(() => {});
+    _playTrack(0);
   };
   document.addEventListener('pointerdown', onInteract, true);
   document.addEventListener('keydown',     onInteract, true);
@@ -36,4 +36,18 @@ export function setMuteAll(muted) {
 
 function _effectiveVolume() {
   return _muted ? 0 : _volume;
+}
+
+function _playTrack(index) {
+  _trackIndex = index % PLAYLIST.length;
+
+  if (_audio) {
+    _audio.pause();
+    _audio.onended = null;
+  }
+
+  _audio = new Audio(PLAYLIST[_trackIndex]);
+  _audio.volume  = _effectiveVolume();
+  _audio.onended = () => _playTrack(_trackIndex + 1);
+  _audio.play().catch(() => {});
 }

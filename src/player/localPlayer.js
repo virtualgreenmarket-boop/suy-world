@@ -239,12 +239,11 @@ export function sitOnBench(x, y, z, facingY) {
   if (!playerGroup || _isSitting) return;
   _isSitting = true;
   velocityY  = 0;
-  const finalFacing = facingY + Math.PI;
-  // Shift 0.3 m toward bench backrest so character sits on the seat
-  const ox = x - Math.sin(finalFacing) * 0.3;
-  const oz = z - Math.cos(finalFacing) * 0.3;
+  // Shift 0.3 m toward backrest so character sits on the seat
+  const ox = x + Math.sin(facingY) * 0.3;
+  const oz = z + Math.cos(facingY) * 0.3;
   playerGroup.position.set(ox, y, oz);
-  playerGroup.rotation.y = finalFacing;
+  playerGroup.rotation.y = facingY;
   playerGroup.scale.setScalar(1.2);
   setAnimState(playerGroup, 'sit');
 }

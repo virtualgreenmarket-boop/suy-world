@@ -2,25 +2,64 @@
 
 const STORAGE_KEY = 'suy_loadout';
 
-const CATEGORIES = {
-  'Hair':    { icon: '💇', items: ['Hairstyle_male_010.glb', 'Hairstyle_male_012.glb'] },
-  'Hat':     { icon: '🎩', items: ['Hat_010.glb', 'Hat_049.glb', 'Hat_057.glb'] },
-  'Glasses': { icon: '🕶️', items: ['Glasses_004.glb', 'Glasses_006.glb'] },
-  'Shirt':   { icon: '👕', items: ['T-Shirt_009.glb'] },
-  'Outwear': { icon: '🧥', items: ['Outwear_029.glb', 'Outwear_036.glb'] },
-  'Pants':   { icon: '👖', items: ['Pants_010.glb', 'Pants_014.glb'] },
-  'Shorts':  { icon: '🩳', items: ['Shorts_003.glb'] },
-  'Shoes':   { icon: '👟', items: ['Shoe_Sneakers_009.glb', 'Shoe_Slippers_002.glb', 'Shoe_Slippers_005.glb'] },
-  'Gloves':  { icon: '🧤', items: ['Gloves_006.glb', 'Gloves_014.glb'] },
-  'Costume': { icon: '🎭', items: ['Costume_6_001.glb', 'Costume_10_001.glb'] },
-  'Extra':   { icon: '✨', items: ['Headphones_002.glb', 'Moustache_001.glb', 'Moustache_002.glb', 'Pacifier_001.glb', 'Clown_nose_001.glb', 'Socks_008.glb'] },
-  'Emotion': { icon: '😊', items: ['Male_emotion_happy_002.glb', 'Male_emotion_angry_003.glb', 'Male_emotion_usual_001.glb'] },
+const SECTIONS = {
+  Outfit: {
+    label: 'Outfit',
+    icon: '👔',
+    categories: {
+      'Shirt':   { icon: '👕', items: ['T-Shirt_009.glb'] },
+      'Outwear': { icon: '🧥', items: ['Outwear_029.glb', 'Outwear_036.glb'] },
+      'Pants':   { icon: '👖', items: ['Pants_010.glb', 'Pants_014.glb'] },
+      'Shorts':  { icon: '🩳', items: ['Shorts_003.glb'] },
+      'Shoes':   { icon: '👟', items: ['Shoe_Sneakers_009.glb', 'Shoe_Slippers_002.glb', 'Shoe_Slippers_005.glb'] },
+      'Gloves':  { icon: '🧤', items: ['Gloves_006.glb', 'Gloves_014.glb'] },
+    },
+  },
+  Accessories: {
+    label: 'Accessories',
+    icon: '💎',
+    categories: {
+      'Hair':    { icon: '💇', items: ['Hairstyle_male_010.glb', 'Hairstyle_male_012.glb'] },
+      'Hat':     { icon: '🎩', items: ['Hat_010.glb', 'Hat_049.glb', 'Hat_057.glb'] },
+      'Glasses': { icon: '🕶️', items: ['Glasses_004.glb', 'Glasses_006.glb'] },
+      'Jewelry': { icon: '💍', items: [], placeholders: ['Necklace', 'Bracelet', 'Ring', 'Watch'] },
+      'Bags':    { icon: '👜', items: [], placeholders: ['Backpack', 'Shoulder Bag', 'Handbag', 'Fanny Pack'] },
+    },
+  },
+  Pets: {
+    label: 'Pets & Companions',
+    icon: '🐾',
+    categories: {
+      'Pets':            { icon: '🐶', items: [], placeholders: ['Dog', 'Cat', 'Rabbit', 'Dragon', 'Fox', 'Owl'] },
+      'Pet Accessories': { icon: '🎀', items: [], placeholders: ['Collar', 'Leash', 'Outfit', 'Hat'] },
+      'Pet Skins':       { icon: '🎨', items: [], placeholders: ['Fur Color', 'Pattern', 'Glow', 'Glitter'] },
+    },
+  },
+  Profile: {
+    label: 'Profile & Identity',
+    icon: '🪪',
+    categories: {
+      'Badges':    { icon: '🏅', items: [], placeholders: ['Starter', 'Explorer', 'VIP', 'Creator', 'Legend'] },
+      'Nameplate': { icon: '🔤', items: [], placeholders: ['Classic', 'Gold', 'Neon', 'Diamond'] },
+      'Chat Skin': { icon: '💬', items: [], placeholders: ['Default', 'Bubble', 'Retro', 'Minimal'] },
+    },
+  },
+  Vehicles: {
+    label: 'Vehicles',
+    icon: '🛹',
+    categories: {
+      'Hoverboard': { icon: '🛹', items: [], placeholders: ['Classic Board', 'Neon Board', 'Flame Board', 'Ice Board'] },
+      'Bike':       { icon: '🚲', items: [], placeholders: ['City Bike', 'Mountain Bike', 'Electric Bike'] },
+    },
+  },
 };
 
-let _loadout = _loadSaved();
-let _visible  = false;
-let _onEquip  = null;
-let _activeCategory = Object.keys(CATEGORIES)[0];
+let _loadout        = _loadSaved();
+let _visible        = false;
+let _onEquip        = null;
+let _activeSection  = 'Outfit';
+let _activeCategory = null; // null = list view, string = grid view
+let _gridArea       = null;
 
 function _loadSaved() {
   try {
@@ -38,12 +77,25 @@ export function onEquipChange(cb) { _onEquip = cb; }
 
 // ── Init ──────────────────────────────────────────────────────────────────
 
-export function initInventoryPanel() { _buildPanel(); }
+export function initInventoryPanel() {
+  _buildPanel();
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Escape' && _visible) {
+      if (_activeCategory !== null) {
+        _activeCategory = null;
+        _renderBody();
+      } else {
+        hideInventoryPanel();
+      }
+    }
+  });
+}
+
+// ── Build DOM ─────────────────────────────────────────────────────────────
 
 function _buildPanel() {
   const style = document.createElement('style');
   style.textContent = `
-    /* ── Overlay ── */
     #inv-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.65);
@@ -53,13 +105,10 @@ function _buildPanel() {
     }
     #inv-overlay.inv-open { display: flex; }
 
-    /* ── Panel ── */
     #inv-panel {
-      width: 100%; max-width: 480px;
-      height: 92dvh;
+      width: 100%; max-width: 480px; height: 92dvh;
       background: rgba(12,10,24,0.98);
-      border: 1px solid rgba(255,200,80,0.12);
-      border-bottom: none;
+      border: 1px solid rgba(255,200,80,0.12); border-bottom: none;
       border-radius: 24px 24px 0 0;
       display: flex; flex-direction: column; overflow: hidden;
       box-shadow: 0 -10px 50px rgba(0,0,0,0.7);
@@ -70,7 +119,6 @@ function _buildPanel() {
       to   { transform: translateY(0); }
     }
 
-    /* ── Drag handle ── */
     #inv-handle {
       width: 36px; height: 4px; border-radius: 2px;
       background: rgba(255,255,255,0.18);
@@ -90,8 +138,7 @@ function _buildPanel() {
     }
     #inv-equipped-count {
       font-size: 11px; color: rgba(255,200,80,0.7);
-      background: rgba(255,200,80,0.1);
-      border: 1px solid rgba(255,200,80,0.2);
+      background: rgba(255,200,80,0.1); border: 1px solid rgba(255,200,80,0.2);
       border-radius: 20px; padding: 3px 10px; font-weight: 600;
     }
     #inv-close {
@@ -102,122 +149,144 @@ function _buildPanel() {
     }
     #inv-close:hover { background: rgba(255,255,255,0.16); }
 
-    /* ── Category tabs ── */
-    #inv-tabs {
-      display: flex; gap: 6px;
-      padding: 10px 14px 0;
-      overflow-x: auto; flex-shrink: 0;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
+    /* ── Section pills (4-col grid) ── */
+    #inv-sections {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      gap: 6px; padding: 10px 14px 0; flex-shrink: 0;
     }
-    #inv-tabs::-webkit-scrollbar { display: none; }
-    .inv-tab {
-      display: flex; align-items: center; gap: 5px;
-      padding: 7px 12px; border-radius: 20px; flex-shrink: 0;
+    .inv-section-pill {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 8px 4px; border-radius: 12px;
       border: 1.5px solid rgba(255,255,255,0.10);
       background: transparent; color: rgba(255,255,255,0.45);
-      font-family: inherit; font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all .18s; white-space: nowrap;
+      font-family: inherit; cursor: pointer; transition: all .18s;
     }
-    .inv-tab .inv-tab-icon { font-size: 14px; }
-    .inv-tab.active {
-      background: rgba(124,106,247,0.2);
-      border-color: #7c6af7; color: #c4b8ff;
-    }
-    .inv-tab-equipped-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #f59e0b; flex-shrink: 0;
-    }
+    .inv-section-icon { font-size: 20px; line-height: 1; }
+    .inv-section-label { font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .inv-section-pill.active { background: rgba(124,106,247,0.22); border-color: #7c6af7; color: #c4b8ff; }
+    .inv-section-pill:hover:not(.active) { border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.65); }
 
-    /* ── Separator ── */
     .inv-sep {
       height: 1px; background: rgba(255,200,80,0.08);
       margin: 10px 14px 0; flex-shrink: 0;
     }
 
-    /* ── Body / grid ── */
+    /* ── Scrollable body ── */
     #inv-body {
-      flex: 1; overflow-y: auto; padding: 14px 14px 32px;
+      flex: 1; overflow-y: auto; padding: 12px 14px 32px;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
     }
 
-    /* ── Category header inside body ── */
-    .inv-cat-header {
+    /* ── Category list ── */
+    .inv-cat-list { display: flex; flex-direction: column; gap: 6px; }
+    .inv-cat-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 14px; border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      cursor: pointer; transition: all .15s;
+    }
+    .inv-cat-row:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); }
+    .inv-cat-row-iconbox {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      background: rgba(124,106,247,0.14);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .inv-cat-row-info { flex: 1; min-width: 0; }
+    .inv-cat-row-name {
+      font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.9);
+    }
+    .inv-cat-row-sub {
+      font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px;
+    }
+    .inv-cat-row-equipped-badge {
+      font-size: 10px; font-weight: 700; color: #f59e0b;
+      background: rgba(245,158,11,0.12); border-radius: 20px; padding: 2px 9px;
+      flex-shrink: 0;
+    }
+    .inv-cat-row-chevron { color: rgba(255,255,255,0.2); font-size: 15px; flex-shrink: 0; }
+
+    /* ── Back button ── */
+    .inv-back-row {
       display: flex; align-items: center; gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 14px; padding: 6px 2px;
+      background: none; border: none; color: rgba(255,255,255,0.5);
+      font-family: inherit; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: color .15s;
+    }
+    .inv-back-row:hover { color: rgba(255,255,255,0.85); }
+
+    /* ── Grid header (inside body) ── */
+    .inv-cat-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
     }
     .inv-cat-header-icon { font-size: 20px; }
-    .inv-cat-header-name {
-      font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.9);
-    }
-    .inv-cat-header-count {
-      font-size: 11px; color: rgba(255,255,255,0.35);
-    }
+    .inv-cat-header-name { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.9); }
+    .inv-cat-header-count { font-size: 11px; color: rgba(255,255,255,0.35); }
 
     /* ── Item grid ── */
-    .inv-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
-    }
+    .inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 
-    /* ── Item slot ── */
     .inv-slot {
-      position: relative;
-      aspect-ratio: 1;
-      background: rgba(255,255,255,0.05);
-      border: 1.5px solid rgba(255,255,255,0.09);
-      border-radius: 14px;
-      cursor: pointer; text-align: center;
+      position: relative; aspect-ratio: 1;
+      background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.09);
+      border-radius: 14px; cursor: pointer; text-align: center;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 5px;
-      padding: 8px 4px 6px;
-      transition: all .15s;
+      padding: 8px 4px 6px; transition: all .15s;
     }
-    .inv-slot:hover {
-      background: rgba(255,255,255,0.10);
-      border-color: rgba(255,255,255,0.22);
-    }
+    .inv-slot:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
     .inv-slot.equipped {
-      background: rgba(124,106,247,0.18);
-      border-color: #7c6af7;
+      background: rgba(124,106,247,0.18); border-color: #7c6af7;
       box-shadow: 0 0 12px rgba(124,106,247,0.25);
     }
     .inv-slot-icon { font-size: 26px; line-height: 1; }
     .inv-slot-name {
       font-size: 9px; color: rgba(255,255,255,0.45);
-      line-height: 1.2; word-break: break-word; text-align: center;
-      max-width: 100%;
+      line-height: 1.2; word-break: break-word; text-align: center; max-width: 100%;
     }
     .inv-slot.equipped .inv-slot-name { color: #c4b8ff; }
 
-    /* ── Equipped badge (✓ corner) ── */
     .inv-badge {
       position: absolute; top: 5px; right: 5px;
       width: 16px; height: 16px; border-radius: 50%;
-      background: #7c6af7; color: #fff;
-      font-size: 9px; font-weight: 900;
+      background: #7c6af7; color: #fff; font-size: 9px; font-weight: 900;
       display: flex; align-items: center; justify-content: center;
     }
 
-    /* ── None slot ── */
     .inv-slot-none {
-      aspect-ratio: 1;
-      background: transparent;
-      border: 1.5px dashed rgba(255,255,255,0.12);
-      border-radius: 14px;
-      cursor: pointer; text-align: center;
-      display: flex; flex-direction: column;
+      aspect-ratio: 1; background: transparent;
+      border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 14px;
+      cursor: pointer; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 3px;
-      padding: 8px 4px;
-      transition: all .15s;
+      padding: 8px 4px; transition: all .15s;
       color: rgba(255,255,255,0.25); font-size: 10px; font-weight: 600;
     }
     .inv-slot-none:hover { border-color: rgba(255,255,255,0.28); color: rgba(255,255,255,0.45); }
     .inv-slot-none.equipped {
-      border-color: #7c6af7; color: #c4b8ff;
-      background: rgba(124,106,247,0.10);
+      border-color: #7c6af7; color: #c4b8ff; background: rgba(124,106,247,0.10);
     }
     .inv-slot-none-icon { font-size: 18px; opacity: .4; }
+
+    /* ── Locked / coming-soon slot ── */
+    .inv-slot-locked {
+      aspect-ratio: 1; background: rgba(255,255,255,0.02);
+      border: 1.5px dashed rgba(255,255,255,0.07); border-radius: 14px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      padding: 8px 4px 6px; cursor: default; user-select: none;
+    }
+    .inv-slot-locked-icon { font-size: 22px; line-height: 1; opacity: .22; }
+    .inv-slot-locked-name {
+      font-size: 9px; color: rgba(255,255,255,0.22);
+      line-height: 1.2; word-break: break-word; text-align: center; max-width: 100%;
+    }
+    .inv-slot-locked-soon {
+      font-size: 8px; font-weight: 700; letter-spacing: 0.5px;
+      color: rgba(255,200,80,0.28); text-transform: uppercase;
+    }
   `;
   document.head.appendChild(style);
 
@@ -238,7 +307,19 @@ function _buildPanel() {
   header.id = 'inv-header';
   const headerIcon = document.createElement('span');
   headerIcon.id = 'inv-header-icon';
-  headerIcon.textContent = '🎒';
+  headerIcon.innerHTML = `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M11 13 C11 7 21 7 21 13" stroke="#5C2D0E" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="3" y="13" width="26" height="17" rx="5" fill="#8B4513"/>
+    <rect x="3" y="24" width="26" height="6" rx="5" fill="#7A3C10"/>
+    <path d="M3 20 L3 16 Q3 13 7 13 L25 13 Q29 13 29 16 L29 20 Q29 24 16 24 Q3 24 3 20Z" fill="#9E5520"/>
+    <path d="M4 20.5 Q16 25 28 20.5" fill="none" stroke="#7A3C10" stroke-width="1" opacity="0.5"/>
+    <path d="M6 16 Q16 17.5 26 16" fill="none" stroke="#7A3F18" stroke-width="0.8" stroke-dasharray="2,1.5" opacity="0.7"/>
+    <rect x="12" y="20" width="8" height="5.5" rx="1.5" fill="#C8861A" stroke="#9B6515" stroke-width="1"/>
+    <rect x="14" y="21.5" width="4" height="2.5" rx="0.8" fill="#9B6515"/>
+    <circle cx="7.5" cy="21" r="1.4" fill="#C8861A" stroke="#9B6515" stroke-width="0.7"/>
+    <circle cx="24.5" cy="21" r="1.4" fill="#C8861A" stroke="#9B6515" stroke-width="0.7"/>
+    <rect x="5" y="15" width="22" height="13" rx="3.5" fill="none" stroke="#7A3F18" stroke-width="0.7" stroke-dasharray="2,2" opacity="0.3"/>
+  </svg>`;
   const headerTitle = document.createElement('h2');
   headerTitle.textContent = 'Bag';
   const equippedCount = document.createElement('span');
@@ -250,96 +331,172 @@ function _buildPanel() {
   header.append(headerIcon, headerTitle, equippedCount, closeBtn);
   panel.appendChild(header);
 
-  // Category tabs
-  const tabsRow = document.createElement('div');
-  tabsRow.id = 'inv-tabs';
-  const tabEls = {};
+  // Section pills
+  const sectionsRow = document.createElement('div');
+  sectionsRow.id = 'inv-sections';
+  const sectionEls = {};
 
-  for (const [cat, { icon }] of Object.entries(CATEGORIES)) {
-    const tab = document.createElement('button');
-    tab.className = 'inv-tab' + (cat === _activeCategory ? ' active' : '');
-    tab.dataset.cat = cat;
-
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'inv-tab-icon';
-    iconSpan.textContent = icon;
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = cat;
-    tab.append(iconSpan, nameSpan);
-
-    if (_loadout[cat]) {
-      const dot = document.createElement('span');
-      dot.className = 'inv-tab-equipped-dot';
-      tab.appendChild(dot);
-    }
-
-    tab.addEventListener('click', () => {
-      _activeCategory = cat;
-      Object.values(tabEls).forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      _renderGrid(gridArea);
-      tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  for (const [secKey, { icon }] of Object.entries(SECTIONS)) {
+    const pill = document.createElement('button');
+    pill.className = 'inv-section-pill' + (secKey === _activeSection ? ' active' : '');
+    pill.dataset.section = secKey;
+    pill.innerHTML = `<span class="inv-section-icon">${icon}</span><span class="inv-section-label">${secKey}</span>`;
+    pill.addEventListener('click', () => {
+      if (_activeSection === secKey) return;
+      _activeSection = secKey;
+      _activeCategory = null;
+      Object.values(sectionEls).forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      _renderBody();
     });
-
-    tabEls[cat] = tab;
-    tabsRow.appendChild(tab);
+    sectionEls[secKey] = pill;
+    sectionsRow.appendChild(pill);
   }
+  panel.appendChild(sectionsRow);
 
   const sep = document.createElement('div');
   sep.className = 'inv-sep';
-
-  panel.appendChild(tabsRow);
   panel.appendChild(sep);
 
-  // Grid body
+  // Body
   const body = document.createElement('div');
   body.id = 'inv-body';
-  const gridArea = document.createElement('div');
-  body.appendChild(gridArea);
+  _gridArea = document.createElement('div');
+  body.appendChild(_gridArea);
   panel.appendChild(body);
 
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
-  _renderGrid(gridArea);
+  panel._countEl = equippedCount;
 
-  // expose for refresh after equip
-  panel._tabEls    = tabEls;
-  panel._gridArea  = gridArea;
-  panel._countEl   = equippedCount;
+  _renderBody();
 }
 
-function _renderGrid(container) {
-  container.innerHTML = '';
-  const { icon, items } = CATEGORIES[_activeCategory];
+// ── Render body (list or grid) ─────────────────────────────────────────────
 
+function _renderBody() {
+  if (_activeCategory === null) {
+    _renderList();
+  } else {
+    _renderGrid();
+  }
+}
+
+function _renderList() {
+  _gridArea.innerHTML = '';
+  const cats = SECTIONS[_activeSection].categories;
+
+  const list = document.createElement('div');
+  list.className = 'inv-cat-list';
+
+  for (const [cat, { icon, items, placeholders }] of Object.entries(cats)) {
+    const row = document.createElement('button');
+    row.className = 'inv-cat-row';
+
+    const iconBox = document.createElement('div');
+    iconBox.className = 'inv-cat-row-iconbox';
+    iconBox.textContent = icon;
+
+    const info = document.createElement('div');
+    info.className = 'inv-cat-row-info';
+
+    const name = document.createElement('div');
+    name.className = 'inv-cat-row-name';
+    name.textContent = cat;
+
+    const sub = document.createElement('div');
+    sub.className = 'inv-cat-row-sub';
+    if (items.length > 0) {
+      sub.textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
+    } else if (placeholders?.length) {
+      sub.textContent = 'Coming soon';
+    } else {
+      sub.textContent = 'Empty';
+    }
+
+    info.append(name, sub);
+
+    const right = document.createElement('div');
+    right.style.cssText = 'display:flex;align-items:center;gap:8px;flex-shrink:0';
+
+    if (_loadout[cat]) {
+      const badge = document.createElement('span');
+      badge.className = 'inv-cat-row-equipped-badge';
+      badge.textContent = 'Equipped';
+      right.appendChild(badge);
+    }
+
+    const chevron = document.createElement('span');
+    chevron.className = 'inv-cat-row-chevron';
+    chevron.textContent = '›';
+    right.appendChild(chevron);
+
+    row.append(iconBox, info, right);
+    row.addEventListener('click', () => {
+      _activeCategory = cat;
+      _renderBody();
+    });
+
+    list.appendChild(row);
+  }
+
+  _gridArea.appendChild(list);
+}
+
+function _renderGrid() {
+  _gridArea.innerHTML = '';
+  const { icon, items, placeholders } = SECTIONS[_activeSection].categories[_activeCategory];
+
+  // Back button
+  const backBtn = document.createElement('button');
+  backBtn.className = 'inv-back-row';
+  backBtn.innerHTML = `‹ <span style="margin-left:2px">${_activeCategory}</span>`;
+  backBtn.addEventListener('click', () => {
+    _activeCategory = null;
+    _renderBody();
+  });
+  _gridArea.appendChild(backBtn);
+
+  // Category header
   const catHeader = document.createElement('div');
   catHeader.className = 'inv-cat-header';
   catHeader.innerHTML = `
     <span class="inv-cat-header-icon">${icon}</span>
     <span class="inv-cat-header-name">${_activeCategory}</span>
-    <span class="inv-cat-header-count">${items.length} items</span>`;
-  container.appendChild(catHeader);
+    <span class="inv-cat-header-count">${items.length} item${items.length !== 1 ? 's' : ''}</span>`;
+  _gridArea.appendChild(catHeader);
+
+  if (items.length === 0) {
+    if (placeholders?.length) {
+      const grid = document.createElement('div');
+      grid.className = 'inv-grid';
+      for (const pname of placeholders) {
+        const slot = document.createElement('div');
+        slot.className = 'inv-slot-locked';
+        slot.innerHTML = `
+          <span class="inv-slot-locked-icon">${icon}</span>
+          <span class="inv-slot-locked-name">${pname}</span>
+          <span class="inv-slot-locked-soon">Soon</span>`;
+        grid.appendChild(slot);
+      }
+      _gridArea.appendChild(grid);
+    }
+    return;
+  }
 
   const grid = document.createElement('div');
   grid.className = 'inv-grid';
 
-  // None slot
   const noneSlot = document.createElement('div');
   noneSlot.className = 'inv-slot-none' + (_loadout[_activeCategory] == null ? ' equipped' : '');
   noneSlot.innerHTML = `<span class="inv-slot-none-icon">✕</span><span>None</span>`;
-  noneSlot.addEventListener('click', () => {
-    _equip(_activeCategory, null);
-    _afterEquip(container);
-  });
+  noneSlot.addEventListener('click', () => { _equip(_activeCategory, null); _afterEquip(); });
   grid.appendChild(noneSlot);
 
-  for (const file of items) {
-    const slot = _makeSlot(_activeCategory, file, icon);
-    grid.appendChild(slot);
-  }
+  for (const file of items) grid.appendChild(_makeSlot(_activeCategory, file, icon));
 
-  container.appendChild(grid);
+  _gridArea.appendChild(grid);
 }
 
 function _makeSlot(cat, file, icon) {
@@ -348,8 +505,6 @@ function _makeSlot(cat, file, icon) {
 
   const slot = document.createElement('div');
   slot.className = 'inv-slot' + (equipped ? ' equipped' : '');
-  slot.dataset.cat  = cat;
-  slot.dataset.file = file;
 
   const iconEl = document.createElement('span');
   iconEl.className = 'inv-slot-icon';
@@ -369,36 +524,17 @@ function _makeSlot(cat, file, icon) {
   }
 
   slot.addEventListener('click', () => {
-    const isEquipped = _loadout[cat] === file;
-    _equip(cat, isEquipped ? null : file);
-    _afterEquip(slot.closest('#inv-body > div'));
+    _equip(cat, _loadout[cat] === file ? null : file);
+    _afterEquip();
   });
 
   return slot;
 }
 
-function _afterEquip(container) {
+function _afterEquip() {
+  _renderGrid();
   const panel = document.getElementById('inv-panel');
-
-  // refresh grid
-  _renderGrid(container);
-
-  // refresh tab dots
-  for (const [cat, tabEl] of Object.entries(panel._tabEls)) {
-    const dot = tabEl.querySelector('.inv-tab-equipped-dot');
-    if (_loadout[cat]) {
-      if (!dot) {
-        const d = document.createElement('span');
-        d.className = 'inv-tab-equipped-dot';
-        tabEl.appendChild(d);
-      }
-    } else {
-      dot?.remove();
-    }
-  }
-
-  // refresh equipped count
-  panel._countEl.textContent = _equippedCount() + ' equipped';
+  if (panel?._countEl) panel._countEl.textContent = _equippedCount() + ' equipped';
 }
 
 function _equippedCount() {
