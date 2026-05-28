@@ -5,7 +5,7 @@ import { spawnTree } from './trees.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
-import { sitOnBench, standUp, isPlayerSitting, getLocalPlayerPosition } from '../player/localPlayer.js';
+import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
@@ -30,39 +30,35 @@ export function initPlaza(scene) {
 
   // Two seat anchors per bench at ±SO from centre (≈ 1/3 and 2/3 of bench length).
   // Small range ensures only the nearest seat prompt is ever shown.
-  const W = 39, P = 31, SO = 0.7;
+  const W = 39, P = 31, SO = 0.65; // half seat span — seats placed just inside bench edges
 
-  const _seat = (sx, sz, frontFacingY, perpAxis, perpSign) => {
-    registerInteraction([sx, FLOOR_Y, sz], 'Sit', 1.6, () => {
+  // Two seat anchors per bench — the nearest one wins as the player moves left/right.
+  const _seat = (sx, sz, frontFacingY) => {
+    registerInteraction([sx, FLOOR_Y, sz], 'Sit', 3.0, () => {
       if (isPlayerSitting()) {
         standUp();
         setActiveInteractionLabel('Sit');
         return;
       }
-      const pp = getLocalPlayerPosition();
-      const onFrontSide = perpAxis === 'z'
-        ? Math.sign(pp.z - sz) === perpSign
-        : Math.sign(pp.x - sx) === perpSign;
-      const facingY = onFrontSide ? frontFacingY : frontFacingY + Math.PI;
-      sitOnBench(sx, FLOOR_Y, sz, facingY);
+      sitOnBench(sx, FLOOR_Y, sz, frontFacingY);
       setActiveInteractionLabel('Stand Up');
     });
   };
 
-  const _bench = (benchX, benchZ, alongX, frontFacingY, perpAxis, perpSign) => {
+  const _bench = (benchX, benchZ, alongX, frontFacingY) => {
     if (alongX) {
-      _seat(benchX - SO, benchZ, frontFacingY, perpAxis, perpSign);
-      _seat(benchX + SO, benchZ, frontFacingY, perpAxis, perpSign);
+      _seat(benchX - SO, benchZ, frontFacingY);
+      _seat(benchX + SO, benchZ, frontFacingY);
     } else {
-      _seat(benchX, benchZ - SO, frontFacingY, perpAxis, perpSign);
-      _seat(benchX, benchZ + SO, frontFacingY, perpAxis, perpSign);
+      _seat(benchX, benchZ - SO, frontFacingY);
+      _seat(benchX, benchZ + SO, frontFacingY);
     }
   };
 
-  for (const bx of [-P, P]) _bench(bx, -W, true,  0,           'z', +1); // North
-  for (const bx of [-P, P]) _bench(bx,  W, true,  Math.PI,    'z', -1); // South
-  for (const bz of [-P, P]) _bench(-W, bz, false,  Math.PI/2, 'x', +1); // West
-  for (const bz of [-P, P]) _bench( W, bz, false, -Math.PI/2, 'x', -1); // East
+  for (const bx of [-P, P]) _bench(bx, -W, true,  0         ); // North
+  for (const bx of [-P, P]) _bench(bx,  W, true,  Math.PI   ); // South
+  for (const bz of [-P, P]) _bench(-W, bz, false,  Math.PI/2); // West
+  for (const bz of [-P, P]) _bench( W, bz, false, -Math.PI/2); // East
 }
 
 export function updatePlaza(delta, time) {
@@ -96,7 +92,7 @@ function _loadBenches(scene) {
     _benchTmpl = { tmpl, floorY, seatY };
     console.log('[plaza] bench GLB ready — scale:', sc.toFixed(3), '| floorOffset:', floorY.toFixed(3));
     console.log('[plaza] bench bounding box (local, after scale): X=' + bx.toFixed(3) + 'm  Y=' + by.toFixed(3) + 'm  Z=' + bz.toFixed(3) + 'm');
-    console.log('[plaza] sitting axis = Z (bench rotated ±90° when placed) → seat half-span = ' + (bz/2).toFixed(3) + 'm  | current SO=' + 0.7);
+    console.log('[plaza] sitting axis = Z (bench rotated ±90° when placed) → seat half-span = ' + (bz/2).toFixed(3) + 'm  | current SO=0.65');
 
     for (const fn of _pendingFns) fn();
     _pendingFns = [];

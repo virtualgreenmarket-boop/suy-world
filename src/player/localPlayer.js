@@ -3,8 +3,7 @@ import { resolveCollision } from '../systems/collision.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { getSettings } from '../ui/settingsPanel.js';
 import { spawnCharacter, setAnimState, updateCharacterMixer, equipItem } from './characterLoader.js';
-import { toggleInventoryPanel } from '../ui/inventoryPanel.js';
-import { getLoadout } from '../ui/inventoryPanel.js';
+import { toggleInventoryPanel, getLoadout, getDefaultLoadout } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
 import { attachLabel } from '../ui/labels.js';
@@ -45,9 +44,15 @@ export function initLocalPlayer(scene, camera, name) {
   attachLabel(playerGroup, 'אווטר', 3.0);
 
   spawnCharacter(playerGroup).then(() => {
-    const saved = getLoadout();
+    const saved    = getLoadout();
+    const defaults = getDefaultLoadout();
+    const CLOTHING = new Set(['Shirt','Outwear','Costume','Pants','Shorts','Shoes','Socks','Gloves']);
     for (const [cat, file] of Object.entries(saved)) {
-      if (file) equipItem(playerGroup, cat, file);
+      if (!file) continue;
+      // Default clothing gets a neutral grey so the character looks plain/casual on first load.
+      // Any item the user explicitly picks from inventory loads in its natural color.
+      const grey = (defaults[cat] === file && CLOTHING.has(cat)) ? 0xD0D0D0 : null;
+      equipItem(playerGroup, cat, file, grey);
     }
   });
 

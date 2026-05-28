@@ -160,7 +160,8 @@ export function updateCharacterMixer(group, delta) {
 
 // ── Accessory equip ───────────────────────────────────────────────────
 
-export async function equipItem(group, category, filename) {
+// color: optional hex number (e.g. 0xCCCCCC) to override all mesh materials with a flat grey
+export async function equipItem(group, category, filename, color = null) {
   if (!group) return;
   if (!group.userData._equipped) group.userData._equipped = {};
 
@@ -168,7 +169,6 @@ export async function equipItem(group, category, filename) {
   if (prev) { prev.parent?.remove(prev); group.userData._equipped[category] = null; }
   if (!filename) return;
 
-  // Collect character skeleton bones for rebinding
   const charBoneMap = new Map();
   group.traverse(n => {
     if (n.isBone) charBoneMap.set(n.name, n);
@@ -182,7 +182,6 @@ export async function equipItem(group, category, filename) {
     item.scale.setScalar(MODEL_SCALE);
     item.position.y = _modelFloorY;
 
-    // Rebind item SkinnedMeshes to the character's bones so they animate together
     if (charBoneMap.size > 0) {
       item.traverse(n => {
         if (!n.isSkinnedMesh || !n.skeleton) return;
@@ -192,7 +191,24 @@ export async function equipItem(group, category, filename) {
       });
     }
 
-    item.traverse(n => { if (n.isMesh) n.castShadow = true; });
+    // The ithappy GLBs bundle a full body mesh under every clothing item.
+    // Hide any mesh whose vertical span covers most of the character height
+    // (those are the ghost body duplicates — the actual clothing pieces are smaller).
+    const charHeight = 1.8;
+    item.traverse(n => {
+      if (!n.isMesh) return;
+      n.castShadow = true;
+      const box = new THREE.Box3().setFromObject(n);
+      const meshH = box.max.y - box.min.y;
+      if (meshH > charHeight * 0.55) {
+        n.visible = false; // full-body ghost mesh — suppress it
+        return;
+      }
+      if (color !== null) {
+        n.material = new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.04 });
+      }
+    });
+
     group.add(item);
     group.userData._equipped[category] = item;
     console.log('[character] equipped:', category, filename);
