@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildNpcCharacter } from './npc.js';
 import { spawnTree } from './trees.js';
-import { spawnAllPlazaNpcs, updateAllPlazaNpcs } from './npcGlb.js';
+import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
 import { sitOnBench, standUp, isPlayerSitting, getLocalPlayerPosition } from '../player/localPlayer.js';
@@ -88,10 +88,12 @@ function _loadBenches(scene) {
     const box2   = new THREE.Box3().setFromObject(tmpl);
     const floorY = -box2.min.y;
 
-    _benchTmpl = { tmpl, floorY };
     const bx = box2.max.x - box2.min.x;
     const by = box2.max.y - box2.min.y;
     const bz = box2.max.z - box2.min.z;
+    // Seat surface sits at ~25% of total model height (bench-with-backrest proportion)
+    const seatY = FLOOR_Y + by * 0.25;
+    _benchTmpl = { tmpl, floorY, seatY };
     console.log('[plaza] bench GLB ready — scale:', sc.toFixed(3), '| floorOffset:', floorY.toFixed(3));
     console.log('[plaza] bench bounding box (local, after scale): X=' + bx.toFixed(3) + 'm  Y=' + by.toFixed(3) + 'm  Z=' + bz.toFixed(3) + 'm');
     console.log('[plaza] sitting axis = Z (bench rotated ±90° when placed) → seat half-span = ' + (bz/2).toFixed(3) + 'm  | current SO=' + 0.7);
@@ -112,27 +114,44 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
   inst.position.set(x, y + tmpl.floorY, z);
   inst.rotation.y = rotY;
   inst.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+  inst.seatY     = tmpl.seatY;
+  inst.sitPoints = [
+    { localX: 1.86 },
+    { localX: 3.72 },
+  ];
   scene.add(inst);
+
+  // TEMP: log bench world position + bounding box to inspect seat Y
+  const wb = new THREE.Box3().setFromObject(inst);
+  console.log(
+    '[bench] pos x/y/z:', inst.position.x.toFixed(2), inst.position.y.toFixed(2), inst.position.z.toFixed(2),
+    '| bbox Y:', wb.min.y.toFixed(3), '→', wb.max.y.toFixed(3),
+    '| computed seatY:', inst.seatY.toFixed(3)
+  );
+
+  return inst;
 }
 
 // ── Side benches (2 per wall, at ±31 along each edge, depth 39) ───────
 
 function addSideBenches(scene, tmpl) {
   const WALL = 39, POS = 31;
-  [
+  const benches = [
     // North wall (Z = -WALL), facing +Z toward center
-    { x: -POS, z: -WALL, ry: -Math.PI / 2 },
-    { x:  POS, z: -WALL, ry: -Math.PI / 2 },
+    { x: -POS, z: -WALL, ry: -Math.PI / 2 },  // [0]
+    { x:  POS, z: -WALL, ry: -Math.PI / 2 },  // [1] ← NPC 0 / SIT_1
     // South wall (Z = +WALL), facing -Z toward center
-    { x: -POS, z:  WALL, ry:  Math.PI / 2 },
-    { x:  POS, z:  WALL, ry:  Math.PI / 2 },
+    { x: -POS, z:  WALL, ry:  Math.PI / 2 },  // [2]
+    { x:  POS, z:  WALL, ry:  Math.PI / 2 },  // [3]
     // West wall (X = -WALL), facing +X toward center
-    { x: -WALL, z: -POS, ry: 0 },
-    { x: -WALL, z:  POS, ry: 0 },
+    { x: -WALL, z: -POS, ry: 0 },              // [4] ← NPC 1 / SIT_2
+    { x: -WALL, z:  POS, ry: 0 },              // [5]
     // East wall (X = +WALL), facing -X toward center
-    { x:  WALL, z: -POS, ry: -Math.PI },
-    { x:  WALL, z:  POS, ry: -Math.PI },
-  ].forEach(({ x, z, ry }) => _placeBench(scene, tmpl, x, FLOOR_Y, z, ry));
+    { x:  WALL, z: -POS, ry: -Math.PI },       // [6]
+    { x:  WALL, z:  POS, ry: -Math.PI },       // [7]
+  ].map(({ x, z, ry }) => _placeBench(scene, tmpl, x, FLOOR_Y, z, ry));
+
+  registerSitBenches([benches[1], benches[4]]);
 }
 
 function addSideBenchesFallback(scene) {

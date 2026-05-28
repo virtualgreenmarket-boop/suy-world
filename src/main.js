@@ -3,6 +3,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+import { CSS2DRenderer }   from 'three/addons/renderers/CSS2DRenderer.js';
 
 import { initIsland, updateWater }   from './world/island.js';
 import { initPlaza,  updatePlaza }   from './world/plaza.js';
@@ -65,6 +66,12 @@ renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace    = THREE.LinearSRGBColorSpace;
 renderer.setClearColor(0x87CEEB, 1);
 document.body.appendChild(renderer.domElement);
+
+// ── Label renderer (CSS2D — floats above every NPC, tree, and the player) ──
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+labelRenderer.domElement.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:1;';
+document.body.appendChild(labelRenderer.domElement);
 
 // ── Lighting ───────────────────────────────────────────────────────────
 
@@ -189,6 +196,7 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
+  labelRenderer.setSize(w, h);
   if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
 });
 
@@ -242,6 +250,7 @@ function animate() {
   });
 
   composer.render();
+  labelRenderer.render(scene, camera);
 }
 
 // Store base Y for dance NPCs so they don't drift

@@ -7,6 +7,7 @@ import { toggleInventoryPanel } from '../ui/inventoryPanel.js';
 import { getLoadout } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
+import { attachLabel } from '../ui/labels.js';
 
 const WALK_SPEED  = 6;
 const RUN_SPEED   = 14;
@@ -41,6 +42,7 @@ export function initLocalPlayer(scene, camera, name) {
   const _savedSpawn = _loadSpawn();
   playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
   scene.add(playerGroup);
+  attachLabel(playerGroup, 'אווטר', 3.0);
 
   spawnCharacter(playerGroup).then(() => {
     const saved = getLoadout();

@@ -4,6 +4,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { preloadAnimations, buildClipForSkeleton } from '../player/animations.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { registerInteraction } from '../ui/interactionUI.js';
+import { attachLabel } from '../ui/labels.js';
 
 // ── NPC catalogue ─────────────────────────────────────────────────────
 // All GLB files in public/models/characters/npcs/.
@@ -15,6 +16,7 @@ const NPC_URLS = [
   '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb',
   '/models/characters/npcs/texting_while_walking.glb',
   '/models/characters/npcs/jeny_tpose_riged.glb',
+  '/models/characters/npcs/NPCCENTER/Standing Greeting.fbx.glb',
 ];
 
 // Per-entry NPC template data
@@ -98,13 +100,14 @@ const PLAZA_POSITIONS = [
   { x:   6, z: -22, rot: Math.PI * 1.2  },
 ];
 
-// Bench positions where GLB NPCs 0 & 1 will sit (matches plaza.js bench layout)
-const SIT_POSITIONS = [
-  { x:  31, z: -39, facingY: Math.PI      },  // North bench
-  { x: -39, z: -31, facingY: -Math.PI / 2 },  // West bench
-];
 
-const _plazaNpcs = [];
+const _plazaNpcs    = [];
+let _sitBenches     = [];
+let _npcLabelCount  = 0;
+
+export function registerSitBenches(benches) {
+  _sitBenches = benches;
+}
 
 export async function spawnAllPlazaNpcs(scene) {
   await preloadAllNpcs();
@@ -118,6 +121,9 @@ export async function spawnAllPlazaNpcs(scene) {
     const startZ = i === 2 ? 0  : cfg.z;
     const npc = await _spawnFromEntry(scene, entry, startX, startZ, cfg.rot);
     if (!npc) continue;
+
+    _npcLabelCount++;
+    attachLabel(npc.group, `NPC ${_npcLabelCount}`, 4.0);
 
     if (i === 3) {
       // Jeny patrols along the marina deck (deck y=3.2, world x≈-222, z from -50 to +50)
@@ -171,36 +177,52 @@ export async function spawnAllPlazaNpcs(scene) {
         npc.walkAction.reset().play();
       }
     } else if (i === 0 || i === 1) {
-      // Sit on a plaza bench
-      const sitCfg      = SIT_POSITIONS[i];
-      const finalFacing = sitCfg.facingY + Math.PI;
-      const ox = sitCfg.x - Math.sin(finalFacing) * 0.3;
-      const oz = sitCfg.z - Math.cos(finalFacing) * 0.3;
-      npc.group.position.set(ox, npc.floorOffset + getSurfaceY(ox, oz), oz);
-      npc.group.rotation.y = finalFacing;
-      npc.baseY    = npc.floorOffset + getSurfaceY(ox, oz);
-      npc.walkMode = 'sit';
+      const bench = _sitBenches[i];
+      if (bench) {
+        const sp     = bench.sitPoints[i];
+        const wx     = bench.position.x + sp.localX;
+        const wz     = bench.position.z;
+        const wy     = bench.seatY + npc.floorOffset;
+        const facing = bench.rotation.y - Math.PI / 2;
 
-      // Build sit clip via retargeting if no built-in sit
-      if (!npc.sitAction) {
-        await preloadAnimations();
-        const boneNames = new Set();
-        npc.group.traverse(n => {
-          if (n.isBone)        boneNames.add(n.name);
-          if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
-        });
-        const sitClip = buildClipForSkeleton('sit', boneNames);
-        if (sitClip?.tracks.length > 0) {
-          npc.sitAction = npc.mixer.clipAction(sitClip);
+        npc.group.position.set(wx, wy, wz);
+        npc.group.rotation.y = facing;
+        npc.baseY    = wy;
+        npc.walkMode = 'sit';
+
+        if (!npc.sitAction) {
+          await preloadAnimations();
+          const boneNames = new Set();
+          npc.group.traverse(n => {
+            if (n.isBone)        boneNames.add(n.name);
+            if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
+          });
+          const sitClip = buildClipForSkeleton('sit', boneNames);
+          if (sitClip?.tracks.length > 0) {
+            npc.sitAction = npc.mixer.clipAction(sitClip);
+          }
+        }
+
+        npc.idleAction?.stop();
+        if (npc.sitAction) {
+          npc.sitAction.reset().play();
+        } else {
+          npc.idleAction?.reset().play();
         }
       }
-
-      npc.idleAction?.stop();
-      if (npc.sitAction) {
-        npc.sitAction.reset().play();
-      } else {
-        npc.idleAction?.reset().play();
-      }
+    } else if (i === 4) {
+      // Standing Greeting NPC — stationary, cycles through 3 external animation clips
+      const wx = 0, wz = -10;
+      npc.group.position.set(wx, npc.floorOffset + getSurfaceY(wx, wz), wz);
+      npc.group.rotation.y = Math.PI;
+      npc.baseY    = npc.floorOffset + getSurfaceY(wx, wz);
+      npc.walkMode = 'animcycle';
+      npc.idleAction?.reset().play();
+      _startAnimCycle(npc, [
+        '/models/characters/npcs/NPCCENTERANIMA/Holding Idle.fbx.glb',
+        '/models/characters/npcs/NPCCENTERANIMA/Offensive Idle.fbx.glb',
+        '/models/characters/npcs/NPCCENTERANIMA/Standing W_Briefcase Idle.fbx.glb',
+      ]);
     } else {
       npc.walkCenter = new THREE.Vector3(cfg.x, 0, cfg.z);
       npc.walkRadius = 7;
@@ -215,6 +237,47 @@ export async function spawnAllPlazaNpcs(scene) {
 
 export function updateAllPlazaNpcs(delta) {
   for (const npc of _plazaNpcs) updateNpc(npc, delta);
+}
+
+// ── Animation cycle (NPC 4) ───────────────────────────────────────────
+
+async function _startAnimCycle(npc, urls) {
+  const loader = new GLTFLoader();
+
+  const clips = await Promise.all(urls.map(url => new Promise(resolve => {
+    loader.load(
+      url,
+      gltf  => resolve(gltf.animations[0] ?? null),
+      undefined,
+      err   => { console.warn('[npc-glb] anim cycle load failed:', url, err?.message ?? err); resolve(null); }
+    );
+  })));
+
+  const actions = clips
+    .filter(Boolean)
+    .map(clip => {
+      const a = npc.mixer.clipAction(clip);
+      a.setLoop(THREE.LoopOnce, 1);
+      a.clampWhenFinished = true;
+      return a;
+    });
+
+  if (actions.length === 0) return;
+
+  let idx = 0;
+
+  const advance = () => {
+    npc.idleAction?.stop();
+    actions.forEach(a => a.stop());
+    actions[idx].reset().play();
+    idx = (idx + 1) % actions.length;
+  };
+
+  npc.mixer.addEventListener('finished', e => {
+    if (actions.includes(e.action)) advance();
+  });
+
+  advance();
 }
 
 // ── Internal spawn helper ─────────────────────────────────────────────
@@ -337,6 +400,12 @@ export function updateNpc(npc, delta) {
 
   // Sitting — just tick the animation, no movement
   if (npc.walkMode === 'sit') {
+    npc.mixer.update(delta);
+    return;
+  }
+
+  // Cycling animations (stationary) — always tick mixer regardless of mode
+  if (npc.walkMode === 'animcycle') {
     npc.mixer.update(delta);
     return;
   }

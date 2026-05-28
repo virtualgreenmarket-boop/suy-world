@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
+import { attachLabel, createLabel } from '../ui/labels.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
@@ -10,6 +11,7 @@ const _loader    = new GLTFLoader();
 const _texLoader = new THREE.TextureLoader();
 let   _template  = null;
 let   _promise   = null;
+let   _treeCount = 0;
 
 export function preloadTrees() {
   if (_promise) return _promise;
@@ -154,6 +156,11 @@ export function spawnPlazaTree(scene) {
     fbx.position.set(0, -box2.min.y, 0);
     scene.add(fbx);
 
+    _treeCount++;
+    const plazaLabel = createLabel(`TREE ${_treeCount}`);
+    plazaLabel.position.set(0, 26, 0); // world y=26 — 4m above the 22m FBX crown
+    scene.add(plazaLabel);
+
     // Ground AO shadow decal — multiply-blend darkens the ground around the base
     const aoTex = tl.load(BASE + 'internal_ground_ao_texture.jpeg');
     aoTex.colorSpace = THREE.SRGBColorSpace;
@@ -180,6 +187,10 @@ export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
     tree.scale.setScalar(scale);
     tree.rotation.y = (rotY !== undefined) ? rotY : Math.random() * Math.PI * 2;
     scene.add(tree);
+    if (scale > 0) {
+      _treeCount++;
+      attachLabel(tree, `TREE ${_treeCount}`, 17);
+    }
   };
 
   if (_template) {
