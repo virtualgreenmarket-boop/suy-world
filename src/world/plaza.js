@@ -92,7 +92,12 @@ function _loadBenches(scene) {
     const floorY = -box2.min.y;
 
     _benchTmpl = { tmpl, floorY };
+    const bx = box2.max.x - box2.min.x;
+    const by = box2.max.y - box2.min.y;
+    const bz = box2.max.z - box2.min.z;
     console.log('[plaza] bench GLB ready — scale:', sc.toFixed(3), '| floorOffset:', floorY.toFixed(3));
+    console.log('[plaza] bench bounding box (local, after scale): X=' + bx.toFixed(3) + 'm  Y=' + by.toFixed(3) + 'm  Z=' + bz.toFixed(3) + 'm');
+    console.log('[plaza] sitting axis = Z (bench rotated ±90° when placed) → seat half-span = ' + (bz/2).toFixed(3) + 'm  | current SO=' + 0.7);
 
     for (const fn of _pendingFns) fn();
     _pendingFns = [];
