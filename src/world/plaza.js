@@ -27,40 +27,45 @@ export function initPlaza(scene) {
 
   spawnAllPlazaNpcs(scene).catch(err => console.error('[plaza] NPC spawn failed:', err));
 
-  // Two anchors per bench (front + back, 1 m offset) so E shows from both sides.
-  // updateInteractions always picks the single closest anchor, so only one E shows.
-  const W = 39, P = 31, SO = 0.5, RANGE = 3, SIDE = 1;
+  registerInteraction([6, 0.7, 6], 'Talk', 4.5, () => {
+    console.log('[plaza] Shop NPC says: Check out the hangars!');
+  });
 
-  const _bench = (benchX, benchZ, alongX, facingY, offX, offZ) => {
-    const cb = () => {
+  // Two seat anchors per bench at ±SO from centre (≈ 1/3 and 2/3 of bench length).
+  // Small range ensures only the nearest seat prompt is ever shown.
+  const W = 39, P = 31, SO = 0.7;
+
+  const _seat = (sx, sz, frontFacingY, perpAxis, perpSign) => {
+    registerInteraction([sx, FLOOR_Y, sz], 'Sit', 1.6, () => {
       if (isPlayerSitting()) {
         standUp();
         setActiveInteractionLabel('Sit');
         return;
       }
       const pp = getLocalPlayerPosition();
-      let sx, sz;
-      if (alongX) {
-        sx = Math.abs((benchX - SO) - pp.x) < Math.abs((benchX + SO) - pp.x)
-          ? benchX - SO : benchX + SO;
-        sz = benchZ;
-      } else {
-        sx = benchX;
-        sz = Math.abs((benchZ - SO) - pp.z) < Math.abs((benchZ + SO) - pp.z)
-          ? benchZ - SO : benchZ + SO;
-      }
+      const onFrontSide = perpAxis === 'z'
+        ? Math.sign(pp.z - sz) === perpSign
+        : Math.sign(pp.x - sx) === perpSign;
+      const facingY = onFrontSide ? frontFacingY : frontFacingY + Math.PI;
       sitOnBench(sx, FLOOR_Y, sz, facingY);
       setActiveInteractionLabel('Stand Up');
-    };
-    // front anchor (toward centre) + back anchor (toward wall)
-    registerInteraction([benchX + offX, FLOOR_Y, benchZ + offZ], 'Sit', RANGE, cb);
-    registerInteraction([benchX - offX, FLOOR_Y, benchZ - offZ], 'Sit', RANGE, cb);
+    });
   };
 
-  for (const bx of [-P, P]) _bench(bx, -W, true,  Math.PI,     0,    SIDE); // North
-  for (const bx of [-P, P]) _bench(bx,  W, true,  0,           0,   -SIDE); // South
-  for (const bz of [-P, P]) _bench(-W, bz, false, -Math.PI/2,  SIDE, 0);    // West
-  for (const bz of [-P, P]) _bench( W, bz, false,  Math.PI/2, -SIDE, 0);    // East
+  const _bench = (benchX, benchZ, alongX, frontFacingY, perpAxis, perpSign) => {
+    if (alongX) {
+      _seat(benchX - SO, benchZ, frontFacingY, perpAxis, perpSign);
+      _seat(benchX + SO, benchZ, frontFacingY, perpAxis, perpSign);
+    } else {
+      _seat(benchX, benchZ - SO, frontFacingY, perpAxis, perpSign);
+      _seat(benchX, benchZ + SO, frontFacingY, perpAxis, perpSign);
+    }
+  };
+
+  for (const bx of [-P, P]) _bench(bx, -W, true,  0,           'z', +1); // North
+  for (const bx of [-P, P]) _bench(bx,  W, true,  Math.PI,    'z', -1); // South
+  for (const bz of [-P, P]) _bench(-W, bz, false,  Math.PI/2, 'x', +1); // West
+  for (const bz of [-P, P]) _bench( W, bz, false, -Math.PI/2, 'x', -1); // East
 }
 
 export function updatePlaza(delta, time) {
