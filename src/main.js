@@ -7,7 +7,7 @@ import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
 import { initIsland, updateWater }   from './world/island.js';
 import { initPlaza,  updatePlaza }   from './world/plaza.js';
 import { initPaths }                 from './world/paths.js';
-import { initHangars }               from './world/hangars.js';
+import { initHangars, updateHangars } from './world/hangars.js';
 import { initMarina }                from './world/marina.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem, savePlayerPosition }
@@ -23,11 +23,8 @@ import { preloadAnimations } from './player/animations.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision }    from './systems/collision.js';
 
-import { initCats, updateCats }           from './world/cats.js';
-import { initDogs, updateDogs }           from './world/dogs.js';
 import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
-import { initOceanLife, updateOceanLife } from './world/oceanLife.js';
 import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
 
@@ -121,9 +118,10 @@ if (!isMobile) {
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
-// Bloom — disabled on mobile (too expensive); half-res on desktop
+// Bloom — disabled on mobile and low-VRAM devices (too expensive); half-res on desktop
 let bloomPass = null;
-if (!isMobile) {
+const hasHighVRAM = !isMobile && (renderer.capabilities.maxTextures >= 16);
+if (hasHighVRAM) {
   bloomPass = new UnrealBloomPass(
     new THREE.Vector2(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2)),
     0.40,   // strength
@@ -142,11 +140,8 @@ initPlaza(scene);
 initPaths(scene);
 initHangars(scene);
 initMarina(scene);
-initCats(scene);
-initDogs(scene);
 initDecor(scene);
 initBeach(scene);
-initOceanLife(scene);
 initCollision();
 spawnPlazaTree(scene);
 
@@ -226,6 +221,7 @@ function animate() {
   updateRemotePlayers(delta);
   updateWater(delta);
   updatePlaza(delta, npcTime);
+  updateHangars(delta);
 
   // Procedural NPC animations (wave / spin / dance)
   for (let i = 0; i < npcs.length; i++) {
@@ -258,10 +254,7 @@ function animate() {
   // ── 10fps: proximity checks + ambient world animation ─────────────────
   if (_tSlow >= 0.1) {
     if (pos) updateStores(pos);
-    updateCats(_tSlow, npcTime);
-    updateDogs(_tSlow, npcTime);
     updateBeach(_tSlow, npcTime);
-    updateOceanLife(_tSlow, npcTime);
     _tSlow = 0;
   }
 

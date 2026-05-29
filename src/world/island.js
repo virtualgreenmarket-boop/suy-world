@@ -62,7 +62,7 @@ function addTerrain(scene) {
   // ── Grass PBR textures ───────────────────────────────────────────────
   const gPfx = 'textures/grass/Grass001_2K-JPG_';
   const grassColor  = tl.load(gPfx + 'Color.jpg');
-  const grassNormal = tl.load(gPfx + 'NormalGL.jpg');
+  const grassNormal = tl.load('textures/grass/Grass001_1K-JPG_NormalGL.jpg');
   const grassRough  = tl.load(gPfx + 'Roughness.jpg');
   [grassColor, grassNormal, grassRough].forEach(t => {
     t.wrapS = t.wrapT = THREE.RepeatWrapping;

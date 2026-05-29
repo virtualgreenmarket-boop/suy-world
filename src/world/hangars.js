@@ -1,6 +1,142 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
+import { attachLabel } from '../ui/labels.js';
+
+// ── GLB NPC loader (North hangar) ────────────────────────────────────
+
+async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/hangar1/Keren.glb';
+
+  return new Promise((resolve, reject) => {
+    loader.load(modelPath, gltf => {
+      const model = gltf.scene;
+
+      // Setup materials, shadows, and preserve GLB textures
+      model.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+
+          // GLTFLoader already assigns materials correctly — just ensure colorSpace
+          if (n.material) {
+            const mats = Array.isArray(n.material) ? n.material : [n.material];
+            mats.forEach(m => {
+              if (!m) return;
+              // Fix colorSpace on all texture maps
+              ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach(key => {
+                if (m[key]) {
+                  if (key === 'map' || key === 'emissiveMap') {
+                    m[key].colorSpace = THREE.SRGBColorSpace;
+                  }
+                  m[key].needsUpdate = true;
+                }
+              });
+              m.needsUpdate = true;
+            });
+          }
+        }
+      });
+
+      // Scale to 3m tall
+      const box = new THREE.Box3().setFromObject(model);
+      const h = Math.max(box.max.y - box.min.y, 0.01);
+      model.scale.setScalar(3.0 / h);
+
+      // Position on ground
+      model.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(model);
+      const floorY = -box2.min.y;
+
+      model.position.set(localX, localY + floorY, localZ);
+      model.rotation.y = rotY;
+
+      // Extract and play embedded animations from Keren.glb
+      const clips = gltf.animations || [];
+      if (clips.length > 0) {
+        const mixer = new THREE.AnimationMixer(model);
+
+        // Play all animations (or choose first one as default)
+        const action = mixer.clipAction(clips[0]);
+        action.play();
+
+        model.userData.mixer = mixer;
+        console.log('[hangar] Keren NPC loaded with', clips.length, 'animation(s):',
+                    clips.map(c => c.name).join(', '));
+      } else {
+        console.warn('[hangar] Keren.glb has no embedded animations');
+      }
+
+      model.userData.isNPC = true;
+
+      // Add stacked labels: E button (top) + name "קרן" (bottom)
+      attachLabel(model, 'E', 4.2, 'npc');    // interaction hint above
+      attachLabel(model, 'קרן', 3.6, 'npc');  // name below
+
+      console.log('[hangar] Keren NPC loaded, height:', h.toFixed(2), 'm → 3.0 m');
+
+      resolve(model);
+
+    }, undefined, err => {
+      console.error('[hangar] Keren NPC load failed:', err?.message ?? err);
+      reject(err);
+    });
+  });
+}
+
+// ── Entrance sign builder ─────────────────────────────────────────────
+
+function _buildEntranceSign(text, bgColor) {
+  const FONT   = 'bold 96px Arial, sans-serif';
+  const PAD_X  = 60;
+  const PAD_Y  = 40;
+  const RADIUS = 20;
+
+  // Measure text
+  const probe = document.createElement('canvas').getContext('2d');
+  probe.font  = FONT;
+  const tw    = probe.measureText(text).width;
+  const th    = probe.measureText('M').actualBoundingBoxAscent + probe.measureText('M').actualBoundingBoxDescent;
+
+  const cw = Math.ceil(tw + PAD_X * 2);
+  const ch = Math.ceil(th + PAD_Y * 2);
+
+  const canvas  = document.createElement('canvas');
+  canvas.width  = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, cw, ch, RADIUS);
+  ctx.fill();
+
+  // Text
+  ctx.font         = FONT;
+  ctx.fillStyle    = '#ffffff';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, cw / 2, ch / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  // Flip texture horizontally so Hebrew text renders correctly (not mirrored)
+  tex.center.set(0.5, 0.5);
+  tex.repeat.x = -1;
+
+  const aspect = cw / ch;
+  const planeW = 8;  // 8 meters wide in world space
+  const planeH = planeW / aspect;
+
+  const mat   = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(planeW, planeH), mat);
+
+  return plane;
+}
 
 // ── PBR brick material (shared across all three hangars) ──────────────
 
@@ -12,7 +148,7 @@ function getBrickMat() {
   const pfx    = 'textures/hangars/Bricks066_2K-JPG_';
 
   const color  = loader.load(pfx + 'Color.jpg');
-  const normal = loader.load(pfx + 'NormalGL.jpg');
+  const normal = loader.load('textures/hangars/Bricks066_1K-JPG_NormalGL.jpg');
   const rough  = loader.load(pfx + 'Roughness.jpg');
   const ao     = loader.load(pfx + 'AmbientOcclusion.jpg');
 
@@ -55,6 +191,8 @@ const ACCENT = [0xC0392B, 0x27AE60, 0xF1C40F]; // red, green, yellow
 const ROOF_COLOR = [0xC0392B, 0x27AE60, 0xF1C40F]; // red, green, yellow
 
 export const allSlots = []; // populated during init, used by stores.js
+
+const _hangarNpcs = []; // FBX NPCs with animation mixers
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -128,10 +266,27 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
 
   // ── Entrance NPC character ────────────────────────────────────────
-  const npc = buildNpcCharacter(ACCENT[hangarIndex], 'hangarEntrance');
-  npc.position.set(0, 0, D / 2 - 4);  // just inside the entrance columns
-  npc.userData.hangarIndex = hangarIndex;
-  group.add(npc);
+  if (hangarIndex === 0) {
+    // North hangar: load FBX NPC with animation
+    _loadNorthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(fbxNpc => {
+      fbxNpc.userData.hangarIndex = hangarIndex;
+      group.add(fbxNpc);
+      _hangarNpcs.push(fbxNpc); // track for animation update
+    }).catch(err => console.error('[hangar] North NPC load failed:', err));
+  } else {
+    // Center and South hangars: use procedural tree NPC
+    const npc = buildNpcCharacter(ACCENT[hangarIndex], 'hangarEntrance');
+    npc.position.set(0, 0, D / 2 - 4);
+    npc.userData.hangarIndex = hangarIndex;
+    group.add(npc);
+  }
+
+  // ── Entrance sign ─────────────────────────────────────────────────
+  const signTexts = ['צפון', 'מרכז', 'דרום']; // North, Center, South
+  const sign = _buildEntranceSign(signTexts[hangarIndex], ACCENT[hangarIndex]);
+  sign.position.set(0, H * 0.75, D / 2 - 0.5); // above entrance, just inside
+  sign.rotation.y = Math.PI; // face outward (toward player approaching)
+  group.add(sign);
 
   scene.add(group);
 
@@ -312,4 +467,14 @@ function add(group, geo, mat, x, y, z, castShadow = false) {
 function addWall(group, geo, mat, x, y, z) {
   geo.setAttribute('uv1', geo.attributes.uv);
   return add(group, geo, mat, x, y, z);
+}
+
+// ── Animation update ──────────────────────────────────────────────────
+
+export function updateHangars(delta) {
+  _hangarNpcs.forEach(npc => {
+    if (npc.userData.mixer) {
+      npc.userData.mixer.update(delta);
+    }
+  });
 }
