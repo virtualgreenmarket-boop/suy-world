@@ -53,18 +53,14 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.position.set(localX, localY + floorY, localZ);
       model.rotation.y = rotY;
 
-      // Extract and play embedded animations from Keren.glb
+      // Extract embedded animations from Keren.glb (but don't play them)
       const clips = gltf.animations || [];
       if (clips.length > 0) {
         const mixer = new THREE.AnimationMixer(model);
-
-        // Play all animations (or choose first one as default)
-        const action = mixer.clipAction(clips[0]);
-        action.play();
-
         model.userData.mixer = mixer;
+        model.userData.clips = clips; // store for potential future use
         console.log('[hangar] Keren NPC loaded with', clips.length, 'animation(s):',
-                    clips.map(c => c.name).join(', '));
+                    clips.map(c => c.name).join(', '), '(idle)');
       } else {
         console.warn('[hangar] Keren.glb has no embedded animations');
       }
