@@ -1,26 +1,59 @@
-import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import * as THREE from 'three';
+
+const FONT     = 'bold 24px Arial, sans-serif';
+const PAD_X    = 16;
+const PAD_Y    = 10;
+const RADIUS   = 8;
+const WORLD_H  = 1.1; // sprite height in world units
+
+function _buildTexture(text) {
+  // Measure text on a throw-away context
+  const probe = document.createElement('canvas').getContext('2d');
+  probe.font  = FONT;
+  const tw    = probe.measureText(text).width;
+
+  const cw = Math.ceil(tw + PAD_X * 2);
+  const ch = Math.ceil(probe.measureText('M').actualBoundingBoxAscent
+           + probe.measureText('M').actualBoundingBoxDescent + PAD_Y * 2) || 40;
+
+  const canvas  = document.createElement('canvas');
+  canvas.width  = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+
+  // Rounded background
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, cw, ch, RADIUS);
+  ctx.fill();
+
+  // Text
+  ctx.font         = FONT;
+  ctx.fillStyle    = '#ffffff';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, cw / 2, ch / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter; // no mipmaps — saves GPU memory
+  tex.magFilter = THREE.LinearFilter;
+  return { tex, aspect: cw / ch };
+}
 
 export function createLabel(text, yOffset = 0) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  Object.assign(div.style, {
-    color:          '#ffffff',
-    fontSize:       '12px',
-    fontFamily:     'Arial, sans-serif',
-    fontWeight:     'bold',
-    background:     'rgba(0,0,0,0.52)',
-    padding:        '2px 8px',
-    borderRadius:   '4px',
-    border:         '1px solid rgba(255,255,255,0.22)',
-    whiteSpace:     'nowrap',
-    pointerEvents:  'none',
-    userSelect:     'none',
-    textShadow:     '0 1px 3px rgba(0,0,0,0.9)',
-    letterSpacing:  '0.4px',
+  const { tex, aspect } = _buildTexture(text);
+  const mat  = new THREE.SpriteMaterial({
+    map:        tex,
+    depthTest:  false,
+    depthWrite: false,
+    fog:        false,
+    transparent: true,
   });
-  const obj = new CSS2DObject(div);
-  obj.position.set(0, yOffset, 0);
-  return obj;
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(WORLD_H * aspect, WORLD_H, 1);
+  sprite.position.set(0, yOffset, 0);
+  sprite.renderOrder = 1;
+  return sprite;
 }
 
 export function attachLabel(parent, text, yOffset = 0) {

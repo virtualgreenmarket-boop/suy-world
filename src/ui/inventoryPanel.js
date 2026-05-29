@@ -1,4 +1,11 @@
 // Character inventory panel — game-bag style UI
+import {
+  initCharacterPreview,
+  applyPreviewItem,
+  applyPreviewLoadout,
+  startPreviewRendering,
+  stopPreviewRendering,
+} from './characterPreview.js';
 
 const STORAGE_KEY = 'suy_loadout_v8';
 
@@ -75,11 +82,22 @@ let _activeSection  = 'Outfit';
 let _activeCategory = null; // null = list view, string = grid view
 let _gridArea       = null;
 let _equippedStrip  = null;
+let _previewCanvas  = null; // the live 3-D canvas element (kept across re-renders)
+let _previewInited  = false;
 
 function _loadSaved() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_LOADOUT, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // Body and Emotions are the base character mesh — never allow them to be null.
+      // The old Clear All button used to zero them out, making the player invisible.
+      if (!saved.Body)     saved.Body     = DEFAULT_LOADOUT.Body;
+      if (!saved.Emotions) saved.Emotions = DEFAULT_LOADOUT.Emotions;
+      const merged = { ...DEFAULT_LOADOUT, ...saved };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); // persist the fix
+      return merged;
+    }
   } catch {}
   const def = { ...DEFAULT_LOADOUT };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(def));
@@ -315,6 +333,17 @@ function _buildPanel() {
       color: rgba(255,200,80,0.28); text-transform: uppercase;
     }
 
+    /* ── 3-D character preview canvas ── */
+    #inv-doll-figure {
+      width: 110px; height: 190px; flex-shrink: 0;
+      border-radius: 12px; overflow: hidden;
+      background: #0d0b1c;
+      border: 1px solid rgba(124,106,247,0.18);
+    }
+    #inv-preview-canvas {
+      width: 100%; height: 100%; display: block;
+    }
+
     /* ── Paper doll ── */
     #inv-wearing-wrap {
       padding: 10px 14px 6px; flex-shrink: 0;
@@ -327,7 +356,6 @@ function _buildPanel() {
     #inv-doll {
       display: flex; gap: 10px; align-items: flex-start;
     }
-    #inv-doll-figure { flex-shrink: 0; }
     #inv-doll-zones {
       flex: 1; display: flex; flex-direction: column; gap: 5px;
     }
@@ -414,12 +442,13 @@ function _buildPanel() {
   clearAllBtn.addEventListener('click', () => {
     for (const sec of Object.values(SECTIONS)) {
       for (const cat of Object.keys(sec.categories)) {
-        _equip(cat, null);
+        // Body and Emotions are the base character — reset to default, never null
+        _equip(cat, DEFAULT_LOADOUT[cat] ?? null);
       }
     }
     _renderEquipped();
     _renderBody();
-    panel._countEl.textContent = '0 equipped';
+    panel._countEl.textContent = _equippedCount() + ' equipped';
   });
 
   const closeBtn = document.createElement('button');
@@ -479,6 +508,10 @@ function _buildPanel() {
 
   panel._countEl = equippedCount;
 
+  // Create the preview canvas once — re-inserted into the figure div each render
+  _previewCanvas = document.createElement('canvas');
+  _previewCanvas.id = 'inv-preview-canvas';
+
   _renderEquipped();
   _renderBody();
 }
@@ -532,26 +565,10 @@ function _renderEquipped() {
   const doll = document.createElement('div');
   doll.id = 'inv-doll';
 
-  // ── Body silhouette SVG with 4 colour-coded zones ──
+  // ── Live 3-D character preview (canvas kept across re-renders) ──
   const figure = document.createElement('div');
   figure.id = 'inv-doll-figure';
-  figure.innerHTML = `<svg viewBox="0 0 70 210" width="72" height="216" xmlns="http://www.w3.org/2000/svg">
-    <!-- HEAD zone -->
-    <circle cx="35" cy="17" r="14" fill="rgba(107,143,248,0.14)" stroke="#6B8FF8" stroke-width="1.8" stroke-opacity="0.55"/>
-    <rect x="31" y="30" width="8" height="7" rx="2" fill="rgba(107,143,248,0.10)"/>
-    <!-- BODY zone -->
-    <path d="M18 37 Q35 33 52 37 L49 92 Q35 95 21 92 Z" fill="rgba(91,212,176,0.13)" stroke="#5BD4B0" stroke-width="1.8" stroke-opacity="0.50"/>
-    <path d="M18 40 L6 80 Q4 85 9 86 L20 50" fill="rgba(91,212,176,0.09)" stroke="#5BD4B0" stroke-width="1.6" stroke-opacity="0.40" stroke-linejoin="round"/>
-    <path d="M52 40 L64 80 Q66 85 61 86 L50 50" fill="rgba(91,212,176,0.09)" stroke="#5BD4B0" stroke-width="1.6" stroke-opacity="0.40" stroke-linejoin="round"/>
-    <!-- LOWER BODY zone -->
-    <path d="M21 92 L18 140 Q17 145 22 145 L31 145 Q34 145 34 140 L35 92" fill="rgba(240,160,80,0.12)" stroke="#F0A050" stroke-width="1.8" stroke-opacity="0.48"/>
-    <path d="M49 92 L52 140 Q53 145 48 145 L39 145 Q36 145 36 140 L35 92" fill="rgba(240,160,80,0.12)" stroke="#F0A050" stroke-width="1.8" stroke-opacity="0.48"/>
-    <!-- FEET zone -->
-    <path d="M22 143 L19 178 Q18 183 23 183 L30 183 Q33 183 33 178 L31 143" fill="rgba(176,126,240,0.11)" stroke="#B07EF0" stroke-width="1.8" stroke-opacity="0.45"/>
-    <path d="M48 143 L51 178 Q52 183 47 183 L40 183 Q37 183 37 178 L39 143" fill="rgba(176,126,240,0.11)" stroke="#B07EF0" stroke-width="1.8" stroke-opacity="0.45"/>
-    <path d="M15 179 Q10 179 9 184 L9 191 Q9 194 14 194 L29 194 Q32 193 31 189 L31 179" fill="rgba(176,126,240,0.14)" stroke="#B07EF0" stroke-width="1.8" stroke-opacity="0.50"/>
-    <path d="M55 179 Q60 179 61 184 L61 191 Q61 194 56 194 L41 194 Q38 193 39 189 L39 179" fill="rgba(176,126,240,0.14)" stroke="#B07EF0" stroke-width="1.8" stroke-opacity="0.50"/>
-  </svg>`;
+  figure.appendChild(_previewCanvas);
 
   // ── Right-side zone blocks ──
   const zonesEl = document.createElement('div');
@@ -787,16 +804,24 @@ function _equip(cat, file) {
   _loadout[cat] = file;
   _saveCurrent();
   if (_onEquip) _onEquip(cat, file);
+  applyPreviewItem(cat, file).catch(() => {}); // sync preview (fire-and-forget)
 }
 
 export function showInventoryPanel() {
   document.getElementById('inv-overlay')?.classList.add('inv-open');
   _visible = true;
+
+  if (!_previewInited && _previewCanvas) {
+    _previewInited = true;
+    initCharacterPreview(_previewCanvas).then(() => applyPreviewLoadout(_loadout)).catch(() => {});
+  }
+  startPreviewRendering();
 }
 
 export function hideInventoryPanel() {
   document.getElementById('inv-overlay')?.classList.remove('inv-open');
   _visible = false;
+  stopPreviewRendering();
 }
 
 export function toggleInventoryPanel() {

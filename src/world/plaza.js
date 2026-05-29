@@ -116,15 +116,6 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
     { localX: 3.72 },
   ];
   scene.add(inst);
-
-  // TEMP: log bench world position + bounding box to inspect seat Y
-  const wb = new THREE.Box3().setFromObject(inst);
-  console.log(
-    '[bench] pos x/y/z:', inst.position.x.toFixed(2), inst.position.y.toFixed(2), inst.position.z.toFixed(2),
-    '| bbox Y:', wb.min.y.toFixed(3), '→', wb.max.y.toFixed(3),
-    '| computed seatY:', inst.seatY.toFixed(3)
-  );
-
   return inst;
 }
 
@@ -222,7 +213,7 @@ function addFloor(scene) {
 // ── Central tree ──────────────────────────────────────────────────────
 
 function addCentralTree(scene) {
-  spawnTree(scene, 0, 0, 2.0, 0);
+  spawnTree(scene, 0, 0, 2.0, 1.0); // y=2.0 lifts above plaza floor, scale=1.0
 }
 
 // ── NPC ───────────────────────────────────────────────────────────────

@@ -3,7 +3,6 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
-import { CSS2DRenderer }   from 'three/addons/renderers/CSS2DRenderer.js';
 
 import { initIsland, updateWater }   from './world/island.js';
 import { initPlaza,  updatePlaza }   from './world/plaza.js';
@@ -67,11 +66,6 @@ renderer.outputColorSpace    = THREE.LinearSRGBColorSpace;
 renderer.setClearColor(0x87CEEB, 1);
 document.body.appendChild(renderer.domElement);
 
-// ── Label renderer (CSS2D — floats above every NPC, tree, and the player) ──
-const labelRenderer = new CSS2DRenderer();
-labelRenderer.setSize(window.innerWidth, window.innerHeight);
-labelRenderer.domElement.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:1;';
-document.body.appendChild(labelRenderer.domElement);
 
 // ── Lighting ───────────────────────────────────────────────────────────
 
@@ -196,45 +190,48 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
-  labelRenderer.setSize(w, h);
   if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
 });
 
 // ── Game loop ──────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
 let npcTime = 0;
-const npcs  = [];
+
+// Throttle accumulators
+let _tMed  = 0;   // fires every 50ms  → 20fps  (UI projections, interactions)
+let _tSlow = 0;   // fires every 100ms → 10fps  (proximity checks, ambient anim)
+let _tUI   = 0;   // fires every 3s             (online count DOM)
+
+// Procedural (non-GLB) NPCs — collected once at startup
+const npcs = [];
 scene.traverse(obj => { if (obj.userData.isNPC) npcs.push(obj); });
+npcs.forEach(npc => { npc.userData._baseY = npc.position.y; });
 
 function animate() {
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), 0.05);
   npcTime += delta;
+  _tMed   += delta;
+  _tSlow  += delta;
+  _tUI    += delta;
 
   const pos  = getLocalPlayerPosition();
   const rotY = getLocalPlayerRotY();
 
+  // ── Every frame: physics, networking, core animation ─────────────────
   if (pos) {
     updateLocalPlayer(delta);
     updateMultiplayer(pos, rotY);
-    updateStores(pos);
-    updateBubbles(camera, pos, getRemotePlayerPosition);
-    updateInteractions(camera, pos);
   }
-
   updateRemotePlayers(delta);
-  updateOnlineCount(1 + getRemotePlayerCount());
-  updateCats(delta, npcTime);
-  updateDogs(delta, npcTime);
   updateWater(delta);
   updatePlaza(delta, npcTime);
-  updateBeach(delta, npcTime);
-  updateOceanLife(delta, npcTime);
 
-  // NPC animations (wave / spin / dance)
-  npcs.forEach(npc => {
-    const t  = npcTime + (npc.userData.animPhase ?? 0);
-    const wa = npc.userData.waveArm;
+  // Procedural NPC animations (wave / spin / dance)
+  for (let i = 0; i < npcs.length; i++) {
+    const npc = npcs[i];
+    const t   = npcTime + (npc.userData.animPhase ?? 0);
+    const wa  = npc.userData.waveArm;
     switch (npc.userData.animType) {
       case 'spin':
         npc.rotation.y = t * 1.2;
@@ -244,16 +241,37 @@ function animate() {
         npc.position.y = (npc.userData._baseY ?? 0) + Math.abs(Math.sin(t * 4.5)) * 0.22;
         if (wa) wa.rotation.z = -0.65 + Math.sin(t * 4.5) * 0.5;
         break;
-      default: // 'wave'
+      default:
         if (wa) wa.rotation.z = -0.65 + Math.sin(t * 3.2) * 0.7;
     }
-  });
+  }
+
+  // ── 20fps: UI projections, interaction prompts, chat bubbles ─────────
+  if (_tMed >= 0.05) {
+    if (pos) {
+      updateInteractions(camera, pos);
+      updateBubbles(camera, pos, getRemotePlayerPosition);
+    }
+    _tMed = 0;
+  }
+
+  // ── 10fps: proximity checks + ambient world animation ─────────────────
+  if (_tSlow >= 0.1) {
+    if (pos) updateStores(pos);
+    updateCats(_tSlow, npcTime);
+    updateDogs(_tSlow, npcTime);
+    updateBeach(_tSlow, npcTime);
+    updateOceanLife(_tSlow, npcTime);
+    _tSlow = 0;
+  }
+
+  // ── Every 3s: online count (pure DOM text, no need faster) ───────────
+  if (_tUI >= 3) {
+    updateOnlineCount(1 + getRemotePlayerCount());
+    _tUI = 0;
+  }
 
   composer.render();
-  labelRenderer.render(scene, camera);
 }
-
-// Store base Y for dance NPCs so they don't drift
-npcs.forEach(npc => { npc.userData._baseY = npc.position.y; });
 
 animate();
