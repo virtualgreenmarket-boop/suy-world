@@ -32,7 +32,11 @@ async function ensureLoaded() {
     );
     _template = gltf.scene;
     _template.traverse(n => {
-      if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; }
+      if (n.isMesh) {
+        n.castShadow = true;
+        n.receiveShadow = false;
+        n.visible = false; // hide baked-in clothes/hat/shoes — Body_010.glb provides the skin
+      }
     });
 
     const box = new THREE.Box3().setFromObject(_template);
@@ -90,6 +94,11 @@ export async function spawnCharacter(parentGroup) {
   clone.rotation.y = 0;
   clone.position.y = _modelFloorY;
   parentGroup.add(clone);
+
+  // Build bone map once, before any items are equipped, so it never gets polluted
+  const boneMap = new Map();
+  clone.traverse(n => { if (n.isBone) boneMap.set(n.name, n); });
+  parentGroup.userData._charBoneMap = boneMap;
 
   const mixer   = new THREE.AnimationMixer(clone);
   const actions = {};
@@ -169,18 +178,16 @@ export async function equipItem(group, category, filename, color = null) {
   if (prev) { prev.parent?.remove(prev); group.userData._equipped[category] = null; }
   if (!filename) return;
 
-  const charBoneMap = new Map();
-  group.traverse(n => {
-    if (n.isBone) charBoneMap.set(n.name, n);
-  });
+  const charBoneMap = group.userData._charBoneMap ?? new Map();
 
   try {
     const gltf = await new Promise((res, rej) =>
       new GLTFLoader().load(ASSETS_BASE + filename, res, undefined, rej)
     );
     const item = skeletonClone(gltf.scene);
-    item.scale.setScalar(MODEL_SCALE);
-    item.position.y = _modelFloorY;
+    const shoeScale = category === 'Shoes' ? MODEL_SCALE * 0.82 : MODEL_SCALE;
+    item.scale.setScalar(shoeScale);
+    item.position.y = _modelFloorY + (category === 'Shoes' ? 0.05 : 0);
 
     if (charBoneMap.size > 0) {
       item.traverse(n => {
@@ -194,15 +201,19 @@ export async function equipItem(group, category, filename, color = null) {
     // The ithappy GLBs bundle a full body mesh under every clothing item.
     // Hide any mesh whose vertical span covers most of the character height
     // (those are the ghost body duplicates — the actual clothing pieces are smaller).
+    // Exception: the Body category IS the full skin mesh, so keep all its meshes visible.
     const charHeight = 1.8;
     item.traverse(n => {
       if (!n.isMesh) return;
       n.castShadow = true;
-      const box = new THREE.Box3().setFromObject(n);
-      const meshH = box.max.y - box.min.y;
-      if (meshH > charHeight * 0.55) {
-        n.visible = false; // full-body ghost mesh — suppress it
-        return;
+      if (category !== 'Body' && category !== 'Emotions') {
+        n.geometry.computeBoundingBox();
+        const bb = n.geometry.boundingBox;
+        const meshH = bb.max.y - bb.min.y;
+        if (meshH > charHeight * 0.55) {
+          n.visible = false;
+          return;
+        }
       }
       if (color !== null) {
         n.material = new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.04 });

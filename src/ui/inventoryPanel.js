@@ -1,8 +1,14 @@
 // Character inventory panel — game-bag style UI
 
-const STORAGE_KEY = 'suy_loadout_v5';
+const STORAGE_KEY = 'suy_loadout_v8';
 
-const DEFAULT_LOADOUT = {};
+const DEFAULT_LOADOUT = {
+  Body:     'Body_010.glb',
+  Emotions: 'Male_emotion_usual_001.glb',
+  Shirt:    'T-Shirt_009.glb',
+  Pants:    'Pants_014.glb',
+  Shoes:    'Shoe_Slippers_002.glb',
+};
 
 const SECTIONS = {
   Outfit: {
@@ -73,7 +79,7 @@ let _equippedStrip  = null;
 function _loadSaved() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return { ...DEFAULT_LOADOUT, ...JSON.parse(raw) };
   } catch {}
   const def = { ...DEFAULT_LOADOUT };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(def));
@@ -154,6 +160,14 @@ function _buildPanel() {
       background: rgba(255,200,80,0.1); border: 1px solid rgba(255,200,80,0.2);
       border-radius: 20px; padding: 3px 10px; font-weight: 600;
     }
+    #inv-clear-all {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+      color: rgba(255,80,80,0.65); background: rgba(255,80,80,0.08);
+      border: 1px solid rgba(255,80,80,0.18); border-radius: 20px;
+      padding: 3px 9px; cursor: pointer; transition: all .15s; white-space: nowrap;
+      font-family: inherit;
+    }
+    #inv-clear-all:hover { background: rgba(255,80,80,0.18); color: rgba(255,100,100,0.95); border-color: rgba(255,80,80,0.4); }
     #inv-close {
       width: 30px; height: 30px; border-radius: 50%;
       background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.6);
@@ -359,6 +373,9 @@ function _buildPanel() {
   const overlay = document.createElement('div');
   overlay.id = 'inv-overlay';
   overlay.addEventListener('click', e => { if (e.target === overlay) hideInventoryPanel(); });
+  overlay.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+  overlay.addEventListener('pointerdown', e => e.stopPropagation());
+  overlay.addEventListener('pointermove', e => e.stopPropagation());
 
   const panel = document.createElement('div');
   panel.id = 'inv-panel';
@@ -391,10 +408,24 @@ function _buildPanel() {
   const equippedCount = document.createElement('span');
   equippedCount.id = 'inv-equipped-count';
   equippedCount.textContent = _equippedCount() + ' equipped';
+  const clearAllBtn = document.createElement('button');
+  clearAllBtn.id = 'inv-clear-all';
+  clearAllBtn.textContent = 'Clear all';
+  clearAllBtn.addEventListener('click', () => {
+    for (const sec of Object.values(SECTIONS)) {
+      for (const cat of Object.keys(sec.categories)) {
+        _equip(cat, null);
+      }
+    }
+    _renderEquipped();
+    _renderBody();
+    panel._countEl.textContent = '0 equipped';
+  });
+
   const closeBtn = document.createElement('button');
   closeBtn.id = 'inv-close'; closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', hideInventoryPanel);
-  header.append(headerIcon, headerTitle, equippedCount, closeBtn);
+  header.append(headerIcon, headerTitle, equippedCount, clearAllBtn, closeBtn);
   panel.appendChild(header);
 
   // Currently-wearing strip
