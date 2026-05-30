@@ -149,16 +149,43 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.straightDirection = 0; // rotation in radians
       npc.canWalk = false;
 
-      // Slow down animation speed by 50%
+      // Calculate exact distance from animation root motion
       const slowdownFactor = 0.5;
       let animSpeed = 1.0; // default m/s
       if (npc.walkAction) {
         npc.walkAction.timeScale = slowdownFactor; // Slow down animation
         const clip = npc.walkAction.getClip();
+
         if (clip && clip.duration > 0) {
-          // Assume 1.5m stride per animation cycle, adjusted for slowdown
-          animSpeed = (1.5 / clip.duration) * slowdownFactor;
-          console.log('[NPC 3] walk animation slowed to', (slowdownFactor * 100).toFixed(0), '% → speed:', animSpeed.toFixed(2), 'm/s');
+          // Find position tracks to calculate actual distance traveled
+          let distanceTraveled = 0;
+
+          for (const track of clip.tracks) {
+            // Look for root position tracks (usually .position[x] or .position[z])
+            if (track.name.includes('.position') && (track.name.includes('[z]') || track.name.includes('[x]'))) {
+              const values = track.values;
+              if (values.length >= 2) {
+                // Calculate total distance: |end - start|
+                const start = values[0];
+                const end = values[values.length - 1];
+                const delta = Math.abs(end - start);
+                distanceTraveled += delta * delta; // sum of squares for 3D distance
+              }
+            }
+          }
+
+          // If we found position tracks, use actual distance
+          if (distanceTraveled > 0) {
+            distanceTraveled = Math.sqrt(distanceTraveled);
+            animSpeed = (distanceTraveled / clip.duration) * slowdownFactor;
+            console.log('[NPC 3] animation distance:', distanceTraveled.toFixed(3), 'm in', clip.duration.toFixed(3), 's → speed:', animSpeed.toFixed(3), 'm/s (with', (slowdownFactor * 100).toFixed(0), '% slowdown)');
+          } else {
+            // Fallback: use manual tuning for no root motion animation
+            // Texting animation likely has no root motion, so manually set stride
+            const manualStride = 1.0; // tuned manually (adjust if needed)
+            animSpeed = (manualStride / clip.duration) * slowdownFactor;
+            console.log('[NPC 3] no root motion detected, using manual stride:', manualStride, 'm → speed:', animSpeed.toFixed(3), 'm/s');
+          }
         }
       }
       npc.straightSpeed = animSpeed;
