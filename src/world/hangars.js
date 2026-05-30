@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
@@ -76,6 +77,112 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
 
     }, undefined, err => {
       console.error('[hangar] Keren NPC load failed:', err?.message ?? err);
+      reject(err);
+    });
+  });
+}
+
+// ── GLB NPC loader (Center hangar - GARDENGIRL) ──────────────────────
+
+async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/GardenGirl/Catwalk Walk Forward.glb';
+
+  return new Promise((resolve, reject) => {
+    loader.load(modelPath, gltf => {
+      const model = gltf.scene;
+
+      // Setup materials and shadows
+      model.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+          if (n.material) {
+            const mats = Array.isArray(n.material) ? n.material : [n.material];
+            mats.forEach(m => {
+              if (!m) return;
+              if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+              if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+            });
+          }
+        }
+      });
+
+      // Scale to 3m tall
+      const box = new THREE.Box3().setFromObject(model);
+      const h = Math.max(box.max.y - box.min.y, 0.01);
+      model.scale.setScalar(3.0 / h);
+
+      // Position on ground
+      model.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(model);
+      const floorY = -box2.min.y;
+
+      model.position.set(localX, localY + floorY, localZ);
+      model.rotation.y = rotY;
+
+      model.userData.isNPC = true;
+      attachLabel(model, 'NPC 1', 3.8, 'npc');
+
+      console.log('[hangar] Center NPC (GARDENGIRL) loaded, height:', h.toFixed(2), 'm → 3.0 m');
+
+      resolve(model);
+
+    }, undefined, err => {
+      console.error('[hangar] Center NPC load failed:', err?.message ?? err);
+      reject(err);
+    });
+  });
+}
+
+// ── GLB NPC loader (South hangar - starfish necklace) ────────────────
+
+async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb';
+
+  return new Promise((resolve, reject) => {
+    loader.load(modelPath, gltf => {
+      const model = gltf.scene;
+
+      // Setup materials and shadows
+      model.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+          if (n.material) {
+            const mats = Array.isArray(n.material) ? n.material : [n.material];
+            mats.forEach(m => {
+              if (!m) return;
+              if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+              if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+            });
+          }
+        }
+      });
+
+      // Scale to 3m tall
+      const box = new THREE.Box3().setFromObject(model);
+      const h = Math.max(box.max.y - box.min.y, 0.01);
+      model.scale.setScalar(3.0 / h);
+
+      // Position on ground
+      model.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(model);
+      const floorY = -box2.min.y;
+
+      model.position.set(localX, localY + floorY, localZ);
+      model.rotation.y = rotY;
+
+      model.userData.isNPC = true;
+      attachLabel(model, 'NPC 2', 3.8, 'npc');
+
+      console.log('[hangar] South NPC (starfish) loaded, height:', h.toFixed(2), 'm → 3.0 m');
+
+      resolve(model);
+
+    }, undefined, err => {
+      console.error('[hangar] South NPC load failed:', err?.message ?? err);
       reject(err);
     });
   });
@@ -266,14 +373,22 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
     _loadNorthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
       npc.userData.hangarIndex = hangarIndex;
       group.add(npc);
-      _hangarNpcs.push(npc); // track for animation update
+      _hangarNpcs.push(npc);
     }).catch(err => console.error('[hangar] North NPC load failed:', err));
-  } else {
-    // Center and South hangars: use procedural tree NPC
-    const npc = buildNpcCharacter(ACCENT[hangarIndex], 'hangarEntrance');
-    npc.position.set(0, 0, D / 2 - 4);
-    npc.userData.hangarIndex = hangarIndex;
-    group.add(npc);
+  } else if (hangarIndex === 1) {
+    // Center hangar: load GARDENGIRL GLB NPC (NPC 1)
+    _loadCenterHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+      npc.userData.hangarIndex = hangarIndex;
+      group.add(npc);
+      _hangarNpcs.push(npc);
+    }).catch(err => console.error('[hangar] Center NPC load failed:', err));
+  } else if (hangarIndex === 2) {
+    // South hangar: load starfish GLB NPC (NPC 2)
+    _loadSouthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+      npc.userData.hangarIndex = hangarIndex;
+      group.add(npc);
+      _hangarNpcs.push(npc);
+    }).catch(err => console.error('[hangar] South NPC load failed:', err));
   }
 
   // ── Entrance sign ─────────────────────────────────────────────────
