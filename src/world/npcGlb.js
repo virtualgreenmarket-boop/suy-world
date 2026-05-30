@@ -150,7 +150,7 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.canWalk = false;
 
       // Calculate exact distance from animation root motion
-      const slowdownFactor = 0.5;
+      const slowdownFactor = 1.5; // 3x faster than base (was 0.5 for half speed)
       let animSpeed = 1.0; // default m/s
       if (npc.walkAction) {
         npc.walkAction.timeScale = slowdownFactor; // Slow down animation
