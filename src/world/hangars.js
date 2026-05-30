@@ -125,20 +125,15 @@ async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.userData.isNPC = true;
       attachLabel(model, 'NPC 2', 3.8, 'npc');
 
-      // Load and play IDLE animation
-      const idleLoader = new GLTFLoader();
-      idleLoader.load('/models/characters/npcs/GardenGirl/Idle.glb', idleGltf => {
-        const idleClip = idleGltf.animations[0];
-        if (idleClip) {
-          const mixer = new THREE.AnimationMixer(model);
-          const action = mixer.clipAction(idleClip);
-          action.play();
-          model.userData.mixer = mixer;
-          console.log('[hangar] South NPC IDLE animation loaded:', idleClip.name);
-        }
-      }, undefined, err => {
-        console.warn('[hangar] South NPC IDLE animation load failed:', err?.message ?? err);
-      });
+      // Check for embedded animations
+      const clips = gltf.animations || [];
+      if (clips.length > 0) {
+        const mixer = new THREE.AnimationMixer(model);
+        const action = mixer.clipAction(clips[0]);
+        action.play();
+        model.userData.mixer = mixer;
+        console.log('[hangar] South NPC loaded with embedded animation');
+      }
 
       console.log('[hangar] South NPC (starfish) loaded, height:', h.toFixed(2), 'm → 3.0 m');
 
