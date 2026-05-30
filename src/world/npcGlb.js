@@ -146,14 +146,25 @@ export async function spawnAllPlazaNpcs(scene) {
     } else if (i === 2) {
       // Walks straight forward, turns 145° at plaza edge
       npc.walkMode = 'straight';
-      npc.straightSpeed = 1.4; // m/s to match animation
       npc.straightDirection = 0; // rotation in radians
       npc.canWalk = false;
 
-      // Set position at floor level
+      // Calculate speed from animation clip duration for perfect sync
+      let animSpeed = 1.0; // default m/s
+      if (npc.walkAction) {
+        const clip = npc.walkAction.getClip();
+        if (clip && clip.duration > 0) {
+          // Assume 1.5m stride per animation cycle
+          animSpeed = 1.5 / clip.duration;
+          console.log('[NPC 3] walk animation duration:', clip.duration.toFixed(3), 's → speed:', animSpeed.toFixed(2), 'm/s');
+        }
+      }
+      npc.straightSpeed = animSpeed;
+
+      // Set position at floor level (no offset - feet on ground)
       const surfaceY = getSurfaceY(npc.group.position.x, npc.group.position.z);
-      npc.group.position.y = surfaceY + npc.floorOffset;
-      npc.baseY = surfaceY + npc.floorOffset;
+      npc.group.position.y = surfaceY;
+      npc.baseY = surfaceY;
 
       // Fix material brightness - add emissive light
       npc.group.traverse(n => {
@@ -404,8 +415,8 @@ export function updateNpc(npc, delta) {
       npc.group.position.z = newZ;
     }
 
-    // Always at floor level
-    npc.group.position.y = getSurfaceY(npc.group.position.x, npc.group.position.z) + npc.floorOffset;
+    // Always at floor level (no offset - feet on ground)
+    npc.group.position.y = getSurfaceY(npc.group.position.x, npc.group.position.z);
     npc.group.rotation.y = npc.straightDirection;
     return;
   }
