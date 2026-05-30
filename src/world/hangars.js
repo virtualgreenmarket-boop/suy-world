@@ -83,6 +83,70 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
   });
 }
 
+// ── GLB NPC loader (Center hangar - Skylar Breeze) ───────────────────
+
+async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb';
+
+  return new Promise((resolve, reject) => {
+    loader.load(modelPath, gltf => {
+      const model = gltf.scene;
+
+      // Setup materials, shadows, and preserve GLB textures
+      model.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+
+          if (n.material) {
+            const mats = Array.isArray(n.material) ? n.material : [n.material];
+            mats.forEach(m => {
+              if (!m) return;
+              if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+              if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+            });
+          }
+        }
+      });
+
+      // Scale to 3m tall
+      const box = new THREE.Box3().setFromObject(model);
+      const h = Math.max(box.max.y - box.min.y, 0.01);
+      model.scale.setScalar(3.0 / h);
+
+      // Position on ground
+      model.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(model);
+      const floorY = -box2.min.y;
+
+      model.position.set(localX, localY + floorY, localZ);
+      model.rotation.y = rotY;
+
+      model.userData.isNPC = true;
+      attachLabel(model, 'NPC 1', 3.8, 'npc');
+
+      // Check for embedded animations
+      const clips = gltf.animations || [];
+      if (clips.length > 0) {
+        const mixer = new THREE.AnimationMixer(model);
+        const action = mixer.clipAction(clips[0]);
+        action.play();
+        model.userData.mixer = mixer;
+        console.log('[hangar] Center NPC loaded with embedded animation');
+      }
+
+      console.log('[hangar] Center NPC (Skylar Breeze) loaded, height:', h.toFixed(2), 'm → 3.0 m');
+
+      resolve(model);
+
+    }, undefined, err => {
+      console.error('[hangar] Center NPC load failed:', err?.message ?? err);
+      reject(err);
+    });
+  });
+}
+
 // ── GLB NPC loader (South hangar - starfish necklace) ────────────────
 
 async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
@@ -333,6 +397,13 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
       group.add(npc);
       _hangarNpcs.push(npc);
     }).catch(err => console.error('[hangar] North NPC load failed:', err));
+  } else if (hangarIndex === 1) {
+    // Center hangar: load Skylar Breeze GLB NPC (NPC 1)
+    _loadCenterHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+      npc.userData.hangarIndex = hangarIndex;
+      group.add(npc);
+      _hangarNpcs.push(npc);
+    }).catch(err => console.error('[hangar] Center NPC load failed:', err));
   } else if (hangarIndex === 2) {
     // South hangar: load starfish GLB NPC (NPC 2)
     _loadSouthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {

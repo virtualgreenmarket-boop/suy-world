@@ -12,7 +12,7 @@ import { attachLabel } from '../ui/labels.js';
 const TARGET_HEIGHT = 3.1;
 
 const NPC_URLS = [
-  '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb',
+  // NPC 0 (Skylar Breeze) moved to center hangar
   '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb',
   '/models/characters/npcs/texting_while_walking.glb',
   '/models/characters/npcs/jeny_tpose_riged.glb',
