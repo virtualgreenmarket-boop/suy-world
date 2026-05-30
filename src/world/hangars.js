@@ -4,6 +4,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
+import { registerGround } from '../systems/terrain.js';
 
 // ── GLB NPC loader (North hangar) ────────────────────────────────────
 
@@ -408,7 +409,8 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
 
 function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat) {
   // Floor — extend downward to avoid z-fighting with grass (y=0)
-  add(group, new THREE.BoxGeometry(W - 1, 1.0, D - 1), floorMat, 0, -0.2, 0);
+  const floor = add(group, new THREE.BoxGeometry(W - 1, 1.0, D - 1), floorMat, 0, -0.2, 0);
+  registerGround(floor);
 
   // Left wall
   addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);
