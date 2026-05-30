@@ -150,7 +150,7 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.canWalk = false;
 
       // Calculate exact distance from animation root motion
-      const slowdownFactor = 1.5; // 3x faster than base (was 0.5 for half speed)
+      const slowdownFactor = 0.5; // Slow walk speed
       let animSpeed = 1.0; // default m/s
       if (npc.walkAction) {
         npc.walkAction.timeScale = slowdownFactor; // Slow down animation
@@ -189,6 +189,29 @@ export async function spawnAllPlazaNpcs(scene) {
         }
       }
       npc.straightSpeed = animSpeed;
+
+      // Jump 2m forward at end of each animation cycle
+      if (npc.walkAction) {
+        npc.mixer.addEventListener('finished', (e) => {
+          if (e.action === npc.walkAction) {
+            // Jump 2m forward in current direction
+            const jumpDist = 2.0;
+            const dx = Math.sin(npc.straightDirection) * jumpDist;
+            const dz = Math.cos(npc.straightDirection) * jumpDist;
+            npc.group.position.x += dx;
+            npc.group.position.z += dz;
+
+            // Check if still in plaza bounds, otherwise turn
+            const distFromCenter = Math.sqrt(npc.group.position.x ** 2 + npc.group.position.z ** 2);
+            if (distFromCenter > 36) {
+              npc.straightDirection += 2.53; // Turn 145°
+              if (npc.straightDirection > Math.PI * 2) {
+                npc.straightDirection -= Math.PI * 2;
+              }
+            }
+          }
+        });
+      }
 
       // Set position at floor level (no offset - feet on ground)
       const surfaceY = getSurfaceY(npc.group.position.x, npc.group.position.z);
