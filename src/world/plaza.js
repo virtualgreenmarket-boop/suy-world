@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildNpcCharacter } from './npc.js';
-import { spawnTree } from './trees.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
@@ -10,7 +9,7 @@ import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
 const CENTRAL_TREE_H    = 30;
-const BENCH_URL         = '/models/furniture/benches/bench_model_free.glb';
+const BENCH_URL         = '/models/furniture/benches/bench_aged_and_gritty.glb';
 
 let _birds      = [];
 let _benchTmpl  = null;   // GLB bench template — set on first load
@@ -21,7 +20,6 @@ let _pendingFns = [];      // queued spawn fns waiting for the template
 export function initPlaza(scene) {
   addFloor(scene);
   _loadBenches(scene);
-  addCentralTree(scene);
   addNpc(scene);
   _birds = createBirds(scene);
 
@@ -208,12 +206,6 @@ function addFloor(scene) {
   border.position.y = 0.16;
   border.receiveShadow = true;
   scene.add(border);
-}
-
-// ── Central tree ──────────────────────────────────────────────────────
-
-function addCentralTree(scene) {
-  spawnTree(scene, 0, 0, 2.0, 1.0); // y=2.0 lifts above plaza floor, scale=1.0
 }
 
 // ── NPC ───────────────────────────────────────────────────────────────
