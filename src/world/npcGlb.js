@@ -149,14 +149,16 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.straightDirection = 0; // rotation in radians
       npc.canWalk = false;
 
-      // Calculate speed from animation clip duration for perfect sync
+      // Slow down animation speed by 50%
+      const slowdownFactor = 0.5;
       let animSpeed = 1.0; // default m/s
       if (npc.walkAction) {
+        npc.walkAction.timeScale = slowdownFactor; // Slow down animation
         const clip = npc.walkAction.getClip();
         if (clip && clip.duration > 0) {
-          // Assume 1.5m stride per animation cycle
-          animSpeed = 1.5 / clip.duration;
-          console.log('[NPC 3] walk animation duration:', clip.duration.toFixed(3), 's → speed:', animSpeed.toFixed(2), 'm/s');
+          // Assume 1.5m stride per animation cycle, adjusted for slowdown
+          animSpeed = (1.5 / clip.duration) * slowdownFactor;
+          console.log('[NPC 3] walk animation slowed to', (slowdownFactor * 100).toFixed(0), '% → speed:', animSpeed.toFixed(2), 'm/s');
         }
       }
       npc.straightSpeed = animSpeed;
