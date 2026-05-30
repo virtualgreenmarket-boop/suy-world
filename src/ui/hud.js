@@ -13,7 +13,7 @@ export function initHud() {
   countEl.textContent = '● 1 online';
   document.body.appendChild(countEl);
 
-  // ── Top-left: inventory bag + settings gear ───────────────────────────
+  // ── Top-left: inventory bag + coin balance + settings gear ────────────
   const topLeft = el('div', { id: 'hud-topleft' });
 
   const bagBtn = el('button', { id: 'hud-bag' });
@@ -34,6 +34,12 @@ export function initHud() {
   bagBtn.addEventListener('click', toggleInventoryPanel);
   topLeft.appendChild(bagBtn);
 
+  // Coin balance (moved from bottom-right to top-left)
+  coinEl = el('div', { id: 'hud-coin' });
+  coinEl.innerHTML = '<span class="hud-coin-icon">🪙</span><span class="hud-coin-val">–</span>';
+  topLeft.appendChild(coinEl);
+  _init3DCoin(coinEl.querySelector('.hud-coin-icon'));
+
   const gearBtn = el('button', { id: 'hud-gear' });
   gearBtn.title = 'Settings';
   gearBtn.innerHTML = '⚙';
@@ -41,12 +47,6 @@ export function initHud() {
   topLeft.appendChild(gearBtn);
 
   document.body.appendChild(topLeft);
-
-  // ── Bottom-right: coin balance ────────────────────────────────────────
-  coinEl = el('div', { id: 'hud-coin' });
-  coinEl.innerHTML = '<span class="hud-coin-icon">🪙</span><span class="hud-coin-val">–</span>';
-  document.body.appendChild(coinEl);
-  _init3DCoin(coinEl.querySelector('.hud-coin-icon'));
 
   // ── Centre: slot label ────────────────────────────────────────────────
   slotEl = el('div', { id: 'hud-slot' });
@@ -81,7 +81,6 @@ function _injectStyles() {
       background: rgba(255,255,255,0.18);
     }
     #hud-coin {
-      position: fixed; bottom: 20px; right: 18px;
       background: rgba(10,8,22,0.88);
       border: 1.5px solid rgba(255,200,50,0.35);
       border-radius: 24px;
@@ -89,7 +88,7 @@ function _injectStyles() {
       display: flex; align-items: center; gap: 8px;
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 18px rgba(0,0,0,0.45);
-      pointer-events: none; user-select: none; z-index: 100;
+      pointer-events: none; user-select: none;
     }
     .hud-coin-icon { font-size: 20px; line-height: 1; }
     .hud-coin-val  {
