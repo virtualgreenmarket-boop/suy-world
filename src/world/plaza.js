@@ -116,31 +116,17 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
   ];
   scene.add(inst);
 
-  // Add invisible blocking plane across the bench (like a fence)
+  // Register collision barrier (thin fence-like box)
   const BENCH_LEN = 4.5;
-  const BENCH_HEIGHT = 1.5;
-  const blockGeometry = new THREE.PlaneGeometry(BENCH_LEN, BENCH_HEIGHT);
-  const blockMaterial = new THREE.MeshBasicMaterial({
-    transparent: true,
-    opacity: 0,
-    side: THREE.DoubleSide
-  });
-  const blockPlane = new THREE.Mesh(blockGeometry, blockMaterial);
-  blockPlane.position.set(x, y + BENCH_HEIGHT / 2, z);
-  blockPlane.rotation.y = rotY;
-  scene.add(blockPlane);
-
-  // Register collision box for the invisible plane (thin barrier)
-  const BARRIER_THICKNESS = 0.1;
-  const hw = BARRIER_THICKNESS / 2;
+  const PAD = 0.25;  // thin barrier thickness (like marina fence)
   const hl = BENCH_LEN / 2;
 
   const c = Math.cos(rotY), s = Math.sin(rotY);
   const corners = [
-    [x + c * (-hl) - s * (-hw), z + s * (-hl) + c * (-hw)],
-    [x + c * ( hl) - s * (-hw), z + s * ( hl) + c * (-hw)],
-    [x + c * (-hl) - s * ( hw), z + s * (-hl) + c * ( hw)],
-    [x + c * ( hl) - s * ( hw), z + s * ( hl) + c * ( hw)],
+    [x + c * (-hl) - s * (-PAD), z + s * (-hl) + c * (-PAD)],
+    [x + c * ( hl) - s * (-PAD), z + s * ( hl) + c * (-PAD)],
+    [x + c * (-hl) - s * ( PAD), z + s * (-hl) + c * ( PAD)],
+    [x + c * ( hl) - s * ( PAD), z + s * ( hl) + c * ( PAD)],
   ];
 
   const minX = Math.min(...corners.map(p => p[0]));
