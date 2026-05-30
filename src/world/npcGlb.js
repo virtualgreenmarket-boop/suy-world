@@ -150,6 +150,11 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.straightDirection = 0; // rotation in radians
       npc.canWalk = false;
 
+      // Set position at floor level
+      const surfaceY = getSurfaceY(npc.group.position.x, npc.group.position.z);
+      npc.group.position.y = surfaceY + npc.floorOffset;
+      npc.baseY = surfaceY + npc.floorOffset;
+
       // Fix material brightness - add emissive light
       npc.group.traverse(n => {
         if (n.isMesh && n.material) {
