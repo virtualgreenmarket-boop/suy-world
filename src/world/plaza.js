@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildNpcCharacter } from './npc.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
+import { registerBox } from '../systems/collision.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
 import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 
@@ -114,6 +115,41 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
     { localX: 3.72 },
   ];
   scene.add(inst);
+
+  // Add invisible blocking plane across the bench (like a fence)
+  const BENCH_LEN = 4.5;
+  const BENCH_HEIGHT = 1.5;
+  const blockGeometry = new THREE.PlaneGeometry(BENCH_LEN, BENCH_HEIGHT);
+  const blockMaterial = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide
+  });
+  const blockPlane = new THREE.Mesh(blockGeometry, blockMaterial);
+  blockPlane.position.set(x, y + BENCH_HEIGHT / 2, z);
+  blockPlane.rotation.y = rotY;
+  scene.add(blockPlane);
+
+  // Register collision box for the invisible plane (thin barrier)
+  const BARRIER_THICKNESS = 0.1;
+  const hw = BARRIER_THICKNESS / 2;
+  const hl = BENCH_LEN / 2;
+
+  const c = Math.cos(rotY), s = Math.sin(rotY);
+  const corners = [
+    [x + c * (-hl) - s * (-hw), z + s * (-hl) + c * (-hw)],
+    [x + c * ( hl) - s * (-hw), z + s * ( hl) + c * (-hw)],
+    [x + c * (-hl) - s * ( hw), z + s * (-hl) + c * ( hw)],
+    [x + c * ( hl) - s * ( hw), z + s * ( hl) + c * ( hw)],
+  ];
+
+  const minX = Math.min(...corners.map(p => p[0]));
+  const maxX = Math.max(...corners.map(p => p[0]));
+  const minZ = Math.min(...corners.map(p => p[1]));
+  const maxZ = Math.max(...corners.map(p => p[1]));
+
+  registerBox(minX, maxX, minZ, maxZ);
+
   return inst;
 }
 
