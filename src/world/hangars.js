@@ -400,7 +400,7 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   const wallMat   = getBrickMat();
   const roofMat   = stdMat(ROOF_COLOR[hangarIndex], 0.85, 0.05);
   const accentMat = stdMat(ACCENT[hangarIndex], 0.7, 0.1);
-  const floorMat  = stdMat(0xD8D2C8, 0.92);
+  const floorMat  = createConcreteFloorMat();
   const colMat    = stdMat(0xF0EBE3, 0.78, 0.05);
 
   // ── Shell ─────────────────────────────────────────────────────────
@@ -610,6 +610,16 @@ function finaliseSlotPositions(group, hangarIndex) {
 
 function stdMat(color, rough = 0.85, metal = 0.05) {
   return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
+}
+
+function createConcreteFloorMat() {
+  // Procedural concrete material with tiling gray color
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x8A8A8A,        // Medium gray concrete
+    roughness: 0.9,
+    metalness: 0.1,
+  });
+  return mat;
 }
 
 function add(group, geo, mat, x, y, z, castShadow = false) {
