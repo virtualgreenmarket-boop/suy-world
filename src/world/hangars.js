@@ -15,7 +15,7 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
   const animFiles = ['Idle.glb', 'Quick Formal Bow.glb', 'Standing Greeting.glb'];
 
   return new Promise((resolve, reject) => {
-    loader.load(modelPath, async gltf => {
+    loader.load(modelPath, gltf => {
       const model = gltf.scene;
 
       // Setup materials, shadows, and preserve GLB textures
@@ -61,42 +61,48 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
       const mixer = new THREE.AnimationMixer(model);
       const actions = [];
 
-      // Load all 3 animation files
-      for (let i = 0; i < animFiles.length; i++) {
-        try {
-          const animGltf = await new Promise((res, rej) => {
-            loader.load(animBasePath + animFiles[i], res, undefined, rej);
-          });
-
-          if (animGltf.animations && animGltf.animations[0]) {
-            const action = mixer.clipAction(animGltf.animations[0]);
+      // Load all 3 animation files asynchronously
+      Promise.all(animFiles.map(file =>
+        new Promise((res) => {
+          loader.load(
+            animBasePath + file,
+            gltf => res({ file, gltf }),
+            undefined,
+            err => {
+              console.warn('[hangar] Failed to load Keren animation:', file, err?.message ?? err);
+              res({ file, gltf: null });
+            }
+          );
+        })
+      )).then(results => {
+        results.forEach(({ file, gltf }) => {
+          if (gltf && gltf.animations && gltf.animations[0]) {
+            const action = mixer.clipAction(gltf.animations[0]);
             action.setLoop(THREE.LoopOnce);
             action.clampWhenFinished = true;
             actions.push(action);
           }
-        } catch (err) {
-          console.warn('[hangar] Failed to load Keren animation:', animFiles[i], err?.message ?? err);
-        }
-      }
-
-      if (actions.length > 0) {
-        model.userData.mixer = mixer;
-        model.userData.kerenActions = actions;
-        model.userData.kerenCurrentIdx = 0;
-
-        // Setup animation cycle: when one finishes, play the next
-        mixer.addEventListener('finished', () => {
-          model.userData.kerenCurrentIdx = (model.userData.kerenCurrentIdx + 1) % actions.length;
-          const nextAction = actions[model.userData.kerenCurrentIdx];
-          nextAction.reset().fadeIn(0.3).play();
         });
 
-        // Start with first animation
-        actions[0].play();
-        console.log('[hangar] Keren NPC loaded with', actions.length, 'cycling animations');
-      } else {
-        console.warn('[hangar] Keren NPC loaded but no animations available');
-      }
+        if (actions.length > 0) {
+          model.userData.mixer = mixer;
+          model.userData.kerenActions = actions;
+          model.userData.kerenCurrentIdx = 0;
+
+          // Setup animation cycle: when one finishes, play the next
+          mixer.addEventListener('finished', () => {
+            model.userData.kerenCurrentIdx = (model.userData.kerenCurrentIdx + 1) % actions.length;
+            const nextAction = actions[model.userData.kerenCurrentIdx];
+            nextAction.reset().fadeIn(0.3).play();
+          });
+
+          // Start with first animation
+          actions[0].play();
+          console.log('[hangar] Keren NPC loaded with', actions.length, 'cycling animations');
+        } else {
+          console.warn('[hangar] Keren NPC loaded but no animations available');
+        }
+      });
 
       model.userData.isNPC = true;
 
