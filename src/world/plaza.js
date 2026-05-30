@@ -3,7 +3,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildNpcCharacter } from './npc.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
-import { registerBox } from '../systems/collision.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
 import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 
@@ -115,28 +114,6 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
     { localX: 3.72 },
   ];
   scene.add(inst);
-
-  // Add collision box for bench (approximate dimensions: 4.5m long × 1.2m wide)
-  const BENCH_LEN = 4.5;
-  const BENCH_WIDTH = 1.2;
-  const hw = BENCH_WIDTH / 2;
-  const hl = BENCH_LEN / 2;
-
-  const c = Math.cos(rotY), s = Math.sin(rotY);
-  const corners = [
-    [x + c * (-hl) - s * (-hw), z + s * (-hl) + c * (-hw)],
-    [x + c * ( hl) - s * (-hw), z + s * ( hl) + c * (-hw)],
-    [x + c * (-hl) - s * ( hw), z + s * (-hl) + c * ( hw)],
-    [x + c * ( hl) - s * ( hw), z + s * ( hl) + c * ( hw)],
-  ];
-
-  const minX = Math.min(...corners.map(p => p[0]));
-  const maxX = Math.max(...corners.map(p => p[0]));
-  const minZ = Math.min(...corners.map(p => p[1]));
-  const maxZ = Math.max(...corners.map(p => p[1]));
-
-  registerBox(minX, maxX, minZ, maxZ);
-
   return inst;
 }
 
