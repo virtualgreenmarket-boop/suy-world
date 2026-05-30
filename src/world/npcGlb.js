@@ -198,25 +198,37 @@ export async function spawnAllPlazaNpcs(scene) {
               if (values.length >= 6) { // Need at least 2 vectors (x,y,z each)
                 // VectorKeyframeTrack stores as [x0,y0,z0, x1,y1,z1, x2,y2,z2, ...]
                 const startX = values[0];
-                const startZ = values[2]; // Z is third component
-                const endX = values[values.length - 3]; // Last vector's X
-                const endZ = values[values.length - 1]; // Last vector's Z
+                const startY = values[1];
+                const startZ = values[2];
+                const endX = values[values.length - 3];
+                const endY = values[values.length - 2];
+                const endZ = values[values.length - 1];
 
-                deltaX = endX - startX;
-                deltaZ = endZ - startZ;
-                foundRootMotion = true;
+                const deltaXRaw = endX - startX;
+                const deltaYRaw = endY - startY;
+                const deltaZRaw = endZ - startZ;
 
                 console.log('[NPC 3] Found Hips position:', track.name);
-                console.log('  Start:', startX.toFixed(3), ',', startZ.toFixed(3));
-                console.log('  End:', endX.toFixed(3), ',', endZ.toFixed(3));
-                console.log('  Delta X:', deltaX.toFixed(3), 'Z:', deltaZ.toFixed(3));
+                console.log('  Start XYZ:', startX.toFixed(3), startY.toFixed(3), startZ.toFixed(3));
+                console.log('  End XYZ:', endX.toFixed(3), endY.toFixed(3), endZ.toFixed(3));
+                console.log('  Delta X:', deltaXRaw.toFixed(3), 'Y:', deltaYRaw.toFixed(3), 'Z:', deltaZRaw.toFixed(3));
 
                 debugText += 'Root track: ' + track.name + '\n';
-                debugText += '  Start: (' + startX.toFixed(3) + ', ' + startZ.toFixed(3) + ')\n';
-                debugText += '  End: (' + endX.toFixed(3) + ', ' + endZ.toFixed(3) + ')\n';
+                debugText += '  Start: (' + startX.toFixed(2) + ', ' + startY.toFixed(2) + ', ' + startZ.toFixed(2) + ')\n';
+                debugText += '  End: (' + endX.toFixed(2) + ', ' + endY.toFixed(2) + ', ' + endZ.toFixed(2) + ')\n';
+                debugText += '  Delta X: ' + deltaXRaw.toFixed(3) + ' m\n';
+                debugText += '  Delta Y: ' + deltaYRaw.toFixed(3) + ' m\n';
+                debugText += '  Delta Z: ' + deltaZRaw.toFixed(3) + ' m\n';
+
+                // Animation seems to be in cm, convert to meters by dividing by 100
+                deltaX = deltaXRaw / 100;
+                deltaZ = deltaZRaw / 100;
+                foundRootMotion = true;
+
+                debugText += '\nConverted to meters (÷100):\n';
                 debugText += '  Delta X: ' + deltaX.toFixed(3) + ' m\n';
                 debugText += '  Delta Z: ' + deltaZ.toFixed(3) + ' m\n';
-                break; // Found it, stop searching
+                break;
               }
             }
           }
