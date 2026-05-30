@@ -16,15 +16,7 @@ const NPC_URLS = [
   '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb',
   '/models/characters/npcs/texting_while_walking.glb',
   '/models/characters/npcs/jeny_tpose_riged.glb',
-  '/models/characters/npcs/GardenGirl/Catwalk Walk Forward.glb', // GardenGirl base mesh
-];
-
-const GG_BASE  = '/models/characters/npcs/GardenGirl/';
-const GG_EXTRA = [
-  { key: 'stop',  file: 'Catwalk Walk Stop.glb'  },
-  { key: 'idle',  file: 'Idle.glb'                },
-  { key: 'bow',   file: 'Quick Formal Bow.glb'    },
-  { key: 'greet', file: 'Standing Greeting.glb'   },
+  // NPC 4 (GardenGirl) removed
 ];
 
 // Per-entry NPC template data
@@ -218,29 +210,6 @@ export async function spawnAllPlazaNpcs(scene) {
           npc.idleAction?.reset().play();
         }
       }
-    } else if (i === 4) {
-      // GardenGirl — 80% standing / 20% walking between waypoints
-      npc.walkMode       = 'gardengirl';
-      npc.ggState        = null;
-      npc.ggActions      = { walk: npc.idleAction }; // walk clip comes with base GLB
-      npc.ggCycleCount   = 0;     // standing animations played; walk triggers at 30
-      npc.ggStandIdx     = 0;     // which standing anim plays next (0=idle,1=greet,2=bow)
-      npc.ggSpeed        = 1.2;   // m/s — recalculated from clip duration in _initGardenGirl
-      npc.ggWaypointIdx  = 0;
-      npc.ggWaypoints    = [
-        new THREE.Vector3( 22, 0, -18),
-        new THREE.Vector3(-22, 0, -18),
-        new THREE.Vector3(-22, 0,  18),
-        new THREE.Vector3( 22, 0,  18),
-        new THREE.Vector3(  0, 0, -28),
-      ];
-
-      const wp0 = npc.ggWaypoints[0];
-      npc.group.position.set(wp0.x, npc.floorOffset + getSurfaceY(wp0.x, wp0.z), wp0.z);
-      npc.baseY = npc.floorOffset + getSurfaceY(wp0.x, wp0.z);
-
-      npc.idleAction?.stop();
-      _initGardenGirl(npc);
     } else {
       npc.walkCenter = new THREE.Vector3(cfg.x, 0, cfg.z);
       npc.walkRadius = 7;
@@ -255,102 +224,6 @@ export async function spawnAllPlazaNpcs(scene) {
 
 export function updateAllPlazaNpcs(delta) {
   for (const npc of _plazaNpcs) updateNpc(npc, delta);
-}
-
-// ── GardenGirl animation state machine ───────────────────────────────
-// Standing phase: idle → greet → bow → idle → … (cycles through all 3)
-// After 30 individual animation completions → walk to next waypoint
-// Walk phase: move at speed derived from clip duration → stop → back to standing
-
-const GG_STANDING_PLAYS = 30;          // individual animation completions before walking
-const GG_STANDING_KEYS  = ['idle', 'greet', 'bow']; // rotation order
-const GG_STRIDE_M       = 1.0;         // metres per walk cycle — tune if feet slide
-
-async function _initGardenGirl(npc) {
-  const loader = new GLTFLoader();
-
-  const results = await Promise.all(GG_EXTRA.map(({ key, file }) =>
-    new Promise(resolve => {
-      loader.load(
-        GG_BASE + file,
-        gltf  => resolve({ key, clip: gltf.animations[0] ?? null }),
-        undefined,
-        err   => { console.warn('[gardengirl] failed:', file, err?.message ?? err); resolve({ key, clip: null }); }
-      );
-    })
-  ));
-
-  for (const { key, clip } of results) {
-    if (!clip) continue;
-    const a = npc.mixer.clipAction(clip);
-    a.timeScale         = 1.0;
-    a.clampWhenFinished = true;
-    a.setLoop(THREE.LoopOnce); // all animations play exactly once per call
-    npc.ggActions[key] = a;
-  }
-
-  // Walk action (from base GLB) loops while the NPC is moving
-  if (npc.ggActions.walk) {
-    npc.ggActions.walk.setLoop(THREE.LoopRepeat);
-    npc.ggActions.walk.clampWhenFinished = false;
-    npc.ggActions.walk.timeScale = 1.0;
-
-    const walkClip = npc.ggActions.walk.getClip();
-    if (walkClip?.duration > 0) {
-      npc.ggSpeed = GG_STRIDE_M / walkClip.duration;
-      console.log(
-        '[gardengirl] walk clip duration:', walkClip.duration.toFixed(3), 's',
-        '| stride:', GG_STRIDE_M, 'm',
-        '| speed:', npc.ggSpeed.toFixed(3), 'm/s'
-      );
-    }
-  }
-
-  // Single 'finished' listener drives ALL state transitions
-  npc.mixer.addEventListener('finished', e => {
-    const key = Object.keys(npc.ggActions).find(k => npc.ggActions[k] === e.action);
-    if (!key) return;
-
-    if (GG_STANDING_KEYS.includes(key)) {
-      // One standing animation just finished
-      npc.ggCycleCount++;
-
-      if (npc.ggCycleCount >= GG_STANDING_PLAYS) {
-        // Time to walk — advance to the next waypoint
-        npc.ggWaypointIdx = (npc.ggWaypointIdx + 1) % npc.ggWaypoints.length;
-        npc.ggState = 'walk';
-        _ggPlay(npc, 'walk');
-      } else {
-        // Advance to the next standing animation in the rotation
-        npc.ggStandIdx = (npc.ggStandIdx + 1) % GG_STANDING_KEYS.length;
-        npc.ggState    = 'stand';
-        _ggPlay(npc, GG_STANDING_KEYS[npc.ggStandIdx]);
-      }
-    } else if (key === 'stop') {
-      // Stop animation finished — reset counter and go back to standing
-      npc.ggCycleCount = 0;
-      npc.ggStandIdx   = 0;
-      npc.ggState      = 'stand';
-      _ggPlay(npc, GG_STANDING_KEYS[0]);
-    }
-  });
-
-  // Begin with idle
-  npc.ggState    = 'stand';
-  npc.ggStandIdx = 0;
-  _ggPlay(npc, GG_STANDING_KEYS[0]);
-}
-
-// Fade out every other action and fade in the requested one
-function _ggPlay(npc, key) {
-  for (const [k, a] of Object.entries(npc.ggActions)) {
-    if (!a) continue;
-    if (k === key) {
-      a.reset().fadeIn(0.25).play();
-    } else if (a.isRunning()) {
-      a.fadeOut(0.25);
-    }
-  }
 }
 
 // ── Internal spawn helper ─────────────────────────────────────────────
@@ -470,38 +343,6 @@ export function updateNpc(npc, delta) {
   // Sitting — just tick the animation, no movement
   if (npc.walkMode === 'sit') {
     npc.mixer.update(delta);
-    return;
-  }
-
-  // GardenGirl — 80% standing / 20% walking between waypoints
-  if (npc.walkMode === 'gardengirl') {
-    npc.mixer.update(delta);
-    if (!npc.ggState || !npc.ggActions) return;
-
-    // Movement only when walk action is actively playing
-    if (npc.ggState === 'walk') {
-      const target = npc.ggWaypoints[npc.ggWaypointIdx];
-      const dx   = target.x - npc.group.position.x;
-      const dz   = target.z - npc.group.position.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-
-      if (dist < 0.4) {
-        // Arrived — snap position and play stop animation
-        npc.group.position.x = target.x;
-        npc.group.position.z = target.z;
-        npc.group.position.y = getSurfaceY(target.x, target.z) + npc.floorOffset;
-        npc.ggState = 'stopping';
-        _ggPlay(npc, 'stop');
-      } else {
-        // Move at speed derived from walk clip duration (prevents sliding)
-        const step = Math.min(npc.ggSpeed * delta, dist);
-        npc.group.position.x += (dx / dist) * step;
-        npc.group.position.z += (dz / dist) * step;
-        npc.group.position.y  = getSurfaceY(npc.group.position.x, npc.group.position.z) + npc.floorOffset;
-        npc.group.rotation.y  = Math.atan2(dx, dz);
-      }
-    }
-    // All state transitions driven by mixer 'finished' event in _initGardenGirl
     return;
   }
 
