@@ -2,12 +2,17 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { registerBox } from '../systems/collision.js';
 import { registerGround } from '../systems/terrain.js';
+import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
+import { attachLabel } from '../ui/labels.js';
 
 const HOUSE_URL = '/models/nature/marina/Medieval%20Village%20Houses%20GLB/Medieval%20Village%20Houses.glb';
 
 // Heights (local Y, sea level = 0)
 const DECK_Y = 3.2;   // elevated deck surface
 const PIER_Y = 0.55;  // fishing pier surface (just above water)
+
+// Fisherman NPC tracking
+let _fishermanNpc = null;
 
 // ── Wood PBR helper ───────────────────────────────────────────────────
 
@@ -53,6 +58,7 @@ export function initMarina(scene) {
   _registerDeckCollision();
 
   _loadHouse(group);
+  _loadFishermanNpc(group);
 }
 
 // ── House (added to group so it inherits deck position) ───────────────
@@ -365,4 +371,86 @@ function _registerDeckCollision() {
   registerBox(-252.5, -249.5, 13, 66);
   // Front wall — right of stair gap (worldZ∈[-66,-13])
   registerBox(-252.5, -249.5, -66, -13);
+}
+
+// ── Fisherman NPC ─────────────────────────────────────────────────────
+
+function _loadFishermanNpc(group) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/Fisherman/fisherman.glb';
+
+  loader.load(modelPath, gltf => {
+    const model = gltf.scene;
+
+    // Setup materials and shadows
+    model.traverse(n => {
+      if (n.isMesh) {
+        n.castShadow = true;
+        n.receiveShadow = true;
+        if (n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach(m => {
+            if (!m) return;
+            if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+            if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+          });
+        }
+      }
+    });
+
+    // Scale to 3m tall
+    const box = new THREE.Box3().setFromObject(model);
+    const h = Math.max(box.max.y - box.min.y, 0.01);
+    model.scale.setScalar(3.0 / h);
+
+    // Position on deck
+    model.updateMatrixWorld(true);
+    const box2 = new THREE.Box3().setFromObject(model);
+    const floorY = -box2.min.y;
+
+    // Local position on deck (group handles world transform)
+    model.position.set(2, DECK_Y + floorY, -4);
+    model.rotation.y = Math.PI / 4; // Face outward
+
+    // Extract and play built-in animations
+    const clips = gltf.animations || [];
+    if (clips.length > 0) {
+      const mixer = new THREE.AnimationMixer(model);
+      const action = mixer.clipAction(clips[0]);
+      action.play();
+      model.userData.mixer = mixer;
+      console.log('[marina] Fisherman NPC loaded with', clips.length, 'animation(s):', clips.map(c => c.name).join(', '));
+    } else {
+      console.warn('[marina] fisherman.glb has no embedded animations');
+    }
+
+    model.userData.isNPC = true;
+
+    // Add Hebrew label
+    attachLabel(model, 'הדייג', 3.8, 'npc');
+
+    group.add(model);
+    _fishermanNpc = model;
+
+    console.log('[marina] Fisherman NPC loaded at deck position (2, DECK_Y, -4)');
+
+    // Register interaction (world coordinates: group at -230, rot PI/2)
+    // Local (2, DECK_Y, -4) → world approx (-234, DECK_Y, -2)
+    group.updateWorldMatrix(true, true);
+    const worldPos = new THREE.Vector3();
+    model.getWorldPosition(worldPos);
+
+    registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'Talk', 3, () => {
+      showNpcDialog(['ברוך הבא למרינה'], 'הדייג');
+    });
+
+  }, undefined, err => {
+    console.error('[marina] Fisherman NPC load failed:', err?.message ?? err);
+  });
+}
+
+export function updateMarina(delta) {
+  if (_fishermanNpc?.userData.mixer) {
+    _fishermanNpc.userData.mixer.update(delta);
+  }
 }

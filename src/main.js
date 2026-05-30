@@ -8,7 +8,7 @@ import { initIsland, updateWater }   from './world/island.js';
 import { initPlaza,  updatePlaza }   from './world/plaza.js';
 import { initPaths }                 from './world/paths.js';
 import { initHangars, updateHangars } from './world/hangars.js';
-import { initMarina }                from './world/marina.js';
+import { initMarina, updateMarina }  from './world/marina.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem, savePlayerPosition }
   from './player/localPlayer.js';
@@ -222,6 +222,7 @@ function animate() {
   updateWater(delta);
   updatePlaza(delta, npcTime);
   updateHangars(delta);
+  updateMarina(delta);
 
   // Procedural NPC animations (wave / spin / dance)
   for (let i = 0; i < npcs.length; i++) {
