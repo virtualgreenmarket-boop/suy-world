@@ -190,31 +190,34 @@ export async function spawnAllPlazaNpcs(scene) {
           let foundRootMotion = false;
 
           for (const track of clip.tracks) {
-            const values = track.values;
-            if (values.length < 2) continue;
+            // Look for Hips position track (root motion)
+            if (track.name.toLowerCase().includes('hips') &&
+                track.name.toLowerCase().includes('position')) {
 
-            const start = values[0];
-            const end = values[values.length - 1];
-            const delta = end - start;
+              const values = track.values;
+              if (values.length >= 6) { // Need at least 2 vectors (x,y,z each)
+                // VectorKeyframeTrack stores as [x0,y0,z0, x1,y1,z1, x2,y2,z2, ...]
+                const startX = values[0];
+                const startZ = values[2]; // Z is third component
+                const endX = values[values.length - 3]; // Last vector's X
+                const endZ = values[values.length - 1]; // Last vector's Z
 
-            // Look for root/hips position on X axis (forward/back or left/right)
-            if (track.name.toLowerCase().includes('position') &&
-                track.name.match(/\[0\]|\[x\]|\.x$/i)) {
-              deltaX = delta;
-              foundRootMotion = true;
-              console.log('[NPC 3] Found X position track:', track.name, '→ delta:', delta.toFixed(3));
-              debugText += 'X track: ' + track.name + '\n';
-              debugText += '  Delta X: ' + delta.toFixed(3) + ' m\n';
-            }
+                deltaX = endX - startX;
+                deltaZ = endZ - startZ;
+                foundRootMotion = true;
 
-            // Look for root/hips position on Z axis (forward/back)
-            if (track.name.toLowerCase().includes('position') &&
-                track.name.match(/\[2\]|\[z\]|\.z$/i)) {
-              deltaZ = delta;
-              foundRootMotion = true;
-              console.log('[NPC 3] Found Z position track:', track.name, '→ delta:', delta.toFixed(3));
-              debugText += 'Z track: ' + track.name + '\n';
-              debugText += '  Delta Z: ' + delta.toFixed(3) + ' m\n';
+                console.log('[NPC 3] Found Hips position:', track.name);
+                console.log('  Start:', startX.toFixed(3), ',', startZ.toFixed(3));
+                console.log('  End:', endX.toFixed(3), ',', endZ.toFixed(3));
+                console.log('  Delta X:', deltaX.toFixed(3), 'Z:', deltaZ.toFixed(3));
+
+                debugText += 'Root track: ' + track.name + '\n';
+                debugText += '  Start: (' + startX.toFixed(3) + ', ' + startZ.toFixed(3) + ')\n';
+                debugText += '  End: (' + endX.toFixed(3) + ', ' + endZ.toFixed(3) + ')\n';
+                debugText += '  Delta X: ' + deltaX.toFixed(3) + ' m\n';
+                debugText += '  Delta Z: ' + deltaZ.toFixed(3) + ' m\n';
+                break; // Found it, stop searching
+              }
             }
           }
 
