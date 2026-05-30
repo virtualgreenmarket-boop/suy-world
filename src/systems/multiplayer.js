@@ -4,7 +4,7 @@ import {
   updateRemotePlayerTarget,
   removeRemotePlayer,
 } from '../player/remotePlayer.js';
-import { addChatMessage, addSpeechBubble } from '../ui/chatUI.js';
+import { addChatMessage, addSpeechBubble, addPlayerJoinedMessage } from '../ui/chatUI.js';
 import { updateOnlineCount } from '../ui/hud.js';
 import { getUuid } from './economy.js';
 
@@ -41,6 +41,9 @@ export function initMultiplayer(onReady) {
   socket.on('playerJoined', ({ id, data }) => {
     addRemotePlayer(id, data);
     updateOnlineCount(null);
+    if (data.name) {
+      addPlayerJoinedMessage(data.name);
+    }
   });
 
   socket.on('playerMoved', ({ id, x, y, z, rotY }) => {
