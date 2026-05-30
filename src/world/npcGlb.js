@@ -150,7 +150,7 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.canWalk = false;
 
       // Manual speed tuning - ignore complex root motion calculation
-      const slowdownFactor = 1.0; // Use animation at normal speed
+      const slowdownFactor = 0.5; // 50% slower animation and movement
       let animSpeed = 1.0; // default m/s
       if (npc.walkAction) {
         npc.walkAction.timeScale = slowdownFactor; // Slow down animation
