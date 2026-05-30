@@ -409,7 +409,8 @@ function _loadFishermanNpc(group) {
     const floorY = -box2.min.y;
 
     // Local position on deck (group handles world transform)
-    model.position.set(2, DECK_Y + floorY, -4);
+    // Add 0.3 offset to lift feet above deck surface
+    model.position.set(2, DECK_Y + floorY + 0.3, -4);
     model.rotation.y = Math.PI / 4; // Face outward
 
     // Extract and play built-in animations
@@ -427,7 +428,7 @@ function _loadFishermanNpc(group) {
     model.userData.isNPC = true;
 
     // Add Hebrew label
-    attachLabel(model, 'הדייג', 3.8, 'npc');
+    attachLabel(model, 'הדייג', 4.5, 'npc');
 
     group.add(model);
     _fishermanNpc = model;

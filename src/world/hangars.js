@@ -70,7 +70,7 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.userData.isNPC = true;
 
       // Add name label above head (no E key indicator)
-      attachLabel(model, 'קרן', 3.8, 'npc');
+      attachLabel(model, 'קרן', 4.5, 'npc');
 
       console.log('[hangar] Keren NPC loaded, height:', h.toFixed(2), 'm → 3.0 m');
 
@@ -124,7 +124,7 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
       model.rotation.y = rotY;
 
       model.userData.isNPC = true;
-      attachLabel(model, 'NPC 1', 3.8, 'npc');
+      attachLabel(model, 'NPC 1', 4.5, 'npc');
 
       // Check for embedded animations
       const clips = gltf.animations || [];
@@ -187,7 +187,7 @@ async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.rotation.y = rotY;
 
       model.userData.isNPC = true;
-      attachLabel(model, 'NPC 2', 3.8, 'npc');
+      attachLabel(model, 'NPC 2', 4.5, 'npc');
 
       // Check for embedded animations
       const clips = gltf.animations || [];
@@ -429,8 +429,8 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
 // ── Hangar exterior shell ─────────────────────────────────────────────
 
 function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat) {
-  // Floor — extend downward to avoid z-fighting with grass (y=0)
-  const floor = add(group, new THREE.BoxGeometry(W - 1, 1.0, D - 1), floorMat, 0, -0.2, 0);
+  // Floor — solid platform above grass level
+  const floor = add(group, new THREE.BoxGeometry(W - 1, 0.5, D - 1), floorMat, 0, 0.25, 0);
   registerGround(floor);
 
   // Left wall
