@@ -90,11 +90,17 @@ function _loadSaved() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      // Body and Emotions are the base character mesh — never allow them to be null.
-      // The old Clear All button used to zero them out, making the player invisible.
-      if (!saved.Body)     saved.Body     = DEFAULT_LOADOUT.Body;
-      if (!saved.Emotions) saved.Emotions = DEFAULT_LOADOUT.Emotions;
-      const merged = { ...DEFAULT_LOADOUT, ...saved };
+      // Merge: default values, then saved values, but null/undefined/empty don't override
+      const merged = {};
+      for (const cat of Object.keys(DEFAULT_LOADOUT)) {
+        // Body and Emotions MUST have values — they're the base character mesh
+        const savedVal = saved[cat];
+        if ((cat === 'Body' || cat === 'Emotions') && !savedVal) {
+          merged[cat] = DEFAULT_LOADOUT[cat];
+        } else {
+          merged[cat] = savedVal || DEFAULT_LOADOUT[cat];
+        }
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); // persist the fix
       return merged;
     }

@@ -41,7 +41,7 @@ export function initLocalPlayer(scene, camera, name) {
   const _savedSpawn = _loadSpawn();
   playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
   scene.add(playerGroup);
-  attachLabel(playerGroup, 'אווטר', 3.0);
+  attachLabel(playerGroup, 'אווטר', 3.0, 'player');
 
   spawnCharacter(playerGroup).then(() => {
     const saved = getLoadout();

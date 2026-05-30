@@ -1,52 +1,74 @@
 import * as THREE from 'three';
 
-const FONT     = 'bold 24px Arial, sans-serif';
-const PAD_X    = 16;
-const PAD_Y    = 10;
-const RADIUS   = 8;
-const WORLD_H  = 1.1; // sprite height in world units
+const FONT         = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+const STROKE_WIDTH = 4;    // black outline thickness
+const PAD          = 8;    // padding around text
+const WORLD_H      = 0.85; // sprite height in world units
 
-function _buildTexture(text) {
-  // Measure text on a throw-away context
+// MMO-style: simple text with stroke, no backgrounds
+const STYLES = {
+  npc: {
+    fillColor:   '#ffffff',  // white text
+    strokeColor: '#000000',  // black outline
+  },
+  player: {
+    fillColor:   '#4d9fff',  // bright blue text
+    strokeColor: '#000000',  // black outline
+  },
+};
+
+function _buildTexture(text, style = 'npc') {
+  const preset = STYLES[style] || STYLES.npc;
+
+  // Measure text
   const probe = document.createElement('canvas').getContext('2d');
   probe.font  = FONT;
-  const tw    = probe.measureText(text).width;
+  const tm    = probe.measureText(text);
+  const tw    = tm.width;
+  const th    = (tm.actualBoundingBoxAscent || 14) + (tm.actualBoundingBoxDescent || 4);
 
-  const cw = Math.ceil(tw + PAD_X * 2);
-  const ch = Math.ceil(probe.measureText('M').actualBoundingBoxAscent
-           + probe.measureText('M').actualBoundingBoxDescent + PAD_Y * 2) || 40;
+  // Canvas sized to fit text + padding + stroke
+  const cw = Math.ceil(tw + PAD * 2 + STROKE_WIDTH * 2);
+  const ch = Math.ceil(th + PAD * 2 + STROKE_WIDTH * 2);
 
   const canvas  = document.createElement('canvas');
   canvas.width  = cw;
   canvas.height = ch;
   const ctx = canvas.getContext('2d');
 
-  // Rounded background
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.beginPath();
-  ctx.roundRect(0, 0, cw, ch, RADIUS);
-  ctx.fill();
+  // Clear to fully transparent (no background)
+  ctx.clearRect(0, 0, cw, ch);
 
-  // Text
   ctx.font         = FONT;
-  ctx.fillStyle    = '#ffffff';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, cw / 2, ch / 2);
+
+  const cx = cw / 2;
+  const cy = ch / 2;
+
+  // Draw black stroke (outline) first
+  ctx.strokeStyle = preset.strokeColor;
+  ctx.lineWidth   = STROKE_WIDTH;
+  ctx.lineJoin    = 'round';
+  ctx.strokeText(text, cx, cy);
+
+  // Draw colored fill on top
+  ctx.fillStyle = preset.fillColor;
+  ctx.fillText(text, cx, cy);
 
   const tex = new THREE.CanvasTexture(canvas);
-  tex.minFilter = THREE.LinearFilter; // no mipmaps — saves GPU memory
+  tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
   return { tex, aspect: cw / ch };
 }
 
-export function createLabel(text, yOffset = 0) {
-  const { tex, aspect } = _buildTexture(text);
+export function createLabel(text, yOffset = 0, style = 'npc') {
+  const { tex, aspect } = _buildTexture(text, style);
   const mat  = new THREE.SpriteMaterial({
-    map:        tex,
-    depthTest:  false,
-    depthWrite: false,
-    fog:        false,
+    map:         tex,
+    depthTest:   false,
+    depthWrite:  false,
+    fog:         false,
     transparent: true,
   });
   const sprite = new THREE.Sprite(mat);
@@ -56,8 +78,8 @@ export function createLabel(text, yOffset = 0) {
   return sprite;
 }
 
-export function attachLabel(parent, text, yOffset = 0) {
-  const label = createLabel(text, yOffset);
+export function attachLabel(parent, text, yOffset = 0, style = 'npc') {
+  const label = createLabel(text, yOffset, style);
   parent.add(label);
   return label;
 }

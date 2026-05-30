@@ -89,15 +89,19 @@ export function spawnPlazaTree(scene) {
   const tl   = new THREE.TextureLoader();
   const BASE = '/models/nature/trees/plaza_tree/textures/';
 
-  // FBXLoader will auto-resolve texture references via setResourcePath.
-  // We still pre-load the ones we know we need for fallback / override.
   const barkTex = tl.load(BASE + 'Trunk_D_Tiled2.png');
   barkTex.colorSpace = THREE.SRGBColorSpace;
   barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
   barkTex.anisotropy = 16;
 
+  // Leaf texture — loaded explicitly so leaf meshes always get it even if FBX
+  // auto-resolution via setResourcePath fails (common with renamed files).
+  const leafTex = tl.load(BASE + 'maplebranch.png');
+  leafTex.colorSpace = THREE.SRGBColorSpace;
+  leafTex.anisotropy = 8;
+
   const loader = new FBXLoader();
-  loader.setResourcePath(BASE);   // FBX references textures by filename — find them here
+  loader.setResourcePath(BASE);
 
   loader.load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
     const meshNames = [];
@@ -109,11 +113,9 @@ export function spawnPlazaTree(scene) {
                   || name.includes('foliage') || name.includes('maple')
                   || name.includes('branch');
 
-      // Fix up materials the FBXLoader created from the file
       const mats = Array.isArray(n.material) ? n.material : [n.material];
       mats.forEach(mat => {
         if (!mat) return;
-        // Correct colour space on every loaded texture
         for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap']) {
           if (mat[key]) {
             if (key === 'map' || key === 'emissiveMap') mat[key].colorSpace = THREE.SRGBColorSpace;
@@ -121,16 +123,18 @@ export function spawnPlazaTree(scene) {
             mat[key].needsUpdate = true;
           }
         }
-        // If FBX didn't load a diffuse map, assign the tileable bark texture
         if (!mat.map && !isLeaf) { mat.map = barkTex; mat.needsUpdate = true; }
+        // Always assign leaf texture to leaf meshes that have no map loaded
+        if (isLeaf && !mat.map)  { mat.map = leafTex; mat.needsUpdate = true; }
 
         if (isLeaf) {
           mat.side        = THREE.DoubleSide;
-          mat.alphaTest   = 0.65;
+          mat.alphaTest   = 0.28; // was 0.65 — too aggressive, cut most leaf pixels
           mat.transparent = false;
           mat.depthWrite  = true;
+          mat.color.setHex(0x5a8a3a); // warm green tint
         }
-        mat.roughness = isLeaf ? 0.82 : 0.90;
+        mat.roughness = isLeaf ? 0.80 : 0.90;
         mat.metalness = 0.0;
         mat.needsUpdate = true;
       });
@@ -156,12 +160,15 @@ export function spawnPlazaTree(scene) {
     fbx.position.set(0, -box2.min.y, 0);
     scene.add(fbx);
 
+    // Procedural leaf canopy — guarantees visible foliage regardless of FBX mesh names
+    _addPlazaLeafCanopy(scene, leafTex);
+
     _treeCount++;
     const plazaLabel = createLabel(`TREE ${_treeCount}`);
-    plazaLabel.position.set(0, 26, 0); // world y=26 — 4m above the 22m FBX crown
+    plazaLabel.position.set(0, 26, 0);
     scene.add(plazaLabel);
 
-    // Ground AO shadow decal — multiply-blend darkens the ground around the base
+    // Ground AO shadow decal
     const aoTex = tl.load(BASE + 'internal_ground_ao_texture.jpeg');
     aoTex.colorSpace = THREE.SRGBColorSpace;
     const aoDecal = new THREE.Mesh(
@@ -178,6 +185,51 @@ export function spawnPlazaTree(scene) {
 
     console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 22 m');
   }, undefined, err => console.warn('[trees] plaza maple failed:', err?.message ?? err));
+}
+
+// Procedural leaf canopy for the plaza hero tree.
+// Uses maplebranch.png cards scattered through the canopy zone (y: 6–22 m world).
+// This runs regardless of whether the FBX already has leaf meshes, so the tree
+// always has visible foliage even if the model's mesh names don't match keywords.
+function _addPlazaLeafCanopy(scene, leafTex) {
+  const mat = new THREE.MeshStandardMaterial({
+    map:         leafTex,
+    alphaTest:   0.28,
+    side:        THREE.DoubleSide,
+    roughness:   0.80,
+    metalness:   0.0,
+    transparent: false,
+    depthWrite:  true,
+    color:       new THREE.Color(0x5a8a3a),
+  });
+
+  let s = 31;
+  const rng = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+
+  // 20 clusters × 5 leaf cards = 100 quads spread through the canopy
+  for (let c = 0; c < 20; c++) {
+    const angle  = (c / 20) * Math.PI * 2 + rng() * 0.7;
+    const radius = 1.5 + rng() * 3.8;      // 1.5–5.3 m from trunk
+    const baseH  = 6   + rng() * 14;       // 6–20 m height
+
+    for (let q = 0; q < 5; q++) {
+      const w    = 2.8 + rng() * 2.8;      // 2.8–5.6 m card width
+      const card = new THREE.Mesh(new THREE.PlaneGeometry(w, w), mat);
+      card.position.set(
+        Math.cos(angle) * radius + (rng() - 0.5) * 2.0,
+        baseH            + (rng() - 0.5) * 2.5,
+        Math.sin(angle) * radius + (rng() - 0.5) * 2.0
+      );
+      card.rotation.set(
+        (rng() - 0.5) * 1.4,
+        rng() * Math.PI * 2,
+        (rng() - 0.5) * 1.4
+      );
+      card.castShadow    = false;
+      card.receiveShadow = false;
+      scene.add(card);
+    }
+  }
 }
 
 export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
