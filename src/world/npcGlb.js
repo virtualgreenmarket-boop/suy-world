@@ -217,17 +217,18 @@ export async function spawnAllPlazaNpcs(scene) {
                 debugText += '  Start: (' + startX.toFixed(2) + ', ' + startY.toFixed(2) + ', ' + startZ.toFixed(2) + ')\n';
                 debugText += '  End: (' + endX.toFixed(2) + ', ' + endY.toFixed(2) + ', ' + endZ.toFixed(2) + ')\n';
                 debugText += '  Delta X: ' + deltaXRaw.toFixed(3) + ' m\n';
-                debugText += '  Delta Y: ' + deltaYRaw.toFixed(3) + ' m\n';
-                debugText += '  Delta Z: ' + deltaZRaw.toFixed(3) + ' m\n';
+                debugText += '  Delta Y: ' + deltaYRaw.toFixed(3) + '\n';
+                debugText += '  Delta Z: ' + deltaZRaw.toFixed(3) + '\n';
 
-                // Animation seems to be in cm, convert to meters by dividing by 100
-                deltaX = deltaXRaw / 100;
-                deltaZ = deltaZRaw / 100;
+                // Animation is in cm but Three.js works in different scale
+                // Use raw values scaled down by 100 for correct movement
+                deltaX = Math.abs(deltaXRaw) / 100;
+                deltaZ = Math.abs(deltaZRaw) / 100;
                 foundRootMotion = true;
 
-                debugText += '\nConverted to meters (÷100):\n';
-                debugText += '  Delta X: ' + deltaX.toFixed(3) + ' m\n';
-                debugText += '  Delta Z: ' + deltaZ.toFixed(3) + ' m\n';
+                debugText += '\nActual movement distance:\n';
+                debugText += '  X: ' + deltaX.toFixed(3) + ' m\n';
+                debugText += '  Z: ' + deltaZ.toFixed(3) + ' m\n';
                 break;
               }
             }
@@ -236,13 +237,16 @@ export async function spawnAllPlazaNpcs(scene) {
           // Calculate 2D distance traveled
           if (foundRootMotion) {
             const distanceTraveled = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
-            animSpeed = (distanceTraveled / clip.duration) * slowdownFactor;
-            console.log('[NPC 3] Root motion distance:', distanceTraveled.toFixed(3), 'm (X:', deltaX.toFixed(3), 'Z:', deltaZ.toFixed(3), ') → speed:', animSpeed.toFixed(3), 'm/s');
+            // When timeScale < 1, animation takes longer, so speed = distance / (duration / timeScale)
+            const effectiveDuration = clip.duration / slowdownFactor;
+            animSpeed = distanceTraveled / effectiveDuration;
+            console.log('[NPC 3] Root motion:', distanceTraveled.toFixed(3), 'm in', effectiveDuration.toFixed(3), 's → speed:', animSpeed.toFixed(3), 'm/s');
 
             debugText += '\n✓ ROOT MOTION FOUND\n';
             debugText += 'Distance: ' + distanceTraveled.toFixed(3) + ' m\n';
-            debugText += 'Duration: ' + clip.duration.toFixed(3) + ' s\n';
-            debugText += 'Slowdown: ' + (slowdownFactor * 100).toFixed(0) + '%\n';
+            debugText += 'Base Duration: ' + clip.duration.toFixed(3) + ' s\n';
+            debugText += 'TimeScale: ' + slowdownFactor.toFixed(2) + 'x\n';
+            debugText += 'Effective Duration: ' + effectiveDuration.toFixed(3) + ' s\n';
             debugText += 'Speed: ' + animSpeed.toFixed(3) + ' m/s\n';
           } else {
             // Fallback: use manual tuning for no root motion animation
