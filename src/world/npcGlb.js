@@ -237,17 +237,21 @@ export async function spawnAllPlazaNpcs(scene) {
           // Calculate 2D distance traveled
           if (foundRootMotion) {
             const distanceTraveled = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+            // Movement speed multiplier - tune this to match visual animation
+            const speedMultiplier = 2.5; // Increase manual movement speed
+
             // When timeScale < 1, animation takes longer, so speed = distance / (duration / timeScale)
             const effectiveDuration = clip.duration / slowdownFactor;
-            animSpeed = distanceTraveled / effectiveDuration;
-            console.log('[NPC 3] Root motion:', distanceTraveled.toFixed(3), 'm in', effectiveDuration.toFixed(3), 's → speed:', animSpeed.toFixed(3), 'm/s');
+            animSpeed = (distanceTraveled / effectiveDuration) * speedMultiplier;
+            console.log('[NPC 3] Root motion:', distanceTraveled.toFixed(3), 'm in', effectiveDuration.toFixed(3), 's → base speed:', (distanceTraveled / effectiveDuration).toFixed(3), 'm/s × multiplier:', speedMultiplier, '→', animSpeed.toFixed(3), 'm/s');
 
             debugText += '\n✓ ROOT MOTION FOUND\n';
             debugText += 'Distance: ' + distanceTraveled.toFixed(3) + ' m\n';
             debugText += 'Base Duration: ' + clip.duration.toFixed(3) + ' s\n';
             debugText += 'TimeScale: ' + slowdownFactor.toFixed(2) + 'x\n';
             debugText += 'Effective Duration: ' + effectiveDuration.toFixed(3) + ' s\n';
-            debugText += 'Speed: ' + animSpeed.toFixed(3) + ' m/s\n';
+            debugText += 'Speed Multiplier: ' + speedMultiplier.toFixed(2) + 'x\n';
+            debugText += 'Final Speed: ' + animSpeed.toFixed(3) + ' m/s\n';
           } else {
             // Fallback: use manual tuning for no root motion animation
             const manualStride = 1.5; // increased from 1.0 - tune based on visual observation
