@@ -5,7 +5,7 @@ import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npc
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
 import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
-import { attachLabel } from './labels.js';
+import { attachLabel } from '../ui/labels.js';
 
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
