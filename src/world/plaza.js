@@ -121,9 +121,7 @@ function _placeBench(scene, tmpl, x, y, z, rotY) {
   const PAD = 0.25;  // thin barrier thickness (like marina fence)
   const hl = BENCH_LEN / 2;
 
-  // Rotate barrier 180 degrees from bench orientation
-  const barrierRotY = rotY + Math.PI;
-  const c = Math.cos(barrierRotY), s = Math.sin(barrierRotY);
+  const c = Math.cos(rotY), s = Math.sin(rotY);
   const corners = [
     [x + c * (-hl) - s * (-PAD), z + s * (-hl) + c * (-PAD)],
     [x + c * ( hl) - s * (-PAD), z + s * ( hl) + c * (-PAD)],
