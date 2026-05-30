@@ -149,8 +149,8 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.straightDirection = 0; // rotation in radians
       npc.canWalk = false;
 
-      // Calculate exact distance from animation root motion
-      const slowdownFactor = 0.5; // Slow walk speed
+      // Manual speed tuning - ignore complex root motion calculation
+      const slowdownFactor = 1.0; // Use animation at normal speed
       let animSpeed = 1.0; // default m/s
       if (npc.walkAction) {
         npc.walkAction.timeScale = slowdownFactor; // Slow down animation
@@ -266,14 +266,36 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.group.position.y = surfaceY;
       npc.baseY = surfaceY;
 
-      // Fix material brightness - add emissive light
+      // Improve material quality: brightness, sharpness, anisotropic filtering
       npc.group.traverse(n => {
         if (n.isMesh && n.material) {
           const mats = Array.isArray(n.material) ? n.material : [n.material];
           mats.forEach(m => {
             if (m.isMeshStandardMaterial) {
-              m.emissive.setHex(0x333333); // Add subtle emissive glow
-              m.emissiveIntensity = 0.3;
+              // Increase brightness with emissive
+              m.emissive.setHex(0x444444); // Brighter emissive
+              m.emissiveIntensity = 0.5; // Higher intensity
+
+              // Improve texture sharpness with anisotropic filtering
+              if (m.map) {
+                m.map.anisotropy = 16; // Max sharpness
+                m.map.needsUpdate = true;
+              }
+              if (m.normalMap) {
+                m.normalMap.anisotropy = 16;
+                m.normalMap.needsUpdate = true;
+              }
+              if (m.roughnessMap) {
+                m.roughnessMap.anisotropy = 16;
+                m.roughnessMap.needsUpdate = true;
+              }
+
+              // Reduce roughness slightly for more reflectivity
+              if (m.roughness > 0.5) {
+                m.roughness *= 0.8;
+              }
+
+              m.needsUpdate = true;
             }
           });
         }
