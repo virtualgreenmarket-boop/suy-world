@@ -6,6 +6,51 @@ import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { registerGround } from '../systems/terrain.js';
 
+// ── Enhance model quality helper ─────────────────────────────────────
+
+function enhanceModelQuality(model) {
+  model.traverse(n => {
+    if (n.isMesh) {
+      n.castShadow = true;
+      n.receiveShadow = true;
+
+      if (n.material) {
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        mats.forEach(m => {
+          if (!m) return;
+
+          // Enhance all texture maps with maximum anisotropic filtering
+          ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap'].forEach(key => {
+            if (m[key]) {
+              m[key].anisotropy = 16; // Maximum sharpness
+              m[key].minFilter = THREE.LinearMipmapLinearFilter;
+              m[key].magFilter = THREE.LinearFilter;
+
+              // Ensure correct color space
+              if (key === 'map' || key === 'emissiveMap') {
+                m[key].colorSpace = THREE.SRGBColorSpace;
+              }
+
+              m[key].needsUpdate = true;
+            }
+          });
+
+          // Enhance material properties for better appearance
+          if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+            // Add slight emissive to prevent pure black in shadows
+            if (!m.emissive || m.emissive.getHex() === 0x000000) {
+              m.emissive = new THREE.Color(0x111111);
+              m.emissiveIntensity = 0.2;
+            }
+          }
+
+          m.needsUpdate = true;
+        });
+      }
+    }
+  });
+}
+
 // ── GLB NPC loader (North hangar) ────────────────────────────────────
 
 async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
@@ -16,31 +61,8 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
     loader.load(modelPath, gltf => {
       const model = gltf.scene;
 
-      // Setup materials, shadows, and preserve GLB textures
-      model.traverse(n => {
-        if (n.isMesh) {
-          n.castShadow = true;
-          n.receiveShadow = true;
-
-          // GLTFLoader already assigns materials correctly — just ensure colorSpace
-          if (n.material) {
-            const mats = Array.isArray(n.material) ? n.material : [n.material];
-            mats.forEach(m => {
-              if (!m) return;
-              // Fix colorSpace on all texture maps
-              ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach(key => {
-                if (m[key]) {
-                  if (key === 'map' || key === 'emissiveMap') {
-                    m[key].colorSpace = THREE.SRGBColorSpace;
-                  }
-                  m[key].needsUpdate = true;
-                }
-              });
-              m.needsUpdate = true;
-            });
-          }
-        }
-      });
+      // Enhance model quality (textures, materials, lighting)
+      enhanceModelQuality(model);
 
       // Scale to 3.3m tall (3m + 10%)
       const box = new THREE.Box3().setFromObject(model);
@@ -70,7 +92,7 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.userData.isNPC = true;
 
       // Add name label right above head (adjusted for 3.3m height)
-      attachLabel(model, 'קרן', 3.5, 'npc');
+      attachLabel(model, 'קרן', 2.156, 'npc'); // 1.96 * 1.1 = 2.156 (10% higher)
 
       console.log('[hangar] Keren2 NPC loaded, height:', h.toFixed(2), 'm → 3.3 m');
 
@@ -93,22 +115,8 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
     loader.load(modelPath, gltf => {
       const model = gltf.scene;
 
-      // Setup materials, shadows, and preserve GLB textures
-      model.traverse(n => {
-        if (n.isMesh) {
-          n.castShadow = true;
-          n.receiveShadow = true;
-
-          if (n.material) {
-            const mats = Array.isArray(n.material) ? n.material : [n.material];
-            mats.forEach(m => {
-              if (!m) return;
-              if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
-              if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
-            });
-          }
-        }
-      });
+      // Enhance model quality
+      enhanceModelQuality(model);
 
       // Scale to 3.3m tall (3m + 10%)
       const box = new THREE.Box3().setFromObject(model);
@@ -124,7 +132,7 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
       model.rotation.y = rotY;
 
       model.userData.isNPC = true;
-      attachLabel(model, 'קרן', 3.5, 'npc');
+      attachLabel(model, 'קרן', 2.156, 'npc'); // 1.96 * 1.1 = 2.156 (10% higher)
 
       // Check for embedded animations
       const clips = gltf.animations || [];
@@ -157,21 +165,8 @@ async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
     loader.load(modelPath, gltf => {
       const model = gltf.scene;
 
-      // Setup materials and shadows
-      model.traverse(n => {
-        if (n.isMesh) {
-          n.castShadow = true;
-          n.receiveShadow = true;
-          if (n.material) {
-            const mats = Array.isArray(n.material) ? n.material : [n.material];
-            mats.forEach(m => {
-              if (!m) return;
-              if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
-              if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
-            });
-          }
-        }
-      });
+      // Enhance model quality
+      enhanceModelQuality(model);
 
       // Scale to 3.3m tall (3m + 10%)
       const box = new THREE.Box3().setFromObject(model);
@@ -187,7 +182,7 @@ async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.rotation.y = rotY;
 
       model.userData.isNPC = true;
-      attachLabel(model, 'קרן', 3.5, 'npc');
+      attachLabel(model, 'קרן', 2.156, 'npc'); // 1.96 * 1.1 = 2.156 (10% higher)
 
       // Check for embedded animations
       const clips = gltf.animations || [];

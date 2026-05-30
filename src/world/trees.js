@@ -22,13 +22,22 @@ export function preloadTrees() {
   trunkColor.colorSpace = THREE.SRGBColorSpace;
   leafColor.colorSpace  = THREE.SRGBColorSpace;
 
+  // Enhanced textures with anisotropic filtering
+  trunkColor.anisotropy = 16;
+  trunkNorm.anisotropy = 16;
+  leafColor.anisotropy = 16;
+
   const trunkMat = new THREE.MeshStandardMaterial({
     map: trunkColor, normalMap: trunkNorm,
-    roughness: 0.93, metalness: 0.0,
+    roughness: 0.85, metalness: 0.0,
+    emissive: new THREE.Color(0x0a0a08), // Slight warm emissive for better color
+    emissiveIntensity: 0.15,
   });
   const leafMat = new THREE.MeshStandardMaterial({
     map: leafColor, alphaTest: 0.45,
-    side: THREE.DoubleSide, roughness: 0.9, metalness: 0.0,
+    side: THREE.DoubleSide, roughness: 0.8, metalness: 0.0,
+    emissive: new THREE.Color(0x0a1008), // Slight green emissive for vibrant leaves
+    emissiveIntensity: 0.2,
   });
 
   _promise = new Promise((resolve, reject) =>
@@ -150,10 +159,10 @@ export function spawnPlazaTree(scene) {
     if      (s0.z > s0.y * 1.5) { fbx.rotation.x = -Math.PI / 2; fbx.updateMatrixWorld(true); }
     else if (s0.x > s0.y * 1.5) { fbx.rotation.z =  Math.PI / 2; fbx.updateMatrixWorld(true); }
 
-    // Scale to 22 m
+    // Scale to 27.5 m (22 * 1.25 = 27.5, 25% larger)
     const box1 = new THREE.Box3().setFromObject(fbx);
     const h    = Math.max(box1.max.y - box1.min.y, 0.01);
-    fbx.scale.setScalar(22 / h);
+    fbx.scale.setScalar(27.5 / h);
 
     // Seat on ground
     const box2 = new THREE.Box3().setFromObject(fbx);
@@ -165,7 +174,7 @@ export function spawnPlazaTree(scene) {
 
     _treeCount++;
     const plazaLabel = createLabel(`TREE ${_treeCount}`);
-    plazaLabel.position.set(0, 26, 0);
+    plazaLabel.position.set(0, 32.5, 0); // 26 * 1.25 = 32.5 (adjusted for 25% larger tree)
     scene.add(plazaLabel);
 
     // Ground AO shadow decal
@@ -183,7 +192,7 @@ export function spawnPlazaTree(scene) {
     aoDecal.position.set(0, 0.03, 0);
     scene.add(aoDecal);
 
-    console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 22 m');
+    console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 27.5 m (25% larger)');
   }, undefined, err => console.warn('[trees] plaza maple failed:', err?.message ?? err));
 }
 
@@ -206,14 +215,14 @@ function _addPlazaLeafCanopy(scene, leafTex) {
   let s = 31;
   const rng = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 
-  // 20 clusters × 5 leaf cards = 100 quads spread through the canopy
+  // 20 clusters × 5 leaf cards = 100 quads spread through the canopy (scaled 25% larger)
   for (let c = 0; c < 20; c++) {
     const angle  = (c / 20) * Math.PI * 2 + rng() * 0.7;
-    const radius = 1.5 + rng() * 3.8;      // 1.5–5.3 m from trunk
-    const baseH  = 6   + rng() * 14;       // 6–20 m height
+    const radius = (1.5 + rng() * 3.8) * 1.25;  // 1.875–6.625 m from trunk (25% larger)
+    const baseH  = (6   + rng() * 14) * 1.25;   // 7.5–25 m height (25% larger)
 
     for (let q = 0; q < 5; q++) {
-      const w    = 2.8 + rng() * 2.8;      // 2.8–5.6 m card width
+      const w    = (2.8 + rng() * 2.8) * 1.25;  // 3.5–7 m card width (25% larger)
       const card = new THREE.Mesh(new THREE.PlaneGeometry(w, w), mat);
       card.position.set(
         Math.cos(angle) * radius + (rng() - 0.5) * 2.0,

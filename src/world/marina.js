@@ -430,7 +430,7 @@ function _loadFishermanNpc(group) {
     model.userData.isNPC = true;
 
     // Add Hebrew label
-    attachLabel(model, 'הדייג', 4.5, 'npc');
+    attachLabel(model, 'הדייג', 2.156, 'npc'); // Same as Keren
 
     group.add(model);
     _fishermanNpc = model;
@@ -500,7 +500,7 @@ function _loadSkylarNpc(group) {
     }
 
     model.userData.isNPC = true;
-    attachLabel(model, 'Skylar', 4.5, 'npc');
+    attachLabel(model, 'Skylar', 2.156, 'npc'); // Same as Keren
 
     group.add(model);
     _skylarNpc = model;

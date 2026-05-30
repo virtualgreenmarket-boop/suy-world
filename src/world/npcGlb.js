@@ -122,7 +122,7 @@ export async function spawnAllPlazaNpcs(scene) {
     if (!npc) continue;
 
     _npcLabelCount++;
-    attachLabel(npc.group, `NPC ${_npcLabelCount}`, 4.0);
+    attachLabel(npc.group, `NPC ${_npcLabelCount}`, 2.156, 'npc'); // Same as Keren
 
     if (i === 3) {
       // Jeny patrols along the marina deck (deck y=3.2, world x≈-222, z from -50 to +50)

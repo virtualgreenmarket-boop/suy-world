@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
-const FONT         = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-const STROKE_WIDTH = 4;    // black outline thickness
-const PAD          = 8;    // padding around text
-const WORLD_H      = 0.85; // sprite height in world units
+const FONT         = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'; // 50% smaller (was 22px)
+const STROKE_WIDTH = 2;    // black outline thickness (reduced proportionally)
+const PAD          = 4;    // padding around text (reduced proportionally)
+const WORLD_H      = 0.425; // sprite height in world units (50% smaller, was 0.85)
 
 // MMO-style: simple text with stroke, no backgrounds
 const STYLES = {
