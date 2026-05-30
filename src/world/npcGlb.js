@@ -516,9 +516,18 @@ export function updateNpc(npc, delta) {
 
   // Straight walk (texting NPC) - walks forward, turns 145° at plaza edge
   if (npc.walkMode === 'straight') {
+    // Save position before animation updates (to cancel root motion)
+    const savedX = npc.group.position.x;
+    const savedZ = npc.group.position.z;
+
+    // Update animation (this will move the model due to root motion)
     npc.mixer.update(delta);
 
-    // Calculate movement direction
+    // Cancel root motion by restoring saved position
+    npc.group.position.x = savedX;
+    npc.group.position.z = savedZ;
+
+    // Now apply our manual movement
     const dx = Math.sin(npc.straightDirection) * npc.straightSpeed * delta;
     const dz = Math.cos(npc.straightDirection) * npc.straightSpeed * delta;
 
