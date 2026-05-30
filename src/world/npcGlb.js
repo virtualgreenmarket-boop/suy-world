@@ -144,37 +144,31 @@ export async function spawnAllPlazaNpcs(scene) {
 
       registerInteraction([-222, deckY + 2, 0], 'Talk', 3, null, () => {});
     } else if (i === 2) {
-      // Walks in a continuous loop around the plaza
-      npc.walkMode     = 'circle';
-      npc.circleRadius = 18;
-      npc.circleAngle  = 0;
-      npc.circleSpeed  = 0.30; // rad/s
-      npc.circleCenter = new THREE.Vector3(0, 0, 0);
-      npc.canWalk      = false;
+      // Walks straight forward, turns 145° at plaza edge
+      npc.walkMode = 'straight';
+      npc.straightSpeed = 1.4; // m/s to match animation
+      npc.straightDirection = 0; // rotation in radians
+      npc.canWalk = false;
 
-      // Ensure a dedicated walk clip exists — if the model only has one clip
-      // (texting pose) with no walk keyword, build a retargeted walk instead.
-      const needsRetarget = !npc.walkAction || npc.walkAction === npc.idleAction;
-      if (needsRetarget) {
-        await preloadAnimations();
-        const boneNames = new Set();
-        npc.group.traverse(n => {
-          if (n.isBone)        boneNames.add(n.name);
-          if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
-        });
-        const walkClip = buildClipForSkeleton('walk', boneNames);
-        if (walkClip?.tracks.length > 0) {
-          npc.walkAction = npc.mixer.clipAction(walkClip);
+      // Fix material brightness - add emissive light
+      npc.group.traverse(n => {
+        if (n.isMesh && n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach(m => {
+            if (m.isMeshStandardMaterial) {
+              m.emissive.setHex(0x333333); // Add subtle emissive glow
+              m.emissiveIntensity = 0.3;
+            }
+          });
         }
-      }
+      });
 
-      if (!npc.walkAction) {
-        // No walk animation available — stay in place
-        npc.walkMode = null;
-        npc.idleAction?.reset().play();
-      } else {
+      // Play walk animation
+      if (npc.walkAction) {
         npc.idleAction?.stop();
         npc.walkAction.reset().play();
+      } else if (npc.idleAction) {
+        npc.idleAction.reset().play();
       }
     } else if (i === 0 || i === 1) {
       const bench = _sitBenches[i];
@@ -378,16 +372,36 @@ export function updateNpc(npc, delta) {
     return;
   }
 
-  // Circular walk (phone-woman)
-  if (npc.walkMode === 'circle') {
-    npc.circleAngle += npc.circleSpeed * delta;
-    const nx = npc.circleCenter.x + Math.cos(npc.circleAngle) * npc.circleRadius;
-    const nz = npc.circleCenter.z + Math.sin(npc.circleAngle) * npc.circleRadius;
-    npc.group.position.x = nx;
-    npc.group.position.z = nz;
-    npc.group.position.y = getSurfaceY(nx, nz) + npc.floorOffset;
-    npc.group.rotation.y = npc.circleAngle + Math.PI / 2;
+  // Straight walk (texting NPC) - walks forward, turns 145° at plaza edge
+  if (npc.walkMode === 'straight') {
     npc.mixer.update(delta);
+
+    // Calculate movement direction
+    const dx = Math.sin(npc.straightDirection) * npc.straightSpeed * delta;
+    const dz = Math.cos(npc.straightDirection) * npc.straightSpeed * delta;
+
+    const newX = npc.group.position.x + dx;
+    const newZ = npc.group.position.z + dz;
+
+    // Check if at plaza edge (radius 36)
+    const distFromCenter = Math.sqrt(newX * newX + newZ * newZ);
+
+    if (distFromCenter > 36) {
+      // Hit edge - turn 145 degrees (2.53 radians)
+      npc.straightDirection += 2.53;
+      // Normalize angle
+      if (npc.straightDirection > Math.PI * 2) {
+        npc.straightDirection -= Math.PI * 2;
+      }
+    } else {
+      // Move forward
+      npc.group.position.x = newX;
+      npc.group.position.z = newZ;
+    }
+
+    // Always at floor level
+    npc.group.position.y = getSurfaceY(npc.group.position.x, npc.group.position.z) + npc.floorOffset;
+    npc.group.rotation.y = npc.straightDirection;
     return;
   }
 
