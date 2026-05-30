@@ -252,14 +252,18 @@ function _loadSophiaNpc(scene) {
   loader.load(modelPath, gltf => {
     const model = gltf.scene;
 
-    // Set correct color space for all textures
+    // Set correct color space for textures
     model.traverse(n => {
       if (n.isMesh) {
         n.castShadow = true;
         n.receiveShadow = true;
         if (n.material) {
-          ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach(key => {
-            if (n.material[key]) n.material[key].colorSpace = THREE.SRGBColorSpace;
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach(m => {
+            if (!m) return;
+            // Only color/emissive maps need sRGB colorSpace
+            if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+            if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
           });
         }
       }
