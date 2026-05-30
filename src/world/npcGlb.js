@@ -149,8 +149,8 @@ export async function spawnAllPlazaNpcs(scene) {
       npc.straightDirection = 0; // rotation in radians
       npc.canWalk = false;
 
-      // Manual speed tuning - ignore complex root motion calculation
-      const slowdownFactor = 0.5; // 50% slower animation and movement
+      // Manual speed tuning - slow animation, fast movement
+      const slowdownFactor = 0.3; // 30% animation speed (slower)
       let animSpeed = 1.0; // default m/s
       if (npc.walkAction) {
         npc.walkAction.timeScale = slowdownFactor; // Slow down animation
@@ -238,7 +238,7 @@ export async function spawnAllPlazaNpcs(scene) {
           if (foundRootMotion) {
             const distanceTraveled = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
             // Movement speed multiplier - tune this to match visual animation
-            const speedMultiplier = 2.5; // Increase manual movement speed
+            const speedMultiplier = 4.0; // Higher movement speed to compensate for slow animation
 
             // When timeScale < 1, animation takes longer, so speed = distance / (duration / timeScale)
             const effectiveDuration = clip.duration / slowdownFactor;
