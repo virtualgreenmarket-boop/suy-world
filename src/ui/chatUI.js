@@ -405,8 +405,7 @@ function addJoinMessage(username) {
 function addHourlyMessage() {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const text = `🕐 השעה ${hours}:${minutes}`;
+  const text = `🕐 השעה ${hours}:00`;
 
   const msg = {
     type: 'hourly',
@@ -474,8 +473,10 @@ function scrollToBottom() {
 function checkHourlyMessage() {
   const now = new Date();
   const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
 
-  if (currentHour !== _lastHourlyMessage) {
+  // Send message only at exactly HH:00 (first minute of each hour)
+  if (currentMinute === 0 && currentHour !== _lastHourlyMessage) {
     _lastHourlyMessage = currentHour;
     addHourlyMessage();
   }
