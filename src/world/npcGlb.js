@@ -157,8 +157,33 @@ export async function spawnAllPlazaNpcs(scene) {
         const clip = npc.walkAction.getClip();
 
         if (clip && clip.duration > 0) {
+          // Create debug overlay on screen
+          const debugDiv = document.createElement('div');
+          debugDiv.id = 'npc3-debug';
+          debugDiv.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: #0f0;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 9999;
+            max-width: 400px;
+            white-space: pre-wrap;
+            border: 2px solid #0f0;
+            direction: ltr;
+            text-align: left;
+          `;
+          document.body.appendChild(debugDiv);
+
+          let debugText = '=== NPC 3 Animation Debug ===\n\n';
+          debugText += 'Tracks found:\n';
+
           // Debug: log all track names to see what's available
           console.log('[NPC 3] Animation tracks:', clip.tracks.map(t => t.name).join(', '));
+          debugText += clip.tracks.map(t => '  ' + t.name).join('\n') + '\n\n';
 
           // Find position tracks to calculate actual distance traveled
           let deltaX = 0, deltaZ = 0;
@@ -178,6 +203,8 @@ export async function spawnAllPlazaNpcs(scene) {
               deltaX = delta;
               foundRootMotion = true;
               console.log('[NPC 3] Found X position track:', track.name, '→ delta:', delta.toFixed(3));
+              debugText += 'X track: ' + track.name + '\n';
+              debugText += '  Delta X: ' + delta.toFixed(3) + ' m\n';
             }
 
             // Look for root/hips position on Z axis (forward/back)
@@ -186,6 +213,8 @@ export async function spawnAllPlazaNpcs(scene) {
               deltaZ = delta;
               foundRootMotion = true;
               console.log('[NPC 3] Found Z position track:', track.name, '→ delta:', delta.toFixed(3));
+              debugText += 'Z track: ' + track.name + '\n';
+              debugText += '  Delta Z: ' + delta.toFixed(3) + ' m\n';
             }
           }
 
@@ -194,12 +223,25 @@ export async function spawnAllPlazaNpcs(scene) {
             const distanceTraveled = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
             animSpeed = (distanceTraveled / clip.duration) * slowdownFactor;
             console.log('[NPC 3] Root motion distance:', distanceTraveled.toFixed(3), 'm (X:', deltaX.toFixed(3), 'Z:', deltaZ.toFixed(3), ') → speed:', animSpeed.toFixed(3), 'm/s');
+
+            debugText += '\n✓ ROOT MOTION FOUND\n';
+            debugText += 'Distance: ' + distanceTraveled.toFixed(3) + ' m\n';
+            debugText += 'Duration: ' + clip.duration.toFixed(3) + ' s\n';
+            debugText += 'Slowdown: ' + (slowdownFactor * 100).toFixed(0) + '%\n';
+            debugText += 'Speed: ' + animSpeed.toFixed(3) + ' m/s\n';
           } else {
             // Fallback: use manual tuning for no root motion animation
             const manualStride = 1.5; // increased from 1.0 - tune based on visual observation
             animSpeed = (manualStride / clip.duration) * slowdownFactor;
             console.log('[NPC 3] No root motion, using manual stride:', manualStride, 'm / duration:', clip.duration.toFixed(3), 's → speed:', animSpeed.toFixed(3), 'm/s');
+
+            debugText += '\n✗ NO ROOT MOTION\n';
+            debugText += 'Using manual stride: ' + manualStride + ' m\n';
+            debugText += 'Duration: ' + clip.duration.toFixed(3) + ' s\n';
+            debugText += 'Speed: ' + animSpeed.toFixed(3) + ' m/s\n';
           }
+
+          debugDiv.textContent = debugText;
         }
       }
       npc.straightSpeed = animSpeed;
