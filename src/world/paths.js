@@ -107,15 +107,15 @@ function getStoneTex() {
 const EDGE_MAT = new THREE.MeshStandardMaterial({ color: 0x6A6050, roughness: 0.95 });
 
 export function initPaths(scene) {
-  // Updated paths for 35% larger hangars at new positions (175.5 instead of 130)
-  // North hangar: z=-175.5
-  addPath(scene,   0, -41,   0, -133);  // Plaza to north hangar entrance
+  // Paths to hangars (hangars 10m closer to plaza at 165.5)
+  // North hangar: z=-165.5
+  addPath(scene,   0, -41,   0, -123);  // Plaza to north hangar entrance
 
-  // East/Center hangar: x=175.5
-  addPath(scene,  41,   0, 133,   0);   // Plaza to center hangar entrance
+  // East/Center hangar: x=165.5
+  addPath(scene,  41,   0, 123,   0);   // Plaza to center hangar entrance
 
-  // South hangar: z=175.5
-  addPath(scene,   0,  41,   0, 133);   // Plaza to south hangar entrance
+  // South hangar: z=165.5
+  addPath(scene,   0,  41,   0, 123);   // Plaza to south hangar entrance
 
   // Marina path (west): x=-230
   addPath(scene, -41,   0, -202,  0);   // Plaza to marina (unchanged)

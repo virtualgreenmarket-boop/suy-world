@@ -11,9 +11,9 @@ const TH  = 0.35;   // wall half-thickness (wall is 0.6 thick)
 const OPN = 6;      // far-wall door half-opening (door is 12 m wide)
 
 export function initCollision() {
-  addHangar(  0, -175.5,  0);           // North (was -130)
-  addHangar(175.5,    0, -Math.PI / 2); // Center (was 130)
-  addHangar(  0,  175.5,  Math.PI);     // South (was 130)
+  addHangar(  0, -165.5,  0);           // North (10m closer to plaza)
+  addHangar(165.5,    0, -Math.PI / 2); // Center (10m closer to plaza)
+  addHangar(  0,  165.5,  Math.PI);     // South (10m closer to plaza)
 }
 
 function rot(lx, lz, cx, cz, ry) {
