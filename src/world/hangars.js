@@ -67,9 +67,8 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
 
       model.userData.isNPC = true;
 
-      // Add stacked labels: E button (top) + name "קרן" (bottom)
-      attachLabel(model, 'E', 4.2, 'npc');    // interaction hint above
-      attachLabel(model, 'קרן', 3.6, 'npc');  // name below
+      // Add name label above head (no E key indicator)
+      attachLabel(model, 'קרן', 3.8, 'npc');
 
       console.log('[hangar] Keren NPC loaded, height:', h.toFixed(2), 'm → 3.0 m');
 
