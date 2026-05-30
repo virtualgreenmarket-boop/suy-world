@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildNpcCharacter } from './npc.js';
 import { registerBox } from '../systems/collision.js';
 import { registerGround } from '../systems/terrain.js';
 
@@ -51,7 +50,6 @@ export function initMarina(scene) {
   addStairs(group);
   addLandStairs(group);
   addFishingPier(group);
-  addNpcOrb(group);
   _registerDeckCollision();
 
   _loadHouse(group);
@@ -367,12 +365,4 @@ function _registerDeckCollision() {
   registerBox(-252.5, -249.5, 13, 66);
   // Front wall — right of stair gap (worldZ∈[-66,-13])
   registerBox(-252.5, -249.5, -66, -13);
-}
-
-// ── NPC ───────────────────────────────────────────────────────────────
-
-function addNpcOrb(group) {
-  const npc = buildNpcCharacter(0x26C6DA, 'fishing');
-  npc.position.set(2, DECK_Y + 0.38, -4);
-  group.add(npc);
 }
