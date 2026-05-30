@@ -157,61 +157,52 @@ export async function spawnAllPlazaNpcs(scene) {
         const clip = npc.walkAction.getClip();
 
         if (clip && clip.duration > 0) {
+          // Debug: log all track names to see what's available
+          console.log('[NPC 3] Animation tracks:', clip.tracks.map(t => t.name).join(', '));
+
           // Find position tracks to calculate actual distance traveled
-          let distanceTraveled = 0;
+          let deltaX = 0, deltaZ = 0;
+          let foundRootMotion = false;
 
           for (const track of clip.tracks) {
-            // Look for root position tracks (usually .position[x] or .position[z])
-            if (track.name.includes('.position') && (track.name.includes('[z]') || track.name.includes('[x]'))) {
-              const values = track.values;
-              if (values.length >= 2) {
-                // Calculate total distance: |end - start|
-                const start = values[0];
-                const end = values[values.length - 1];
-                const delta = Math.abs(end - start);
-                distanceTraveled += delta * delta; // sum of squares for 3D distance
-              }
+            const values = track.values;
+            if (values.length < 2) continue;
+
+            const start = values[0];
+            const end = values[values.length - 1];
+            const delta = end - start;
+
+            // Look for root/hips position on X axis (forward/back or left/right)
+            if (track.name.toLowerCase().includes('position') &&
+                track.name.match(/\[0\]|\[x\]|\.x$/i)) {
+              deltaX = delta;
+              foundRootMotion = true;
+              console.log('[NPC 3] Found X position track:', track.name, '→ delta:', delta.toFixed(3));
+            }
+
+            // Look for root/hips position on Z axis (forward/back)
+            if (track.name.toLowerCase().includes('position') &&
+                track.name.match(/\[2\]|\[z\]|\.z$/i)) {
+              deltaZ = delta;
+              foundRootMotion = true;
+              console.log('[NPC 3] Found Z position track:', track.name, '→ delta:', delta.toFixed(3));
             }
           }
 
-          // If we found position tracks, use actual distance
-          if (distanceTraveled > 0) {
-            distanceTraveled = Math.sqrt(distanceTraveled);
+          // Calculate 2D distance traveled
+          if (foundRootMotion) {
+            const distanceTraveled = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
             animSpeed = (distanceTraveled / clip.duration) * slowdownFactor;
-            console.log('[NPC 3] animation distance:', distanceTraveled.toFixed(3), 'm in', clip.duration.toFixed(3), 's → speed:', animSpeed.toFixed(3), 'm/s (with', (slowdownFactor * 100).toFixed(0), '% slowdown)');
+            console.log('[NPC 3] Root motion distance:', distanceTraveled.toFixed(3), 'm (X:', deltaX.toFixed(3), 'Z:', deltaZ.toFixed(3), ') → speed:', animSpeed.toFixed(3), 'm/s');
           } else {
             // Fallback: use manual tuning for no root motion animation
-            // Texting animation likely has no root motion, so manually set stride
-            const manualStride = 1.0; // tuned manually (adjust if needed)
+            const manualStride = 1.5; // increased from 1.0 - tune based on visual observation
             animSpeed = (manualStride / clip.duration) * slowdownFactor;
-            console.log('[NPC 3] no root motion detected, using manual stride:', manualStride, 'm → speed:', animSpeed.toFixed(3), 'm/s');
+            console.log('[NPC 3] No root motion, using manual stride:', manualStride, 'm / duration:', clip.duration.toFixed(3), 's → speed:', animSpeed.toFixed(3), 'm/s');
           }
         }
       }
       npc.straightSpeed = animSpeed;
-
-      // Jump 2m forward at end of each animation cycle
-      if (npc.walkAction) {
-        npc.mixer.addEventListener('finished', (e) => {
-          if (e.action === npc.walkAction) {
-            // Jump 2m forward in current direction
-            const jumpDist = 2.0;
-            const dx = Math.sin(npc.straightDirection) * jumpDist;
-            const dz = Math.cos(npc.straightDirection) * jumpDist;
-            npc.group.position.x += dx;
-            npc.group.position.z += dz;
-
-            // Check if still in plaza bounds, otherwise turn
-            const distFromCenter = Math.sqrt(npc.group.position.x ** 2 + npc.group.position.z ** 2);
-            if (distFromCenter > 36) {
-              npc.straightDirection += 2.53; // Turn 145°
-              if (npc.straightDirection > Math.PI * 2) {
-                npc.straightDirection -= Math.PI * 2;
-              }
-            }
-          }
-        });
-      }
 
       // Set position at floor level (no offset - feet on ground)
       const surfaceY = getSurfaceY(npc.group.position.x, npc.group.position.z);
