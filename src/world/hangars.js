@@ -81,6 +81,73 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
   });
 }
 
+// ── GLB NPC loader (Center hangar - Sophia) ──────────────────────────
+
+async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/sophia_animate/sophia_animate.glb';
+
+  return new Promise((resolve, reject) => {
+    loader.load(modelPath, gltf => {
+      const model = gltf.scene;
+
+      // Setup materials, shadows, and preserve GLB textures
+      model.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+          if (n.material) {
+            ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach(key => {
+              if (n.material[key]) {
+                n.material[key].colorSpace = THREE.SRGBColorSpace;
+              }
+            });
+          }
+        }
+      });
+
+      // Scale to 3m tall
+      const box = new THREE.Box3().setFromObject(model);
+      const h = Math.max(box.max.y - box.min.y, 0.01);
+      model.scale.setScalar(3.0 / h);
+
+      // Position on ground
+      model.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(model);
+      const floorY = -box2.min.y;
+
+      model.position.set(localX, localY + floorY, localZ);
+      model.rotation.y = rotY;
+
+      // Extract embedded animations from sophia_animate.glb
+      const clips = gltf.animations || [];
+      if (clips.length > 0) {
+        const mixer = new THREE.AnimationMixer(model);
+        const action = mixer.clipAction(clips[0]);
+        action.play();
+        model.userData.mixer = mixer;
+        console.log('[hangar] Sophia NPC loaded with', clips.length, 'animation(s):',
+                    clips.map(c => c.name).join(', '));
+      } else {
+        console.warn('[hangar] sophia_animate.glb has no embedded animations');
+      }
+
+      model.userData.isNPC = true;
+
+      // Add name label above head
+      attachLabel(model, 'סופיה', 3.8, 'npc');
+
+      console.log('[hangar] Sophia NPC loaded, height:', h.toFixed(2), 'm → 3.0 m');
+
+      resolve(model);
+
+    }, undefined, err => {
+      console.error('[hangar] Sophia NPC load failed:', err?.message ?? err);
+      reject(err);
+    });
+  });
+}
+
 // ── Entrance sign builder ─────────────────────────────────────────────
 
 function _buildEntranceSign(text, bgColor) {
@@ -262,14 +329,21 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
 
   // ── Entrance NPC character ────────────────────────────────────────
   if (hangarIndex === 0) {
-    // North hangar: load FBX NPC with animation
-    _loadNorthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(fbxNpc => {
-      fbxNpc.userData.hangarIndex = hangarIndex;
-      group.add(fbxNpc);
-      _hangarNpcs.push(fbxNpc); // track for animation update
+    // North hangar: load Keren GLB NPC
+    _loadNorthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+      npc.userData.hangarIndex = hangarIndex;
+      group.add(npc);
+      _hangarNpcs.push(npc); // track for animation update
     }).catch(err => console.error('[hangar] North NPC load failed:', err));
+  } else if (hangarIndex === 1) {
+    // Center hangar: load Sophia GLB NPC
+    _loadCenterHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+      npc.userData.hangarIndex = hangarIndex;
+      group.add(npc);
+      _hangarNpcs.push(npc); // track for animation update
+    }).catch(err => console.error('[hangar] Center NPC load failed:', err));
   } else {
-    // Center and South hangars: use procedural tree NPC
+    // South hangar: use procedural tree NPC
     const npc = buildNpcCharacter(ACCENT[hangarIndex], 'hangarEntrance');
     npc.position.set(0, 0, D / 2 - 4);
     npc.userData.hangarIndex = hangarIndex;
