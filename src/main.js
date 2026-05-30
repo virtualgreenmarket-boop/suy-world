@@ -35,6 +35,23 @@ import { initInteractionUI, updateInteractions }         from './ui/interactionU
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
+import { initLoginScreen, updateLoadingProgress } from './ui/loginScreen.js';
+
+// Loading progress tracking
+const loadingTracker = {
+  total: 4, // character, animations, trees, npcs
+  loaded: 0,
+  update() {
+    this.loaded++;
+    updateLoadingProgress(this.loaded, this.total);
+  }
+};
+
+// Start login screen (shows loading screen)
+initLoginScreen();
+
+// Start game initialization immediately (loading happens in background)
+(function startGame() {
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -146,10 +163,21 @@ initCollision();
 spawnPlazaTree(scene);
 
 // Kick off model + animation downloads immediately (all in parallel)
-preloadCharacter().catch(err => console.error('[character] model failed:', err));
-preloadAnimations().catch(err => console.error('[animations] failed:', err));
-preloadTrees().catch(err => console.error('[trees] failed:', err));
-preloadAllNpcs().catch(err => console.error('[npc-glb] failed:', err));
+preloadCharacter()
+  .then(() => loadingTracker.update())
+  .catch(err => console.error('[character] model failed:', err));
+
+preloadAnimations()
+  .then(() => loadingTracker.update())
+  .catch(err => console.error('[animations] failed:', err));
+
+preloadTrees()
+  .then(() => loadingTracker.update())
+  .catch(err => console.error('[trees] failed:', err));
+
+preloadAllNpcs()
+  .then(() => loadingTracker.update())
+  .catch(err => console.error('[npc-glb] failed:', err));
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();
@@ -269,3 +297,5 @@ function animate() {
 }
 
 animate();
+
+})(); // End of startGame IIFE

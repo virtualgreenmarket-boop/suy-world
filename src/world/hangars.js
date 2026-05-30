@@ -10,7 +10,7 @@ import { registerGround } from '../systems/terrain.js';
 
 async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
   const loader = new GLTFLoader();
-  const modelPath = '/models/characters/npcs/hangar1/Keren.glb';
+  const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 model with embedded animation
 
   return new Promise((resolve, reject) => {
     loader.load(modelPath, gltf => {
@@ -42,10 +42,10 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
         }
       });
 
-      // Scale to 3m tall
+      // Scale to 3.3m tall (3m + 10%)
       const box = new THREE.Box3().setFromObject(model);
       const h = Math.max(box.max.y - box.min.y, 0.01);
-      model.scale.setScalar(3.0 / h);
+      model.scale.setScalar(3.3 / h);
 
       // Position on ground
       model.updateMatrixWorld(true);
@@ -55,24 +55,24 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.position.set(localX, localY + floorY, localZ);
       model.rotation.y = rotY;
 
-      // Use embedded animation from Keren.glb (saves 84MB of external files)
+      // Use embedded animation from Keren2 model
       const clips = gltf.animations || [];
       if (clips.length > 0) {
         const mixer = new THREE.AnimationMixer(model);
-        const action = mixer.clipAction(clips[0]);
+        const action = mixer.clipAction(clips[0]); // Use first animation
         action.play();
         model.userData.mixer = mixer;
-        console.log('[hangar] Keren NPC loaded with embedded animation');
+        console.log('[hangar] Keren2 NPC loaded with', clips.length, 'animations - playing first');
       } else {
-        console.warn('[hangar] Keren.glb has no embedded animations');
+        console.warn('[hangar] Keren2 model has no embedded animations');
       }
 
       model.userData.isNPC = true;
 
-      // Add name label above head (no E key indicator)
-      attachLabel(model, 'קרן', 4.5, 'npc');
+      // Add name label right above head (adjusted for 3.3m height)
+      attachLabel(model, 'קרן', 3.5, 'npc');
 
-      console.log('[hangar] Keren NPC loaded, height:', h.toFixed(2), 'm → 3.0 m');
+      console.log('[hangar] Keren2 NPC loaded, height:', h.toFixed(2), 'm → 3.3 m');
 
       resolve(model);
 
@@ -87,7 +87,7 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
 
 async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
   const loader = new GLTFLoader();
-  const modelPath = '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb';
+  const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 (same as north)
 
   return new Promise((resolve, reject) => {
     loader.load(modelPath, gltf => {
@@ -110,10 +110,10 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
         }
       });
 
-      // Scale to 3m tall
+      // Scale to 3.3m tall (3m + 10%)
       const box = new THREE.Box3().setFromObject(model);
       const h = Math.max(box.max.y - box.min.y, 0.01);
-      model.scale.setScalar(3.0 / h);
+      model.scale.setScalar(3.3 / h);
 
       // Position on ground
       model.updateMatrixWorld(true);
@@ -124,7 +124,7 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
       model.rotation.y = rotY;
 
       model.userData.isNPC = true;
-      attachLabel(model, 'NPC 1', 4.5, 'npc');
+      attachLabel(model, 'קרן', 3.5, 'npc');
 
       // Check for embedded animations
       const clips = gltf.animations || [];
@@ -136,7 +136,7 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
         console.log('[hangar] Center NPC loaded with embedded animation');
       }
 
-      console.log('[hangar] Center NPC (Skylar Breeze) loaded, height:', h.toFixed(2), 'm → 3.0 m');
+      console.log('[hangar] Center Keren2 NPC loaded, height:', h.toFixed(2), 'm → 3.3 m');
 
       resolve(model);
 
@@ -151,7 +151,7 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
 
 async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
   const loader = new GLTFLoader();
-  const modelPath = '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb';
+  const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 (same as north)
 
   return new Promise((resolve, reject) => {
     loader.load(modelPath, gltf => {
@@ -173,10 +173,10 @@ async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
         }
       });
 
-      // Scale to 3m tall
+      // Scale to 3.3m tall (3m + 10%)
       const box = new THREE.Box3().setFromObject(model);
       const h = Math.max(box.max.y - box.min.y, 0.01);
-      model.scale.setScalar(3.0 / h);
+      model.scale.setScalar(3.3 / h);
 
       // Position on ground
       model.updateMatrixWorld(true);
@@ -187,7 +187,7 @@ async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
       model.rotation.y = rotY;
 
       model.userData.isNPC = true;
-      attachLabel(model, 'NPC 2', 4.5, 'npc');
+      attachLabel(model, 'קרן', 3.5, 'npc');
 
       // Check for embedded animations
       const clips = gltf.animations || [];
@@ -196,10 +196,10 @@ async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
         const action = mixer.clipAction(clips[0]);
         action.play();
         model.userData.mixer = mixer;
-        console.log('[hangar] South NPC loaded with embedded animation');
+        console.log('[hangar] South Keren2 NPC loaded with embedded animation');
       }
 
-      console.log('[hangar] South NPC (starfish) loaded, height:', h.toFixed(2), 'm → 3.0 m');
+      console.log('[hangar] South Keren2 NPC loaded, height:', h.toFixed(2), 'm → 3.3 m');
 
       resolve(model);
 
@@ -295,18 +295,19 @@ function getBrickMat() {
 }
 
 // ── Dimensions ────────────────────────────────────────────────────────
-const W  = 54;   // exterior width  (x: -27..+27)
-const D  = 94;   // exterior depth  (z: -47..+47)
-const H  = 14;   // wall height
-const TH = 1.2;  // roof thickness
+// Hangar dimensions (increased by 35%)
+const W  = 72.9;   // exterior width  (x: -36.45..+36.45) - was 54
+const D  = 126.9;  // exterior depth  (z: -63.45..+63.45) - was 94
+const H  = 18.9;   // wall height - was 14
+const TH = 1.62;   // roof thickness - was 1.2
 
-// Store slot spans (interior)
-const SIDE_SPAN  = 84;  // left/right wall usable length (z: -42..+42)
-const FRONT_SPAN = 50;  // far wall usable width (x: -25..+25)
+// Store slot spans (interior) - increased by 35%
+const SIDE_SPAN  = 113.4;  // left/right wall usable length (z: -56.7..+56.7) - was 84
+const FRONT_SPAN = 67.5;   // far wall usable width (x: -33.75..+33.75) - was 50
 const SIDE_COUNT  = 20;
 const FRONT_COUNT = 10;
-const SLOT_W_SIDE  = SIDE_SPAN  / SIDE_COUNT;   // 4.2 m
-const SLOT_W_FRONT = FRONT_SPAN / FRONT_COUNT;  // 5.0 m
+const SLOT_W_SIDE  = SIDE_SPAN  / SIDE_COUNT;   // 5.67 m - was 4.2
+const SLOT_W_FRONT = FRONT_SPAN / FRONT_COUNT;  // 6.75 m - was 5.0
 
 // Accent colours per hangar
 const ACCENT = [0xC0392B, 0x27AE60, 0xF1C40F]; // red, green, yellow
@@ -321,10 +322,11 @@ const _hangarNpcs = []; // FBX NPCs with animation mixers
 // ── Public ────────────────────────────────────────────────────────────
 
 export function initHangars(scene) {
+  // Hangar positions adjusted for 35% larger size
   const configs = [
-    { x:   0, z: -130, rotY: 0,           name: 'North Hangar' },
-    { x: 130, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },
-    { x:   0, z:  130, rotY: Math.PI,      name: 'South Hangar' },
+    { x:   0, z: -175.5, rotY: 0,           name: 'North Hangar' },  // was -130
+    { x: 175.5, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },  // was 130
+    { x:   0, z:  175.5, rotY: Math.PI,      name: 'South Hangar' },  // was 130
   ];
 
   configs.forEach((cfg, i) => buildHangar(scene, cfg, i));
@@ -336,8 +338,8 @@ export function initHangars(scene) {
   const sinNE = Math.sin(-Math.PI/2), cosNE = Math.cos(-Math.PI/2);
   const sinS = Math.sin(Math.PI),   cosS = Math.cos(Math.PI);
 
-  // North: x=0, z=-130, rotY=0
-  registerInteraction([0 + halfD*sin0, 0, -130 + halfD*cos0], 'Talk', 7, () => {
+  // North: x=0, z=-175.5, rotY=0 (updated for 35% larger hangar)
+  registerInteraction([0 + halfD*sin0, 0, -175.5 + halfD*cos0], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the North Hangar!',
       'This hangar is home to a variety of stores and creators. Walk along both sides and explore the rooms — each one belongs to a different seller or brand.',
@@ -345,8 +347,8 @@ export function initHangars(scene) {
       'Enjoy your visit to the North Hangar!',
     ], 'North Hangar');
   });
-  // Center: x=130, z=0, rotY=-PI/2
-  registerInteraction([130 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Talk', 7, () => {
+  // Center: x=175.5, z=0, rotY=-PI/2 (updated for 35% larger hangar)
+  registerInteraction([175.5 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the Central Hangar!',
       'You are standing at the heart of Suy-World. This hangar connects all directions and is filled with rooms from all kinds of sellers, creators, and brands.',
@@ -354,8 +356,8 @@ export function initHangars(scene) {
       'Enjoy your visit to the Central Hangar!',
     ], 'Central Hangar');
   });
-  // South: x=0, z=130, rotY=PI
-  registerInteraction([0 + halfD*sinS, 0, 130 + halfD*cosS], 'Talk', 7, () => {
+  // South: x=0, z=175.5, rotY=PI (updated for 35% larger hangar)
+  registerInteraction([0 + halfD*sinS, 0, 175.5 + halfD*cosS], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the South Hangar!',
       'This hangar is packed with unique rooms and products. Each door you open leads to a different world — a different seller with their own style and story.',
@@ -390,23 +392,26 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
 
   // ── Entrance NPC character ────────────────────────────────────────
+  // Floor top surface is at y=0.5 (floor center at 0.25 + thickness/2)
+  const floorTopY = 0.5;
+
   if (hangarIndex === 0) {
     // North hangar: load Keren GLB NPC
-    _loadNorthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+    _loadNorthHangarNpc(group, 0, floorTopY, D / 2 - 4, 0).then(npc => {
       npc.userData.hangarIndex = hangarIndex;
       group.add(npc);
       _hangarNpcs.push(npc);
     }).catch(err => console.error('[hangar] North NPC load failed:', err));
   } else if (hangarIndex === 1) {
     // Center hangar: load Skylar Breeze GLB NPC (NPC 1)
-    _loadCenterHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+    _loadCenterHangarNpc(group, 0, floorTopY, D / 2 - 4, 0).then(npc => {
       npc.userData.hangarIndex = hangarIndex;
       group.add(npc);
       _hangarNpcs.push(npc);
     }).catch(err => console.error('[hangar] Center NPC load failed:', err));
   } else if (hangarIndex === 2) {
     // South hangar: load starfish GLB NPC (NPC 2)
-    _loadSouthHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
+    _loadSouthHangarNpc(group, 0, floorTopY, D / 2 - 4, 0).then(npc => {
       npc.userData.hangarIndex = hangarIndex;
       group.add(npc);
       _hangarNpcs.push(npc);
@@ -429,8 +434,17 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
 // ── Hangar exterior shell ─────────────────────────────────────────────
 
 function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat) {
-  // Floor — solid platform above grass level
-  const floor = add(group, new THREE.BoxGeometry(W - 1, 0.5, D - 1), floorMat, 0, 0.25, 0);
+  // Floor — SOLID platform raised above grass level
+  const floorThickness = 0.5; // Thicker floor for solidity
+  const floorY = 0.25; // Raise floor 25cm above grass
+  const floor = add(group, new THREE.BoxGeometry(W - 1, floorThickness, D - 1), floorMat, 0, floorY, 0);
+
+  // Make floor completely solid and opaque
+  floor.renderOrder = 1; // Render floor on top of grass
+  floor.material.transparent = false;
+  floor.material.opacity = 1.0;
+  floor.material.side = THREE.FrontSide;
+
   registerGround(floor);
 
   // Left wall
@@ -447,7 +461,8 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat) {
   [-(W / 2 - 1.5), -10, 10, W / 2 - 1.5].forEach(cx => {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, H, 10), colMat);
     col.position.set(cx, H / 2, D / 2);
-    col.castShadow = true;
+    col.castShadow = false; // No shadows
+    col.receiveShadow = false;
     group.add(col);
   });
 
@@ -588,20 +603,42 @@ function stdMat(color, rough = 0.85, metal = 0.05) {
 }
 
 function createConcreteFloorMat() {
-  // Procedural concrete material with tiling gray color
+  // SOLID PBR concrete floor material
+  const loader = new THREE.TextureLoader();
+  const texPath = 'textures/Floors/broken_down_concrete1_bl/broken_down_concrete1_Roughness.png';
+
+  const roughnessMap = loader.load(
+    texPath,
+    (tex) => console.log('[hangar] Concrete floor roughness texture loaded'),
+    undefined,
+    (err) => console.error('[hangar] Concrete floor texture failed:', err)
+  );
+
+  // Configure texture tiling for large hangar floor (94m x 94m)
+  roughnessMap.wrapS = roughnessMap.wrapT = THREE.RepeatWrapping;
+  roughnessMap.repeat.set(12, 12); // 12x12 tiles for realistic concrete scale
+  roughnessMap.anisotropy = 16;
+
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x8A8A8A,        // Medium gray concrete
-    roughness: 0.9,
-    metalness: 0.1,
+    color: 0x808080,           // Solid gray concrete base color
+    roughnessMap: roughnessMap,
+    roughness: 0.85,           // Base roughness value
+    metalness: 0.05,           // Concrete is non-metallic
+    transparent: false,        // SOLID - no transparency
+    opacity: 1.0,              // Fully opaque
+    side: THREE.FrontSide,     // Only front face (optimization)
+    depthWrite: true,          // Write to depth buffer
+    depthTest: true,           // Test depth
   });
+
   return mat;
 }
 
 function add(group, geo, mat, x, y, z, castShadow = false) {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
-  m.receiveShadow = true;
-  if (castShadow) m.castShadow = true;
+  m.receiveShadow = false; // No shadows on hangar structures
+  m.castShadow = false;    // Hangars don't cast shadows
   group.add(m);
   return m;
 }

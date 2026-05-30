@@ -10,11 +10,11 @@ function makeRng(seed) {
 }
 
 const AVOID = [
-  { x:   0, z: -130, r: 62 },
-  { x: 130, z:    0, r: 62 },
-  { x:   0, z:  130, r: 62 },
-  { x: -150, z:   0, r: 84 },
-  { x:   0, z:    0, r: 52 },
+  { x:   0, z: -175.5, r: 85 },    // North hangar (updated for 35% larger)
+  { x: 175.5, z:    0, r: 85 },    // East/Center hangar (updated for 35% larger)
+  { x:   0, z:  175.5, r: 85 },    // South hangar (updated for 35% larger)
+  { x: -150, z:   0, r: 84 },      // Marina
+  { x:   0, z:    0, r: 52 },      // Plaza
 ];
 const BEACH_R = 218;
 const PATH_HW = 8; // path half-width exclusion corridor

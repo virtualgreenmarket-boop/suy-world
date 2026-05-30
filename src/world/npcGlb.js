@@ -15,7 +15,7 @@ const NPC_URLS = [
   // NPC 0 (Skylar Breeze) moved to center hangar
   '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb',
   // NPC 1 (texting_while_walking) removed
-  '/models/characters/npcs/jeny_tpose_riged.glb',
+  // NPC 2 (jeny_tpose) removed
   // NPC 4 (GardenGirl) removed
 ];
 

@@ -11,8 +11,9 @@ const HOUSE_URL = '/models/nature/marina/Medieval%20Village%20Houses%20GLB/Medie
 const DECK_Y = 3.2;   // elevated deck surface
 const PIER_Y = 0.55;  // fishing pier surface (just above water)
 
-// Fisherman NPC tracking
+// NPC tracking
 let _fishermanNpc = null;
+let _skylarNpc = null;
 
 // ── Wood PBR helper ───────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ export function initMarina(scene) {
 
   _loadHouse(group);
   _loadFishermanNpc(group);
+  _loadSkylarNpc(group);
 }
 
 // ── House (added to group so it inherits deck position) ───────────────
@@ -450,8 +452,80 @@ function _loadFishermanNpc(group) {
   });
 }
 
+function _loadSkylarNpc(group) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb';
+
+  loader.load(modelPath, gltf => {
+    const model = gltf.scene;
+
+    // Setup materials and shadows
+    model.traverse(n => {
+      if (n.isMesh) {
+        n.castShadow = true;
+        n.receiveShadow = true;
+        if (n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach(m => {
+            if (!m) return;
+            if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+            if (m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+          });
+        }
+      }
+    });
+
+    // Scale to 3m tall
+    const box = new THREE.Box3().setFromObject(model);
+    const h = Math.max(box.max.y - box.min.y, 0.01);
+    model.scale.setScalar(3.0 / h);
+
+    // Position on deck (opposite side from fisherman)
+    model.updateMatrixWorld(true);
+    const box2 = new THREE.Box3().setFromObject(model);
+    const floorY = -box2.min.y;
+
+    // Local position on deck
+    model.position.set(-2, DECK_Y + floorY + 0.3, 4);
+    model.rotation.y = -Math.PI / 4; // Face outward
+
+    // Extract and play built-in animations
+    const clips = gltf.animations || [];
+    if (clips.length > 0) {
+      const mixer = new THREE.AnimationMixer(model);
+      const action = mixer.clipAction(clips[0]);
+      action.play();
+      model.userData.mixer = mixer;
+      console.log('[marina] Skylar NPC loaded with', clips.length, 'animation(s)');
+    }
+
+    model.userData.isNPC = true;
+    attachLabel(model, 'Skylar', 4.5, 'npc');
+
+    group.add(model);
+    _skylarNpc = model;
+
+    console.log('[marina] Skylar NPC loaded at deck position (-2, DECK_Y, 4)');
+
+    // Register interaction
+    group.updateWorldMatrix(true, true);
+    const worldPos = new THREE.Vector3();
+    model.getWorldPosition(worldPos);
+
+    registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'Talk', 3, () => {
+      showNpcDialog(['Welcome to the marina!'], 'Skylar');
+    });
+
+  }, undefined, err => {
+    console.error('[marina] Skylar NPC load failed:', err?.message ?? err);
+  });
+}
+
 export function updateMarina(delta) {
   if (_fishermanNpc?.userData.mixer) {
     _fishermanNpc.userData.mixer.update(delta);
+  }
+  if (_skylarNpc?.userData.mixer) {
+    _skylarNpc.userData.mixer.update(delta);
   }
 }

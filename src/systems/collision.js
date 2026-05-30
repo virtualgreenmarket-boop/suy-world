@@ -4,16 +4,16 @@
 const boxes = [];
 const PLAYER_R = 0.55;
 
-// Hangar geometry constants (must match hangars.js)
-const HW  = 27;    // W/2  = 54/2
-const HD  = 47;    // D/2  = 94/2
-const TH  = 0.35;  // wall half-thickness (wall is 0.6 thick)
-const OPN = 6;     // far-wall door half-opening (door is 12 m wide)
+// Hangar geometry constants (must match hangars.js) - updated for 35% larger hangars
+const HW  = 36.45;  // W/2  = 72.9/2 (was 27, 54/2)
+const HD  = 63.45;  // D/2  = 126.9/2 (was 47, 94/2)
+const TH  = 0.35;   // wall half-thickness (wall is 0.6 thick)
+const OPN = 6;      // far-wall door half-opening (door is 12 m wide)
 
 export function initCollision() {
-  addHangar(  0, -130,  0);
-  addHangar(130,    0, -Math.PI / 2);
-  addHangar(  0,  130,  Math.PI);
+  addHangar(  0, -175.5,  0);           // North (was -130)
+  addHangar(175.5,    0, -Math.PI / 2); // Center (was 130)
+  addHangar(  0,  175.5,  Math.PI);     // South (was 130)
 }
 
 function rot(lx, lz, cx, cz, ry) {
