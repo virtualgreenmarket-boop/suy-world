@@ -14,7 +14,7 @@ const TARGET_HEIGHT = 3.1;
 const NPC_URLS = [
   // NPC 0 (Skylar Breeze) moved to center hangar
   '/models/characters/npcs/starfish_necklace_blue_bodysuit_portrait.glb',
-  '/models/characters/npcs/texting_while_walking.glb',
+  // NPC 1 (texting_while_walking) removed
   '/models/characters/npcs/jeny_tpose_riged.glb',
   // NPC 4 (GardenGirl) removed
 ];
@@ -116,9 +116,8 @@ export async function spawnAllPlazaNpcs(scene) {
     if (!entry) continue;
     const cfg = PLAZA_POSITIONS[i % PLAZA_POSITIONS.length];
 
-    // Phone-woman (index 2) starts on her circle path
-    const startX = i === 2 ? 18 : cfg.x;
-    const startZ = i === 2 ? 0  : cfg.z;
+    const startX = cfg.x;
+    const startZ = cfg.z;
     const npc = await _spawnFromEntry(scene, entry, startX, startZ, cfg.rot);
     if (!npc) continue;
 
@@ -143,7 +142,7 @@ export async function spawnAllPlazaNpcs(scene) {
       }
 
       registerInteraction([-222, deckY + 2, 0], 'Talk', 3, null, () => {});
-    } else if (i === 2) {
+    } else if (i === 0 || i === 1) {
       // Walks straight forward, turns 145° at plaza edge
       npc.walkMode = 'straight';
       npc.straightDirection = 0; // rotation in radians
@@ -515,48 +514,6 @@ export function updateNpc(npc, delta) {
       npc.group.position.y = getSurfaceY(nx, nz) + npc.floorOffset;
       npc.group.rotation.y = Math.atan2(dx, dz);
     }
-    return;
-  }
-
-  // Straight walk (texting NPC) - walks forward, turns 145° at plaza edge
-  if (npc.walkMode === 'straight') {
-    // Save position before animation updates (to cancel root motion)
-    const savedX = npc.group.position.x;
-    const savedZ = npc.group.position.z;
-
-    // Update animation (this will move the model due to root motion)
-    npc.mixer.update(delta);
-
-    // Cancel root motion by restoring saved position
-    npc.group.position.x = savedX;
-    npc.group.position.z = savedZ;
-
-    // Now apply our manual movement
-    const dx = Math.sin(npc.straightDirection) * npc.straightSpeed * delta;
-    const dz = Math.cos(npc.straightDirection) * npc.straightSpeed * delta;
-
-    const newX = npc.group.position.x + dx;
-    const newZ = npc.group.position.z + dz;
-
-    // Check if at plaza edge (radius 36)
-    const distFromCenter = Math.sqrt(newX * newX + newZ * newZ);
-
-    if (distFromCenter > 36) {
-      // Hit edge - turn 145 degrees (2.53 radians)
-      npc.straightDirection += 2.53;
-      // Normalize angle
-      if (npc.straightDirection > Math.PI * 2) {
-        npc.straightDirection -= Math.PI * 2;
-      }
-    } else {
-      // Move forward
-      npc.group.position.x = newX;
-      npc.group.position.z = newZ;
-    }
-
-    // Always at floor level (no offset - feet on ground)
-    npc.group.position.y = getSurfaceY(npc.group.position.x, npc.group.position.z);
-    npc.group.rotation.y = npc.straightDirection;
     return;
   }
 
