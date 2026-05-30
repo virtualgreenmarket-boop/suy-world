@@ -5,6 +5,7 @@ import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npc
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
 import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
+import { attachLabel } from './labels.js';
 
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
@@ -14,6 +15,7 @@ const BENCH_URL         = '/models/furniture/benches/bench_aged_and_gritty.glb';
 let _birds      = [];
 let _benchTmpl  = null;   // GLB bench template — set on first load
 let _pendingFns = [];      // queued spawn fns waiting for the template
+let _sophiaNpc  = null;    // Sophia NPC with animation mixer
 
 // ── Public ────────────────────────────────────────────────────────────
 
@@ -21,6 +23,7 @@ export function initPlaza(scene) {
   addFloor(scene);
   _loadBenches(scene);
   addNpc(scene);
+  _loadSophiaNpc(scene);
   _birds = createBirds(scene);
 
   spawnAllPlazaNpcs(scene).catch(err => console.error('[plaza] NPC spawn failed:', err));
@@ -62,6 +65,11 @@ export function initPlaza(scene) {
 export function updatePlaza(delta, time) {
   for (const b of _birds) _updateBird(b, delta, time);
   updateAllPlazaNpcs(delta);
+
+  // Update Sophia NPC animation
+  if (_sophiaNpc?.userData.mixer) {
+    _sophiaNpc.userData.mixer.update(delta);
+  }
 }
 
 // ── Bench GLB loading + placement ─────────────────────────────────────
@@ -233,6 +241,67 @@ function addNpc(scene) {
     'So choose your path, enter the hangar, and start your journey.',
     'Welcome to Suy-World.',
   ]));
+}
+
+// ── Sophia NPC (GLB with animation) ───────────────────────────────────
+
+function _loadSophiaNpc(scene) {
+  const loader = new GLTFLoader();
+  const modelPath = '/models/characters/npcs/sophia_animate/sophia_animate.glb';
+
+  loader.load(modelPath, gltf => {
+    const model = gltf.scene;
+
+    // Set correct color space for all textures
+    model.traverse(n => {
+      if (n.isMesh) {
+        n.castShadow = true;
+        n.receiveShadow = true;
+        if (n.material) {
+          ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach(key => {
+            if (n.material[key]) n.material[key].colorSpace = THREE.SRGBColorSpace;
+          });
+        }
+      }
+    });
+
+    // Scale to 3m tall
+    const box = new THREE.Box3().setFromObject(model);
+    const h = Math.max(box.max.y - box.min.y, 0.01);
+    model.scale.setScalar(3.0 / h);
+
+    // Position on ground
+    model.updateMatrixWorld(true);
+    const box2 = new THREE.Box3().setFromObject(model);
+    const floorY = -box2.min.y;
+
+    model.position.set(-15, FLOOR_Y + floorY, -10);
+    model.rotation.y = Math.PI / 4; // Face toward center
+
+    // Extract and play built-in animation
+    const clips = gltf.animations || [];
+    if (clips.length > 0) {
+      const mixer = new THREE.AnimationMixer(model);
+      const action = mixer.clipAction(clips[0]);
+      action.play();
+      model.userData.mixer = mixer;
+      console.log('[plaza] Sophia NPC loaded with', clips.length, 'animation(s):', clips.map(c => c.name).join(', '));
+    } else {
+      console.warn('[plaza] sophia_animate.glb has no embedded animations');
+    }
+
+    model.userData.isNPC = true;
+
+    // Add name label
+    attachLabel(model, 'סופיה', 3.8, 'npc');
+
+    scene.add(model);
+    _sophiaNpc = model;
+
+    console.log('[plaza] Sophia NPC loaded at position (-15, FLOOR_Y, -10)');
+  }, undefined, err => {
+    console.error('[plaza] Sophia NPC load failed:', err?.message ?? err);
+  });
 }
 
 // ── Birds ─────────────────────────────────────────────────────────────
