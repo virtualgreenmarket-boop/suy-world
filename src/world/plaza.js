@@ -23,7 +23,6 @@ export function initPlaza(scene) {
   addFloor(scene);
   _loadBenches(scene);
   addNpc(scene);
-  _loadSophiaNpc(scene);
   _birds = createBirds(scene);
 
   spawnAllPlazaNpcs(scene).catch(err => console.error('[plaza] NPC spawn failed:', err));
@@ -65,11 +64,6 @@ export function initPlaza(scene) {
 export function updatePlaza(delta, time) {
   for (const b of _birds) _updateBird(b, delta, time);
   updateAllPlazaNpcs(delta);
-
-  // Update Sophia NPC animation
-  if (_sophiaNpc?.userData.mixer) {
-    _sophiaNpc.userData.mixer.update(delta);
-  }
 }
 
 // ── Bench GLB loading + placement ─────────────────────────────────────

@@ -337,15 +337,8 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
       group.add(npc);
       _hangarNpcs.push(npc); // track for animation update
     }).catch(err => console.error('[hangar] North NPC load failed:', err));
-  } else if (hangarIndex === 1) {
-    // Center hangar: load Sophia GLB NPC
-    _loadCenterHangarNpc(group, 0, 0, D / 2 - 4, 0).then(npc => {
-      npc.userData.hangarIndex = hangarIndex;
-      group.add(npc);
-      _hangarNpcs.push(npc); // track for animation update
-    }).catch(err => console.error('[hangar] Center NPC load failed:', err));
   } else {
-    // South hangar: use procedural tree NPC
+    // Center and South hangars: use procedural tree NPC
     const npc = buildNpcCharacter(ACCENT[hangarIndex], 'hangarEntrance');
     npc.position.set(0, 0, D / 2 - 4);
     npc.userData.hangarIndex = hangarIndex;
