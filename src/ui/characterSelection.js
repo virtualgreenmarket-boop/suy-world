@@ -17,6 +17,19 @@ const CIRCLE_RADIUS = 2.8;
 const ROTATION_SPEED = 0.08;
 const CHARACTER_TARGET_HEIGHT = 3.5; // Large characters - 40-50% of screen
 
+// Debug log to screen (F12 crashes)
+function debugLog(msg) {
+  console.log(msg);
+  const logDiv = document.getElementById('debug-log');
+  if (logDiv) {
+    const line = document.createElement('div');
+    line.textContent = msg;
+    line.style.marginBottom = '2px';
+    logDiv.appendChild(line);
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+}
+
 export function initCharacterSelection(onSelect) {
   _onSelectCallback = onSelect;
 
@@ -191,6 +204,25 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
+
+      <div style="
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        width: 400px;
+        max-height: 90vh;
+        background: rgba(0,0,0,0.9);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 10px;
+        overflow-y: auto;
+        z-index: 999999;
+        border: 2px solid #0f0;
+        pointer-events: none;
+      " id="debug-log">
+        <div style="color: #fff; font-weight: bold; margin-bottom: 5px;">DEBUG LOG:</div>
+      </div>
     </div>
   `;
 
@@ -203,8 +235,8 @@ export function initCharacterSelection(onSelect) {
 
   const canvasHeight = window.innerHeight * 0.5;
 
-  console.log('[char-select] 📐 Canvas size:', window.innerWidth, 'x', canvasHeight);
-  console.log('[char-select] 🎥 Camera setup: FOV=55, aspect=' + (window.innerWidth / canvasHeight).toFixed(2));
+  debugLog('[char-select] 📐 Canvas size:', window.innerWidth, 'x', canvasHeight);
+  debugLog('[char-select] 🎥 Camera setup: FOV=55, aspect=' + (window.innerWidth / canvasHeight).toFixed(2));
 
   // Camera positioned to align with circular platform in background image
   // Platform center is at ~50% X, ~75% Y of screen
@@ -212,8 +244,8 @@ export function initCharacterSelection(onSelect) {
   _camera.position.set(0, 3.5, 6);
   _camera.lookAt(0, 1.5, 0);
 
-  console.log('[char-select] 📹 Camera position:', _camera.position);
-  console.log('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
+  debugLog('[char-select] 📹 Camera position:', _camera.position);
+  debugLog('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
@@ -222,7 +254,7 @@ export function initCharacterSelection(onSelect) {
   _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   _renderer.setClearColor(0x000000, 0); // Transparent background
 
-  console.log('[char-select] 🎨 Renderer setup complete');
+  debugLog('[char-select] 🎨 Renderer setup complete');
 
   // Lighting - bright and clear
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
@@ -273,29 +305,29 @@ export function initCharacterSelection(onSelect) {
   loadAllCharacters();
 
   // Start animation loop
-  console.log('[char-select] 🎬 Starting animation loop...');
+  debugLog('[char-select] 🎬 Starting animation loop...');
   animate();
 }
 
 async function loadAllCharacters() {
   const loader = new GLTFLoader();
 
-  console.log('[char-select] Starting to load characters...');
+  debugLog('[char-select] Starting to load characters...');
 
   // Load idle animation first
   try {
-    console.log('[char-select] Loading idle animation...');
+    debugLog('[char-select] Loading idle animation...');
     const gltf = await new Promise((resolve, reject) =>
       loader.load('/models/player/animations/idle.glb', resolve, undefined, reject)
     );
     if (gltf.animations && gltf.animations.length > 0) {
       _idleClip = gltf.animations[0];
-      console.log('[char-select] ✅ Idle animation loaded successfully');
+      debugLog('[char-select] ✅ Idle animation loaded successfully');
     } else {
-      console.warn('[char-select] ⚠️ Idle animation loaded but no animations found');
+      debugLog('[char-select] ⚠️ Idle animation loaded but no animations found');
     }
   } catch (err) {
-    console.error('[char-select] ❌ Failed to load idle animation:', err);
+    debugLog('❌ [char-select] ❌ Failed to load idle animation:', err);
   }
 
   // Load all 6 characters in a circle
@@ -478,7 +510,7 @@ function animate(time = 0) {
   if (_renderer && _scene && _camera) {
     _renderer.render(_scene, _camera);
   } else {
-    console.error('[char-select] ❌ Cannot render - missing:', {
+    debugLog('❌ [char-select] ❌ Cannot render - missing:', {
       renderer: !!_renderer,
       scene: !!_scene,
       camera: !!_camera
