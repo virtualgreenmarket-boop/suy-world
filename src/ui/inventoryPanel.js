@@ -6,6 +6,7 @@ import {
   startPreviewRendering,
   stopPreviewRendering,
 } from './characterPreview.js';
+import { isChatOpen } from './chatUI.js';
 
 const STORAGE_KEY = 'suy_loadout_v8';
 
@@ -814,6 +815,7 @@ function _equip(cat, file) {
 }
 
 export function showInventoryPanel() {
+  if (isChatOpen()) return;
   document.getElementById('inv-overlay')?.classList.add('inv-open');
   _visible = true;
 

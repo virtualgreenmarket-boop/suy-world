@@ -1,3 +1,5 @@
+import { isChatOpen } from './chatUI.js';
+
 const STORAGE_KEY = 'suy_settings';
 
 const _defaults = {
@@ -85,6 +87,7 @@ export function initSettingsPanel(renderer) {
 }
 
 export function showSettingsPanel() {
+  if (isChatOpen()) return;
   const ov = document.getElementById('sp-overlay');
   if (!ov) return;
   ov.classList.add('sp-open');

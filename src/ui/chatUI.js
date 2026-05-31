@@ -5,7 +5,7 @@ import { setInputEnabled } from './touchControls.js';
 let _sendChat = (_msg) => {};
 export function bindSendChat(fn) { _sendChat = fn; }
 
-export function isChatOpen() { return _isTyping; }
+export function isChatOpen() { return _isExpanded; }
 
 const MAX_MESSAGES = 100;
 const VISIBLE_MESSAGES = 5;
@@ -310,7 +310,12 @@ export function initChatUI() {
   inputEl.addEventListener('keydown', e => {
     if (e.code === 'Enter') {
       e.preventDefault();
-      submitChat();
+      e.stopPropagation();
+      if (inputEl.value.trim() === '') {
+        collapseChat();
+      } else {
+        submitChat();
+      }
     } else if (e.code === 'Escape') {
       e.preventDefault();
       collapseChat();
@@ -329,11 +334,11 @@ export function initChatUI() {
   typingEl.innerHTML = '<div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div>';
   document.body.appendChild(typingEl);
 
-  // Keyboard handler for opening chat
+  // Keyboard handler — Enter toggles chat open/closed (when input is not focused)
   window.addEventListener('keydown', e => {
-    if (e.code === 'Enter' && !_isExpanded && document.activeElement !== inputEl) {
+    if (e.code === 'Enter' && document.activeElement !== inputEl) {
       e.preventDefault();
-      expandChat();
+      _isExpanded ? collapseChat() : expandChat();
     }
   });
 
@@ -491,6 +496,7 @@ function submitChat() {
   _sendChat(msg);
   showLocalSpeechBubble(msg);
   inputEl.value = '';
+  collapseChat();
 }
 
 // ── Speech bubbles ────────────────────────────────────────────────────
