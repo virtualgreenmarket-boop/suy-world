@@ -1,8 +1,12 @@
-// Loading Screen with Progress Bar (0-100%)
+// Loading Screen with REAL asset loading
+
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 let _loadingContainer = null;
 let _progressBar = null;
 let _progressText = null;
+let _statusText = null;
 let _onLoadComplete = null;
 
 export function initLoadingScreen(onComplete) {
@@ -102,10 +106,11 @@ export function initLoadingScreen(onComplete) {
       }
 
       .loading-status {
-        color: rgba(255,255,255,0.7);
-        font-size: 16px;
+        color: rgba(255,255,255,0.9);
+        font-size: 18px;
         margin-top: 10px;
         text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        min-height: 24px;
       }
 
       @media (max-width: 768px) {
@@ -122,65 +127,112 @@ export function initLoadingScreen(onComplete) {
     </div>
 
     <div class="loading-progress-text" id="loading-progress-text">0%</div>
-    <div class="loading-status" id="loading-status">Initializing...</div>
+    <div class="loading-status" id="loading-status">Starting...</div>
   `;
 
   document.body.appendChild(_loadingContainer);
 
   _progressBar = document.getElementById('loading-bar-fill');
   _progressText = document.getElementById('loading-progress-text');
+  _statusText = document.getElementById('loading-status');
 
-  // Start simulated loading
-  startLoading();
+  // Start REAL loading
+  startRealLoading();
 }
 
-let _currentProgress = 0;
+async function startRealLoading() {
+  const loader = new GLTFLoader();
+  const loadingManager = new THREE.LoadingManager();
 
-function startLoading() {
-  const statusEl = document.getElementById('loading-status');
+  let totalItems = 0;
+  let loadedItems = 0;
 
-  // Simulated loading stages
-  const stages = [
-    { progress: 15, text: 'Loading assets...' },
-    { progress: 30, text: 'Loading models...' },
-    { progress: 50, text: 'Loading animations...' },
-    { progress: 70, text: 'Loading world...' },
-    { progress: 90, text: 'Preparing game...' },
-    { progress: 100, text: 'Complete!' }
-  ];
+  // Track loading progress
+  loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+    totalItems = itemsTotal;
+    loadedItems = itemsLoaded;
+    const percent = Math.round((itemsLoaded / itemsTotal) * 100);
+    updateProgress(percent, `Loading ${itemsLoaded}/${itemsTotal} assets...`);
+  };
 
-  let currentStage = 0;
+  loadingManager.onLoad = () => {
+    updateProgress(100, 'Complete!');
+    setTimeout(() => {
+      hideLoadingScreen();
+      if (_onLoadComplete) {
+        _onLoadComplete();
+      }
+    }, 500);
+  };
 
-  const interval = setInterval(() => {
-    if (currentStage >= stages.length) {
-      clearInterval(interval);
+  loadingManager.onError = (url) => {
+    console.error('[loading] Failed to load:', url);
+  };
 
-      // Wait a moment at 100% then proceed
-      setTimeout(() => {
-        hideLoadingScreen();
-        if (_onLoadComplete) {
-          _onLoadComplete();
-        }
-      }, 500);
-      return;
+  // Use the loading manager for GLTFLoader
+  const managedLoader = new GLTFLoader(loadingManager);
+
+  try {
+    updateProgress(5, 'Loading player animations...');
+
+    // Load all player animations (5 files)
+    const animationPromises = [
+      managedLoader.loadAsync('/models/player/animations/idle.glb'),
+      managedLoader.loadAsync('/models/player/animations/walking.glb'),
+      managedLoader.loadAsync('/models/player/animations/running.glb'),
+      managedLoader.loadAsync('/models/player/animations/jump.glb'),
+      managedLoader.loadAsync('/models/player/animations/SittingIdle.glb'),
+    ];
+
+    await Promise.all(animationPromises);
+    console.log('[loading] ✅ Player animations loaded');
+    updateProgress(40, 'Loading character models...');
+
+    // Load all 6 character models
+    const characterPromises = [];
+    for (let i = 1; i <= 6; i++) {
+      characterPromises.push(
+        managedLoader.loadAsync(`/models/player/characters/model${i}.glb`)
+      );
     }
 
-    const stage = stages[currentStage];
-    const targetProgress = stage.progress;
+    await Promise.all(characterPromises);
+    console.log('[loading] ✅ Character models loaded');
+    updateProgress(70, 'Loading world assets...');
 
-    // Smooth increment
-    const increment = setInterval(() => {
-      if (_currentProgress >= targetProgress) {
-        clearInterval(increment);
-        currentStage++;
-        return;
+    // Preload trees (if available)
+    try {
+      await managedLoader.loadAsync('/models/environment/trees/tree_1.glb');
+      console.log('[loading] ✅ Trees loaded');
+    } catch (err) {
+      console.log('[loading] Trees not found (optional)');
+    }
+
+    updateProgress(90, 'Preparing world...');
+
+    // Small delay to show 90%
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    updateProgress(100, 'Complete!');
+
+    // Wait at 100% then proceed
+    setTimeout(() => {
+      hideLoadingScreen();
+      if (_onLoadComplete) {
+        _onLoadComplete();
       }
+    }, 500);
 
-      _currentProgress += 1;
-      updateProgress(_currentProgress, stage.text);
-    }, 30);
-
-  }, 800);
+  } catch (err) {
+    console.error('[loading] Error during asset loading:', err);
+    updateProgress(100, 'Starting anyway...');
+    setTimeout(() => {
+      hideLoadingScreen();
+      if (_onLoadComplete) {
+        _onLoadComplete();
+      }
+    }, 1000);
+  }
 }
 
 function updateProgress(percent, status) {
@@ -190,18 +242,22 @@ function updateProgress(percent, status) {
   if (_progressText) {
     _progressText.textContent = `${percent}%`;
   }
-  const statusEl = document.getElementById('loading-status');
-  if (statusEl && status) {
-    statusEl.textContent = status;
+  if (_statusText && status) {
+    _statusText.textContent = status;
   }
 }
 
 function hideLoadingScreen() {
   if (_loadingContainer) {
-    _loadingContainer.remove();
-    _loadingContainer = null;
-    _progressBar = null;
-    _progressText = null;
+    _loadingContainer.style.opacity = '0';
+    _loadingContainer.style.transition = 'opacity 0.5s ease';
+    setTimeout(() => {
+      _loadingContainer.remove();
+      _loadingContainer = null;
+      _progressBar = null;
+      _progressText = null;
+      _statusText = null;
+    }, 500);
   }
 }
 
