@@ -12,7 +12,7 @@ let _targetRotation = 0;
 let _selectedIndex = 0;
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 3.5;
+const CIRCLE_RADIUS = 5.5;
 const ROTATION_SPEED = 0.08;
 
 export function initCharacterSelection(onSelect) {
@@ -200,9 +200,9 @@ export function initCharacterSelection(onSelect) {
 
   const canvasHeight = window.innerHeight * 0.33;
 
-  _camera = new THREE.PerspectiveCamera(50, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 1.5, 5);
-  _camera.lookAt(0, 1, 0);
+  _camera = new THREE.PerspectiveCamera(45, window.innerWidth / canvasHeight, 0.1, 100);
+  _camera.position.set(0, 2.2, 8);
+  _camera.lookAt(0, 0.9, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
