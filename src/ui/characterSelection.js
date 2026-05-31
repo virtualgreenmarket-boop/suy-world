@@ -52,8 +52,6 @@ export function initCharacterSelection(onSelect) {
         width: 100%;
         height: 50vh;
         z-index: 2;
-        border: 5px solid red;
-        background: rgba(0, 100, 200, 0.3);
       }
 
       .char-select-ui {
@@ -201,7 +199,7 @@ export function initCharacterSelection(onSelect) {
   // Setup 3D scene
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
-  _scene.background = new THREE.Color(0x444444); // Gray background for debugging
+  _scene.background = null; // Transparent to show background image
 
   const canvasHeight = window.innerHeight * 0.5;
 
@@ -217,18 +215,14 @@ export function initCharacterSelection(onSelect) {
   console.log('[char-select] 📹 Camera position:', _camera.position);
   console.log('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
 
-  _renderer = new THREE.WebGLRenderer({ canvas, alpha: false, antialias: true });
+  _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
   _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   _renderer.shadowMap.enabled = true;
   _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  _renderer.setClearColor(0x444444, 1); // Set gray background
+  _renderer.setClearColor(0x000000, 0); // Transparent background
 
   console.log('[char-select] 🎨 Renderer setup complete');
-
-  // Render once immediately to test
-  _renderer.render(_scene, _camera);
-  console.log('[char-select] 🎨 First render executed');
 
   // Lighting - bright and clear
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
@@ -256,21 +250,12 @@ export function initCharacterSelection(onSelect) {
     roughness: 0.9,
     metalness: 0.1,
     transparent: true,
-    opacity: 0.1,
+    opacity: 0.2,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   _scene.add(ground);
-
-  // DEBUG: Add visible test cube to verify 3D rendering works
-  const testCubeGeo = new THREE.BoxGeometry(1, 2, 1);
-  const testCubeMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-  const testCube = new THREE.Mesh(testCubeGeo, testCubeMat);
-  testCube.position.set(0, 1, 0);
-  testCube.castShadow = true;
-  _scene.add(testCube);
-  console.log('[char-select] 🔴 DEBUG: Red test cube added at center');
 
   // UI event handlers
   document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(-1));
