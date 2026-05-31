@@ -401,14 +401,14 @@ async function loadAllCharacters() {
 
       _characterModels.push({ container, model, mixer });
 
-      console.log(`[char-select] ✅ Character ${i + 1} fully loaded! Scale: ${scale.toFixed(2)}, Position: (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
+      debugLog(`[char-select] ✅ Character ${i + 1} fully loaded! Scale: ${scale.toFixed(2)}, Position: (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
 
     } catch (err) {
-      console.error(`[char-select] ❌ Failed to load model${i + 1}:`, err);
+      debugLog(`❌ [char-select] Failed to load model${i + 1}: ${err.message}`);
     }
   }
 
-  console.log(`[char-select] ✅ All characters loaded! Total: ${_characterModels.length}`);
+  debugLog(`[char-select] ✅ All characters loaded! Total: ${_characterModels.length}`);
   updateCharacterName();
 }
 
