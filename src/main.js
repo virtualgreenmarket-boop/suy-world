@@ -37,18 +37,30 @@ import { initInventoryPanel, onEquipChange }             from './ui/inventoryPan
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 
-// ── Authentication & Character Selection Flow ────────────────────────
+// ── Wait for DOM to be ready ──────────────────────────────────────────
 
-// Check authentication first
-if (!isAuthenticated()) {
-  // Show login screen
-  initLoginScreen((username) => {
-    // After login, show character selection
+function startApp() {
+  // ── Authentication & Character Selection Flow ──────────────────────
+
+  // Check authentication first
+  if (!isAuthenticated()) {
+    // Show login screen
+    initLoginScreen((username) => {
+      // After login, show character selection
+      showCharacterSelectionOrStart();
+    });
+  } else {
+    // Already logged in, check character selection
     showCharacterSelectionOrStart();
-  });
+  }
+}
+
+// Start when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
 } else {
-  // Already logged in, check character selection
-  showCharacterSelectionOrStart();
+  // DOM already loaded
+  startApp();
 }
 
 function showCharacterSelectionOrStart() {
