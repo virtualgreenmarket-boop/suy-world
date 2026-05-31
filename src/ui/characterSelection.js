@@ -11,6 +11,7 @@ let _idleClip = null;
 let _currentRotation = 0;
 let _targetRotation = 0;
 let _selectedIndex = 0;
+let _isInitialized = false; // Prevent double initialization
 
 const CHARACTER_COUNT = 6;
 const CIRCLE_RADIUS = 2.8;
@@ -31,6 +32,13 @@ function debugLog(msg) {
 }
 
 export function initCharacterSelection(onSelect) {
+  if (_isInitialized) {
+    debugLog('[char-select] ⚠️ Already initialized, ignoring duplicate call');
+    return;
+  }
+  _isInitialized = true;
+  debugLog('[char-select] ✅ Starting initialization...');
+
   _onSelectCallback = onSelect;
 
   const container = document.createElement('div');

@@ -40,7 +40,15 @@ import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 
 // ── Wait for DOM to be ready ──────────────────────────────────────────
 
+let _appStarted = false; // Prevent multiple starts
+
 function startApp() {
+  if (_appStarted) {
+    console.log('[main] App already started, ignoring duplicate call');
+    return;
+  }
+  _appStarted = true;
+
   // ── Loading → Login → Character Selection → Game Flow ──────────────
 
   // Show loading screen first (0-100%)
