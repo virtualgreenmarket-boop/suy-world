@@ -156,13 +156,8 @@ async function startRealLoading() {
   };
 
   loadingManager.onLoad = () => {
-    updateProgress(100, 'Complete!');
-    setTimeout(() => {
-      hideLoadingScreen();
-      if (_onLoadComplete) {
-        _onLoadComplete();
-      }
-    }, 500);
+    console.log('[loading] LoadingManager.onLoad called - ignoring, using manual flow');
+    // Don't do anything here - we handle completion manually below
   };
 
   loadingManager.onError = (url) => {

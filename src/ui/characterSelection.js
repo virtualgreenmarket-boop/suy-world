@@ -360,10 +360,16 @@ async function loadAllCharacters() {
       const scale = CHARACTER_TARGET_HEIGHT / height;
       model.scale.setScalar(scale);
 
+      debugLog(`[char-select] Character ${i + 1} original height: ${height.toFixed(4)}m, scale: ${scale.toFixed(2)}`);
+
       // Position on ground - recalculate after scaling
       model.updateMatrixWorld(true);
       const box2 = new THREE.Box3().setFromObject(model);
+      const modelHeight = box2.getSize(new THREE.Vector3()).y;
       const floorY = -box2.min.y;
+
+      debugLog(`[char-select] Character ${i + 1} floor offset: ${floorY.toFixed(2)}, height after scale: ${modelHeight.toFixed(2)}`);
+
       model.position.y = floorY;
 
       // Lock rotation to prevent skeleton deformation
@@ -384,8 +390,11 @@ async function loadAllCharacters() {
       // Position in circle - aligned with background platform
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
+      container.position.y = 0; // Ground level
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
       container.rotation.y = -angle; // Face center
+
+      debugLog(`[char-select] Character ${i + 1} container at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
 
       _scene.add(container);
 
