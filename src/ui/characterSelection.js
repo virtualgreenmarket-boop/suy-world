@@ -52,6 +52,8 @@ export function initCharacterSelection(onSelect) {
         width: 100%;
         height: 50vh;
         z-index: 2;
+        border: 5px solid red;
+        background: rgba(0, 100, 200, 0.3);
       }
 
       .char-select-ui {
@@ -199,6 +201,7 @@ export function initCharacterSelection(onSelect) {
   // Setup 3D scene
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
+  _scene.background = new THREE.Color(0x444444); // Gray background for debugging
 
   const canvasHeight = window.innerHeight * 0.5;
 
