@@ -164,7 +164,7 @@ export function initCharacterSelection(onSelect) {
       }
     </style>
 
-    <img id="char-select-bg" src="/images/מסך_בחירת_דמות.png" alt="Background">
+    <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
     <canvas id="char-select-canvas"></canvas>
 
     <div class="char-select-ui">
