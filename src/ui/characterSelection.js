@@ -248,10 +248,14 @@ export function initCharacterSelection(onSelect) {
 
   // Camera positioned to align with circular platform in background image
   // Platform center is at ~50% X, ~75% Y of screen
-  // Adjust camera to see characters better - HIGHER
+  // Adjust camera to see characters better - HIGHER and TILTED
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
   _camera.position.set(0, 4.5, 4.5);
   _camera.lookAt(0, 1.5, 0);
+
+  // Tilt camera down 25% (like a tilted coin)
+  // Rotate around X axis - top tilts away, bottom tilts toward
+  _camera.rotation.x -= 0.4; // About 23 degrees
 
   debugLog('[char-select] 📹 Camera position:', _camera.position);
   debugLog('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
