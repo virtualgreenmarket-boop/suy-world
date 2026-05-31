@@ -14,7 +14,7 @@ let _selectedIndex = 0;
 let _isInitialized = false; // Prevent double initialization
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 2.8;
+const CIRCLE_RADIUS = 5.0; // Larger circle
 const ROTATION_SPEED = 0.08;
 const CHARACTER_TARGET_HEIGHT = 3.5; // Large characters - 40-50% of screen
 
