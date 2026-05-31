@@ -23,6 +23,7 @@ import { updateStores }     from './systems/stores.js';
 import { initCollision }    from './systems/collision.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
+import { initLoadingScreen } from './ui/loadingScreen.js';
 
 import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
@@ -40,15 +41,18 @@ import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 // ── Wait for DOM to be ready ──────────────────────────────────────────
 
 function startApp() {
-  // ── Authentication & Character Selection Flow ──────────────────────
+  // ── Loading → Login → Character Selection → Game Flow ──────────────
 
-  // Always show login screen first
-  initLoginScreen((username) => {
-    // After login, always show character selection
-    initCharacterSelection((characterId) => {
-      console.log('[main] Character selected:', characterId);
-      // Start game with selected character
-      startGame(characterId);
+  // Show loading screen first (0-100%)
+  initLoadingScreen(() => {
+    // After loading complete, show login screen
+    initLoginScreen((username) => {
+      // After login, show character selection
+      initCharacterSelection((characterId) => {
+        console.log('[main] Character selected:', characterId);
+        // Start game with selected character
+        startGame(characterId);
+      });
     });
   });
 }
