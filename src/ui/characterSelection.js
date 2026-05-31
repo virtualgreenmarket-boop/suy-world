@@ -68,10 +68,10 @@ export function initCharacterSelection(onSelect) {
 
       #char-select-canvas {
         position: absolute;
-        bottom: 0;
+        top: 0;
         left: 0;
         width: 100%;
-        height: 50vh;
+        height: 100vh;
         z-index: 2;
       }
 
@@ -239,9 +239,9 @@ export function initCharacterSelection(onSelect) {
   // Setup 3D scene
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
-  _scene.background = new THREE.Color(0x87CEEB); // Sky blue to see characters
+  _scene.background = null; // Transparent - show background image
 
-  const canvasHeight = window.innerHeight * 0.5;
+  const canvasHeight = window.innerHeight;
 
   debugLog('[char-select] 📐 Canvas size:', window.innerWidth, 'x', canvasHeight);
   debugLog('[char-select] 🎥 Camera setup: FOV=55, aspect=' + (window.innerWidth / canvasHeight).toFixed(2));
@@ -548,7 +548,7 @@ function animate(time = 0) {
 window.addEventListener('resize', () => {
   if (!_camera || !_renderer) return;
 
-  const canvasHeight = window.innerHeight * 0.5;
+  const canvasHeight = window.innerHeight;
   _camera.aspect = window.innerWidth / canvasHeight;
   _camera.updateProjectionMatrix();
   _renderer.setSize(window.innerWidth, canvasHeight);
