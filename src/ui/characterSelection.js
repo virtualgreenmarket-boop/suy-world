@@ -253,9 +253,9 @@ export function initCharacterSelection(onSelect) {
   _camera.position.set(0, 4.5, 4.5);
   _camera.lookAt(0, 1.5, 0);
 
-  // Tilt camera down 25% (like a tilted coin)
-  // Rotate around X axis - top tilts away, bottom tilts toward
-  _camera.rotation.x -= 0.4; // About 23 degrees
+  // Tilt camera UP 25% (like a tilted coin - REVERSED)
+  // Rotate around X axis - top tilts toward, bottom tilts away
+  _camera.rotation.x += 0.4; // About 23 degrees
 
   debugLog('[char-select] 📹 Camera position:', _camera.position);
   debugLog('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
