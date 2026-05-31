@@ -250,7 +250,7 @@ export function initCharacterSelection(onSelect) {
   // Platform center is at ~50% X, ~75% Y of screen
   // Adjust camera to see characters better - HIGHER and TILTED
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 4.5, 4.5);
+  _camera.position.set(0, 4.5, 8); // Further back to see full circle
   _camera.lookAt(0, 1.5, 0);
 
   // Tilt camera UP 25% (like a tilted coin - REVERSED)
