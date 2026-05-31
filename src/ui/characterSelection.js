@@ -31,6 +31,9 @@ function debugLog(msg) {
 }
 
 export function initCharacterSelection(onSelect) {
+  // Emergency first log - before anything else
+  alert('CHARACTER SELECTION STARTED!');
+
   _onSelectCallback = onSelect;
 
   const container = document.createElement('div');

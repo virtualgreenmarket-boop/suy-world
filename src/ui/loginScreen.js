@@ -3,6 +3,7 @@
 let _onLoginComplete = null;
 
 export function initLoginScreen(onComplete) {
+  alert('LOGIN SCREEN STARTED!');
   _onLoginComplete = onComplete;
 
   const container = document.createElement('div');
