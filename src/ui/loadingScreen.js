@@ -215,23 +215,31 @@ async function startRealLoading() {
 
     updateProgress(100, 'Complete!');
 
-    // Wait at 100% then proceed
-    setTimeout(() => {
-      hideLoadingScreen();
-      if (_onLoadComplete) {
-        _onLoadComplete();
-      }
-    }, 500);
+    // Wait at 100%, HIDE screen, THEN proceed to login
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    hideLoadingScreen();
+
+    // Wait for fade-out, then call login screen
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    if (_onLoadComplete) {
+      _onLoadComplete();
+    }
 
   } catch (err) {
     console.error('[loading] Error during asset loading:', err);
     updateProgress(100, 'Starting anyway...');
-    setTimeout(() => {
-      hideLoadingScreen();
-      if (_onLoadComplete) {
-        _onLoadComplete();
-      }
-    }, 1000);
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    hideLoadingScreen();
+
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    if (_onLoadComplete) {
+      _onLoadComplete();
+    }
   }
 }
 
@@ -251,12 +259,16 @@ function hideLoadingScreen() {
   if (_loadingContainer) {
     _loadingContainer.style.opacity = '0';
     _loadingContainer.style.transition = 'opacity 0.5s ease';
+
+    // Remove after fade-out
     setTimeout(() => {
-      _loadingContainer.remove();
-      _loadingContainer = null;
-      _progressBar = null;
-      _progressText = null;
-      _statusText = null;
+      if (_loadingContainer) {
+        _loadingContainer.remove();
+        _loadingContainer = null;
+        _progressBar = null;
+        _progressText = null;
+        _statusText = null;
+      }
     }, 500);
   }
 }
