@@ -299,9 +299,9 @@ const TH = 1.62;   // roof thickness - was 1.2
 // Store slot spans (interior) - increased by 35%
 const SIDE_SPAN  = 113.4;  // left/right wall usable length (z: -56.7..+56.7) - was 84
 const FRONT_SPAN = 67.5;   // far wall usable width (x: -33.75..+33.75) - was 50
-const SIDE_COUNT  = 20;
+const SIDE_COUNT  = 15;    // Reduced from 20 for larger stores (7.56m each)
 const FRONT_COUNT = 10;
-const SLOT_W_SIDE  = SIDE_SPAN  / SIDE_COUNT;   // 5.67 m - was 4.2
+const SLOT_W_SIDE  = SIDE_SPAN  / SIDE_COUNT;   // 7.56 m (was 5.67 with 20 slots)
 const SLOT_W_FRONT = FRONT_SPAN / FRONT_COUNT;  // 6.75 m - was 5.0
 
 // Accent colours per hangar
@@ -317,11 +317,12 @@ const _hangarNpcs = []; // FBX NPCs with animation mixers
 // ── Public ────────────────────────────────────────────────────────────
 
 export function initHangars(scene) {
-  // Hangar positions - 10m closer to plaza (165.5 instead of 175.5)
+  // Hangar positions - moved 20% further from plaza for elliptical island
+  // 135.5 × 1.2 = 162.6m from center
   const configs = [
-    { x:   0, z: -165.5, rotY: 0,           name: 'North Hangar' },  // 10m closer
-    { x: 165.5, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },  // 10m closer
-    { x:   0, z:  165.5, rotY: Math.PI,      name: 'South Hangar' },  // 10m closer
+    { x:   0, z: -162.6, rotY: 0,           name: 'North Hangar' },  // 20% further
+    { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },  // 20% further
+    { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },  // 20% further
   ];
 
   configs.forEach((cfg, i) => buildHangar(scene, cfg, i));
@@ -333,8 +334,8 @@ export function initHangars(scene) {
   const sinNE = Math.sin(-Math.PI/2), cosNE = Math.cos(-Math.PI/2);
   const sinS = Math.sin(Math.PI),   cosS = Math.cos(Math.PI);
 
-  // North: x=0, z=-165.5, rotY=0 (10m closer to plaza)
-  registerInteraction([0 + halfD*sin0, 0, -165.5 + halfD*cos0], 'Talk', 7, () => {
+  // North: x=0, z=-162.6, rotY=0 (10m closer to plaza)
+  registerInteraction([0 + halfD*sin0, 0, -162.6 + halfD*cos0], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the North Hangar!',
       'This hangar is home to a variety of stores and creators. Walk along both sides and explore the rooms — each one belongs to a different seller or brand.',
@@ -342,8 +343,8 @@ export function initHangars(scene) {
       'Enjoy your visit to the North Hangar!',
     ], 'North Hangar');
   });
-  // Center: x=165.5, z=0, rotY=-PI/2 (10m closer to plaza)
-  registerInteraction([165.5 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Talk', 7, () => {
+  // Center: x=162.6, z=0, rotY=-PI/2 (10m closer to plaza)
+  registerInteraction([162.6 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the Central Hangar!',
       'You are standing at the heart of Suy-World. This hangar connects all directions and is filled with rooms from all kinds of sellers, creators, and brands.',
@@ -351,8 +352,8 @@ export function initHangars(scene) {
       'Enjoy your visit to the Central Hangar!',
     ], 'Central Hangar');
   });
-  // South: x=0, z=165.5, rotY=PI (10m closer to plaza)
-  registerInteraction([0 + halfD*sinS, 0, 165.5 + halfD*cosS], 'Talk', 7, () => {
+  // South: x=0, z=162.6, rotY=PI (10m closer to plaza)
+  registerInteraction([0 + halfD*sinS, 0, 162.6 + halfD*cosS], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the South Hangar!',
       'This hangar is packed with unique rooms and products. Each door you open leads to a different world — a different seller with their own style and story.',

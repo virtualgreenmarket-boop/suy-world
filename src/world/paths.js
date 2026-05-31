@@ -107,14 +107,14 @@ function getStoneTex() {
 const EDGE_MAT = new THREE.MeshStandardMaterial({ color: 0x6A6050, roughness: 0.95 });
 
 export function initPaths(scene) {
-  // Paths to hangars (hangars 10m closer to plaza at 165.5)
-  // North hangar: z=-165.5
+  // Paths to hangars (hangars at 162.6m for elliptical island)
+  // North hangar: z=-162.6
   addPath(scene,   0, -41,   0, -123);  // Plaza to north hangar entrance
 
-  // East/Center hangar: x=165.5
+  // East/Center hangar: x=162.6
   addPath(scene,  41,   0, 123,   0);   // Plaza to center hangar entrance
 
-  // South hangar: z=165.5
+  // South hangar: z=162.6
   addPath(scene,   0,  41,   0, 123);   // Plaza to south hangar entrance
 
   // Marina path (west): x=-230

@@ -5,6 +5,60 @@ import { registerGround, getSurfaceY } from '../systems/terrain.js';
 
 let _water = null;
 
+// ── Ellipse geometry helper ──────────────────────────────────────────
+// Creates an asymmetric ellipse: east side expands, west side stays same
+// North/South expansion: 2.38x (138% - +30% expansion for massive space behind hangars)
+// East expansion: 1.4x (40%)
+function createAsymmetricEllipse(baseRadius, eastExpansion, northSouthExpansion, segments = 128) {
+  const geometry = new THREE.CircleGeometry(baseRadius, segments);
+  const pos = geometry.attributes.position;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+
+    // Expand east side (x > 0) by eastExpansion factor
+    if (x > 0) {
+      pos.setX(i, x * eastExpansion);
+    }
+    // Keep west side (x <= 0) the same
+
+    // Expand both north and south (z direction) by northSouthExpansion factor
+    pos.setZ(i, z * northSouthExpansion);
+  }
+
+  geometry.attributes.position.needsUpdate = true;
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
+// Creates an asymmetric ring: east side expands, west side stays same
+function createAsymmetricRing(innerRadius, outerRadius, eastExpansion, northSouthExpansion, segments = 128) {
+  const geometry = new THREE.RingGeometry(innerRadius, outerRadius, segments);
+  const pos = geometry.attributes.position;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+
+    // Expand east side (x > 0)
+    if (x > 0) {
+      pos.setX(i, x * eastExpansion);
+    }
+
+    // Expand north/south
+    pos.setZ(i, z * northSouthExpansion);
+  }
+
+  geometry.attributes.position.needsUpdate = true;
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
 // ── Public ────────────────────────────────────────────────────────────
 
 export function initIsland(scene, opts = {}) {
@@ -79,18 +133,29 @@ function addTerrain(scene) {
   sandTex.colorSpace = THREE.SRGBColorSpace;
   sandTex.anisotropy = 8;
 
-  // Island body — visible tapered cliff edge
+  // Island body — visible tapered cliff edge (asymmetric ellipse)
+  // East expansion: 1.4x (40%), North/South expansion: 2.38x (138% - +30% for huge space)
+  const bodyGeom = new THREE.CylinderGeometry(238, 258, 8, 48, 1, true);
+  const bodyPos = bodyGeom.attributes.position;
+  for (let i = 0; i < bodyPos.count; i++) {
+    const x = bodyPos.getX(i);
+    const z = bodyPos.getZ(i);
+    if (x > 0) bodyPos.setX(i, x * 1.4); // East expansion (40%)
+    bodyPos.setZ(i, z * 2.38); // North/South expansion (138% - +30% for massive space)
+  }
+  bodyGeom.attributes.position.needsUpdate = true;
+
   const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(238, 258, 8, 48, 1, true),
+    bodyGeom,
     new THREE.MeshStandardMaterial({ color: 0x8B7040, roughness: 0.97, metalness: 0.0 })
   );
   body.position.y = -4;
   body.receiveShadow = true;
   scene.add(body);
 
-  // Island bottom cap
+  // Island bottom cap (asymmetric ellipse)
   const bottom = new THREE.Mesh(
-    new THREE.CircleGeometry(256, 48),
+    createAsymmetricEllipse(256, 1.4, 2.38, 48),
     new THREE.MeshStandardMaterial({ color: 0x6B5030, roughness: 0.97 })
   );
   bottom.rotation.x = Math.PI / 2;
@@ -98,8 +163,9 @@ function addTerrain(scene) {
   scene.add(bottom);
 
   // Grass disc — inner island (r < 197), realistic PBR grass
+  // East expansion: 1.4x (197 → 276m), North/South: 2.38x (197 → 469m), West stays 197m
   const grassMesh = new THREE.Mesh(
-    new THREE.CircleGeometry(197, 128),
+    createAsymmetricEllipse(197, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({
       map:          grassColor,
       normalMap:    grassNormal,
@@ -113,9 +179,10 @@ function addTerrain(scene) {
   grassMesh.receiveShadow = true;
   scene.add(grassMesh);
 
-  // Sand ring — beach zone (r 191–246); 1 cm below grass so depth test is clean
+  // Sand ring — beach zone (r 191–246 → asymmetric)
+  // East: 246 → 344m, North/South: 246 → 585m (138% expansion), West stays 246m
   const sandMesh = new THREE.Mesh(
-    new THREE.RingGeometry(191, 246, 128),
+    createAsymmetricRing(191, 246, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95, metalness: 0.0 })
   );
   sandMesh.rotation.x = -Math.PI / 2;
@@ -133,7 +200,8 @@ function addWater(scene) {
   waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
 
   // Animated deep-water shader — starts beyond the shallow wading zone
-  _water = new Water(new THREE.RingGeometry(396, 1000, 80), {
+  // Asymmetric: east 396→554m (1.4x), north/south 396→942m (2.38x), west stays 396m
+  _water = new Water(createAsymmetricRing(396, 1000, 1.4, 2.38, 80), {
     textureWidth:   512,
     textureHeight:  512,
     waterNormals,
@@ -148,8 +216,9 @@ function addWater(scene) {
   scene.add(_water);
 
   // Simple water fill between island edge and shallow zone (r=120→246)
+  // Asymmetric expansion: east 1.4x, north/south 2.38x
   const innerWater = new THREE.Mesh(
-    new THREE.RingGeometry(120, 246, 80),
+    createAsymmetricRing(120, 246, 1.4, 2.38, 80),
     new THREE.MeshStandardMaterial({
       color:       0x006994,
       transparent: true,
@@ -167,8 +236,12 @@ function addWater(scene) {
 // ── Shallow wading zone (r 246–276, walkable, y = -0.15) ─────────────
 
 function addShallowWater(scene) {
+  // Shallow wading zone: 246→396m becomes asymmetric
+  // East: 246→344m inner, 396→554m outer (1.4x)
+  // North/South: 246→585m inner, 396→942m outer (2.38x - +30% expansion)
+  // West: stays 246→396m
   const shallow = new THREE.Mesh(
-    new THREE.RingGeometry(246, 396, 128),
+    createAsymmetricRing(246, 396, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({
       color:       0x38C0D8,
       transparent: true,
@@ -194,9 +267,10 @@ function addShallowSeabed(scene) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
 
-  // Sloped entry: r=246 (y=0) → r=260 (y=-0.25) — just below water surface
+  // Sloped entry: r=246 (y=0) → r=260 (y=-0.25) — asymmetric expansion
+  // East: 1.4x, North/South: 2.38x (+30% expansion)
   const slopeMesh = new THREE.Mesh(
-    _slopedRing(246, 260, 0, -1.05, 128),
+    _slopedRingAsymmetric(246, 260, 0, -1.05, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0.0,
       emissive: 0x664422, emissiveIntensity: 0.18 })
   );
@@ -204,12 +278,13 @@ function addShallowSeabed(scene) {
   scene.add(slopeMesh);
   registerGround(slopeMesh);
 
-  // Flat sandy bottom: r=260→396, y=-1.05
+  // Flat sandy bottom: r=260→396, y=-1.05 — asymmetric expansion
+  // East: 1.4x, North/South: 2.38x
   const flatTex = tex.clone();
   flatTex.repeat.set(10, 80);
   flatTex.needsUpdate = true;
   const flatMesh = new THREE.Mesh(
-    new THREE.RingGeometry(260, 396, 128),
+    createAsymmetricRing(260, 396, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0,
       emissive: 0x664422, emissiveIntensity: 0.18 })
   );
@@ -218,6 +293,26 @@ function addShallowSeabed(scene) {
   flatMesh.receiveShadow = true;
   scene.add(flatMesh);
   registerGround(flatMesh);
+}
+
+// Creates an asymmetric sloped ring (east expansion, west stays same)
+function _slopedRingAsymmetric(innerR, outerR, yInner, yOuter, eastExp, nsExp, segments) {
+  const geom = _slopedRing(innerR, outerR, yInner, yOuter, segments);
+  const pos = geom.attributes.position;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+
+    if (x > 0) pos.setX(i, x * eastExp); // East expansion
+    pos.setZ(i, z * nsExp); // North/South expansion
+  }
+
+  geom.attributes.position.needsUpdate = true;
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+
+  return geom;
 }
 
 // Creates an annular mesh that slopes from yInner (at innerR) to yOuter (at outerR).
@@ -255,18 +350,18 @@ function seededRng(seed) {
 // Returns true if (x,z) falls inside a path corridor between the plaza and hangars/marina.
 function _onPath(x, z) {
   const PW = 8; // half-width of path exclusion corridor
-  if (Math.abs(x) < PW && z < -40 && z > -95)  return true; // N path
-  if (Math.abs(x) < PW && z >  40 && z <  95)  return true; // S path
-  if (Math.abs(z) < PW && x >  40 && x <  95)  return true; // E path
-  if (Math.abs(z) < PW && x < -40 && x > -210) return true; // W (marina) path
+  if (Math.abs(x) < PW && z < -40 && z > -240)  return true; // N path (extended +30% expansion)
+  if (Math.abs(x) < PW && z >  40 && z <  240)  return true; // S path (extended +30% expansion)
+  if (Math.abs(z) < PW && x >  40 && x <  125)  return true; // E path (unchanged - hangar at 162.6)
+  if (Math.abs(z) < PW && x < -40 && x > -210) return true; // W (marina) path (unchanged)
   return false;
 }
 
 function addTrees(scene, maxTrees = 62) {
   const avoid = [
-    { x:   0, z: -130, r: 62 }, // N hangar
-    { x: 130, z:    0, r: 62 }, // E hangar
-    { x:   0, z:  130, r: 62 }, // S hangar
+    { x:   0, z: -162.6, r: 62 }, // N hangar (updated for elliptical island)
+    { x: 162.6, z:    0, r: 62 }, // E hangar (updated for elliptical island)
+    { x:   0, z:  162.6, r: 62 }, // S hangar (updated for elliptical island)
     { x:-230, z:    0, r: 140 }, // marina (wide deck along shore)
     { x:   0, z:    0, r: 54 }, // plaza
   ];

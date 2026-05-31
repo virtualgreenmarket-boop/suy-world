@@ -46,12 +46,19 @@ export function removeRemotePlayer(id) {
 
 export function updateRemotePlayers(delta) {
   for (const { group, target } of Object.values(remotePlayers)) {
+    // ── CRITICAL FIX: Lock X and Z rotation to prevent bone deformation ──
+    group.rotation.x = 0;
+    group.rotation.z = 0;
+
     const prevX = group.position.x;
     const prevZ = group.position.z;
 
     const clampedY = Math.max(target.y, getSurfaceY(target.x, target.z));
     group.position.lerp(new THREE.Vector3(target.x, clampedY, target.z), LERP_POS);
-    group.rotation.y += (target.rotY - group.rotation.y) * LERP_ROT;
+
+    // Only interpolate Y rotation, keep X and Z locked at 0
+    const rotDiff = target.rotY - group.rotation.y;
+    group.rotation.y += rotDiff * LERP_ROT;
 
     const dx = group.position.x - prevX;
     const dz = group.position.z - prevZ;

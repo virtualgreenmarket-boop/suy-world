@@ -89,11 +89,21 @@ export function preloadCharacter() { return ensureLoaded(); }
 export async function spawnCharacter(parentGroup) {
   await ensureLoaded();
 
+  // ── CRITICAL FIX: Remove any existing character model to prevent duplicates ──
+  if (parentGroup.userData._charModel) {
+    parentGroup.remove(parentGroup.userData._charModel);
+    parentGroup.userData._charModel = null;
+  }
+
   const clone = skeletonClone(_template);
   clone.scale.setScalar(MODEL_SCALE);
-  clone.rotation.y = 0;
-  clone.position.y = _modelFloorY;
+  clone.rotation.set(0, 0, 0); // Reset all rotations to prevent bone drift
+  clone.position.set(0, _modelFloorY, 0); // Position relative to parent group
+  clone.updateMatrix();
+  clone.matrixAutoUpdate = true; // Ensure the model follows parent group transforms
+
   parentGroup.add(clone);
+  parentGroup.userData._charModel = clone; // Store reference to prevent duplicates
 
   // Build bone map once, before any items are equipped, so it never gets polluted
   const boneMap = new Map();
@@ -164,6 +174,20 @@ export function setAnimState(group, state, immediate = false) {
 }
 
 export function updateCharacterMixer(group, delta) {
+  // ── CRITICAL FIX: Ensure character model stays attached to group ──
+  const charModel = group.userData._charModel;
+  if (charModel && charModel.parent !== group) {
+    console.warn('[character] Model detached! Re-attaching to group.');
+    group.add(charModel);
+  }
+
+  // Ensure character model maintains correct local transform
+  if (charModel) {
+    charModel.position.y = _modelFloorY; // Lock Y position relative to group
+    charModel.rotation.x = 0; // Prevent X rotation drift
+    charModel.rotation.z = 0; // Prevent Z rotation drift
+  }
+
   group.userData.mixer?.update(delta);
 }
 
@@ -187,14 +211,31 @@ export async function equipItem(group, category, filename, color = null) {
     const item = skeletonClone(gltf.scene);
     const shoeScale = category === 'Shoes' ? MODEL_SCALE * 0.82 : MODEL_SCALE;
     item.scale.setScalar(shoeScale);
-    item.position.y = _modelFloorY + (category === 'Shoes' ? 0.05 : 0);
+    item.position.set(0, _modelFloorY + (category === 'Shoes' ? 0.05 : 0), 0);
+    item.rotation.set(0, 0, 0); // Reset rotation to prevent bone drift
 
+    // ── CRITICAL FIX: Proper skeleton binding to prevent bone explosion ──
     if (charBoneMap.size > 0) {
       item.traverse(n => {
         if (!n.isSkinnedMesh || !n.skeleton) return;
-        const bones = n.skeleton.bones.map(b => charBoneMap.get(b.name) ?? b);
-        n.skeleton = new THREE.Skeleton(bones, n.skeleton.boneInverses);
-        n.bind(n.skeleton);
+
+        // Map item bones to character bones, keeping item's own bones as fallback
+        const newBones = n.skeleton.bones.map(itemBone => {
+          const charBone = charBoneMap.get(itemBone.name);
+          if (charBone) {
+            return charBone; // Use character's bone
+          } else {
+            console.warn('[character] bone not found in character:', itemBone.name);
+            return itemBone; // Keep item's own bone as fallback
+          }
+        });
+
+        // Create new skeleton with character bones but item's original inverse matrices
+        // This prevents bone stretching/deformation
+        const newSkeleton = new THREE.Skeleton(newBones, n.skeleton.boneInverses);
+        n.skeleton.dispose(); // Clean up old skeleton
+        n.skeleton = newSkeleton;
+        n.bind(newSkeleton); // Re-bind with proper skeleton
       });
     }
 
@@ -206,6 +247,26 @@ export async function equipItem(group, category, filename, color = null) {
     item.traverse(n => {
       if (!n.isMesh) return;
       n.castShadow = true;
+
+      // Enhance texture quality with anisotropic filtering
+      if (n.material) {
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        mats.forEach(mat => {
+          if (!mat) return;
+          ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap'].forEach(key => {
+            if (mat[key]) {
+              mat[key].anisotropy = 16;
+              mat[key].minFilter = THREE.LinearMipmapLinearFilter;
+              mat[key].magFilter = THREE.LinearFilter;
+              if (key === 'map' || key === 'emissiveMap') {
+                mat[key].colorSpace = THREE.SRGBColorSpace;
+              }
+              mat[key].needsUpdate = true;
+            }
+          });
+        });
+      }
+
       if (category !== 'Body' && category !== 'Emotions') {
         n.geometry.computeBoundingBox();
         const bb = n.geometry.boundingBox;

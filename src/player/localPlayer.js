@@ -96,6 +96,12 @@ function _triggerJump() {
 // ── Update ────────────────────────────────────────────────────────────
 
 export function updateLocalPlayer(delta) {
+  // ── CRITICAL FIX: Ensure player group maintains proper rotation (no X/Z drift) ──
+  if (playerGroup && !_isSitting) {
+    playerGroup.rotation.x = 0; // Lock X rotation to prevent skeleton tilt
+    playerGroup.rotation.z = 0; // Lock Z rotation to prevent skeleton roll
+  }
+
   // Pinch-to-zoom (mobile)
   const zoomDelta = consumeCameraZoom();
   if (zoomDelta !== 0) {
@@ -245,14 +251,15 @@ export function sitOnBench(x, y, z, facingY) {
   const ox = x + Math.sin(facingY) * 0.3;
   const oz = z + Math.cos(facingY) * 0.3;
   playerGroup.position.set(ox, y, oz);
-  playerGroup.rotation.y = facingY;
-  playerGroup.scale.setScalar(1.2);
+  playerGroup.rotation.set(0, facingY, 0); // Lock X and Z rotation to prevent bone drift
+  playerGroup.scale.set(1.2, 1.2, 1.2); // Use uniform scale to prevent bone deformation
   setAnimState(playerGroup, 'sit');
 }
 
 export function standUp() {
   if (!playerGroup || !_isSitting) return;
   _isSitting = false;
-  playerGroup.scale.setScalar(1.0);
+  playerGroup.scale.set(1.0, 1.0, 1.0); // Reset scale uniformly
+  playerGroup.rotation.set(0, playerGroup.rotation.y, 0); // Keep Y rotation, reset X and Z
   setAnimState(playerGroup, 'idle');
 }

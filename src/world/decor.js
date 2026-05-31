@@ -10,9 +10,9 @@ function makeRng(seed) {
 }
 
 const AVOID = [
-  { x:   0, z: -165.5, r: 85 },    // North hangar (10m closer to plaza)
-  { x: 165.5, z:    0, r: 85 },    // East/Center hangar (10m closer to plaza)
-  { x:   0, z:  165.5, r: 85 },    // South hangar (10m closer to plaza)
+  { x:   0, z: -162.6, r: 85 },    // North hangar (10m closer to plaza)
+  { x: 162.6, z:    0, r: 85 },    // East/Center hangar (10m closer to plaza)
+  { x:   0, z:  162.6, r: 85 },    // South hangar (10m closer to plaza)
   { x: -150, z:   0, r: 84 },      // Marina
   { x:   0, z:    0, r: 52 },      // Plaza
 ];
@@ -20,10 +20,10 @@ const BEACH_R = 218;
 const PATH_HW = 8; // path half-width exclusion corridor
 
 function _onPath(x, z) {
-  if (Math.abs(x) < PATH_HW && z < -40 && z > -95)  return true;
-  if (Math.abs(x) < PATH_HW && z >  40 && z <  95)  return true;
-  if (Math.abs(z) < PATH_HW && x >  40 && x <  95)  return true;
-  if (Math.abs(z) < PATH_HW && x < -40 && x > -115) return true;
+  if (Math.abs(x) < PATH_HW && z < -40 && z > -240)  return true; // N (extended for larger island)
+  if (Math.abs(x) < PATH_HW && z >  40 && z <  240)  return true; // S (extended for larger island)
+  if (Math.abs(z) < PATH_HW && x >  40 && x <  125)  return true; // E (unchanged)
+  if (Math.abs(z) < PATH_HW && x < -40 && x > -115) return true; // W (marina, unchanged)
   return false;
 }
 
