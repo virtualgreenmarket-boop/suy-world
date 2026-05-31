@@ -248,9 +248,9 @@ export function initCharacterSelection(onSelect) {
 
   // Camera positioned to align with circular platform in background image
   // Platform center is at ~50% X, ~75% Y of screen
-  // Adjust camera to see characters better
+  // Adjust camera to see characters better - HIGHER
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 2, 4.5);
+  _camera.position.set(0, 4.5, 4.5);
   _camera.lookAt(0, 1.5, 0);
 
   debugLog('[char-select] 📹 Camera position:', _camera.position);
