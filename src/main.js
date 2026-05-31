@@ -42,17 +42,15 @@ import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 function startApp() {
   // ── Authentication & Character Selection Flow ──────────────────────
 
-  // Check authentication first
-  if (!isAuthenticated()) {
-    // Show login screen
-    initLoginScreen((username) => {
-      // After login, show character selection
-      showCharacterSelectionOrStart();
+  // Always show login screen first
+  initLoginScreen((username) => {
+    // After login, always show character selection
+    initCharacterSelection((characterId) => {
+      console.log('[main] Character selected:', characterId);
+      // Start game with selected character
+      startGame(characterId);
     });
-  } else {
-    // Already logged in, check character selection
-    showCharacterSelectionOrStart();
-  }
+  });
 }
 
 // Start when DOM is ready
@@ -61,22 +59,6 @@ if (document.readyState === 'loading') {
 } else {
   // DOM already loaded
   startApp();
-}
-
-function showCharacterSelectionOrStart() {
-  const savedCharacter = getSavedCharacter();
-
-  if (!savedCharacter) {
-    // Show character selection
-    initCharacterSelection((characterId) => {
-      console.log('[main] Character selected:', characterId);
-      // Start game with selected character
-      startGame(characterId);
-    });
-  } else {
-    // Character already selected, start game
-    startGame(savedCharacter);
-  }
 }
 
 // ── Game Initialization ──────────────────────────────────────────────

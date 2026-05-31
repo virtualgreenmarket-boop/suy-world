@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clear Storage</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 15px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      color: white;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    .info {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 10px;
+      font-family: monospace;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Storage Manager</h1>
+    <p>Clear localStorage to see login and character selection screens</p>
+    
+    <div>
+      <button onclick="clearStorage()">Clear Storage & Reload</button>
+      <button onclick="showInfo()">Show Current Storage</button>
+    </div>
+
+    <div class="info" id="info" style="display:none;">
+      <strong>Current localStorage:</strong><br>
+      <div id="info-content"></div>
+    </div>
+  </div>
+
+  <script>
+    function clearStorage() {
+      localStorage.clear();
+      alert('✅ Storage cleared! Redirecting to game...');
+      window.location.href = 'http://localhost:5173';
+    }
+
+    function showInfo() {
+      const info = document.getElementById('info');
+      const content = document.getElementById('info-content');
+      
+      let html = '';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        html += `<br>${key}: ${value}`;
+      }
+      
+      if (html === '') {
+        html = '<br><em>localStorage is empty</em>';
+      }
+      
+      content.innerHTML = html;
+      info.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
