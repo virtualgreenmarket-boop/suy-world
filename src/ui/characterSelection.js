@@ -217,13 +217,18 @@ export function initCharacterSelection(onSelect) {
   console.log('[char-select] 📹 Camera position:', _camera.position);
   console.log('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
 
-  _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  _renderer = new THREE.WebGLRenderer({ canvas, alpha: false, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
   _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   _renderer.shadowMap.enabled = true;
   _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  _renderer.setClearColor(0x444444, 1); // Set gray background
 
   console.log('[char-select] 🎨 Renderer setup complete');
+
+  // Render once immediately to test
+  _renderer.render(_scene, _camera);
+  console.log('[char-select] 🎨 First render executed');
 
   // Lighting - bright and clear
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
