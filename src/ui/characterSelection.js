@@ -396,6 +396,14 @@ async function loadAllCharacters() {
 
       debugLog(`[char-select] Character ${i + 1} container at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
 
+      // Add debug cube at same position
+      const debugCube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 3.5, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true })
+      );
+      debugCube.position.set(0, 1.75, 0);
+      container.add(debugCube);
+
       _scene.add(container);
 
       // Setup animation mixer - IMMEDIATELY start idle to prevent T-pose
