@@ -10,7 +10,6 @@ let _statusText = null;
 let _onLoadComplete = null;
 
 export function initLoadingScreen(onComplete) {
-  alert('LOADING SCREEN STARTED!');
   _onLoadComplete = onComplete;
 
   _loadingContainer = document.createElement('div');
