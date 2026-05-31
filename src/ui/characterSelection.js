@@ -395,7 +395,7 @@ async function loadAllCharacters() {
       // Position in circle - aligned with background platform
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = 0; // Ground level
+      container.position.y = 1.0; // Raised 20% higher
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
       container.rotation.y = -angle; // Face center
 
