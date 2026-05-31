@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 let _onSelectCallback = null;
 let _scene = null;
@@ -12,8 +13,9 @@ let _targetRotation = 0;
 let _selectedIndex = 0;
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 5.5;
+const CIRCLE_RADIUS = 2.8;
 const ROTATION_SPEED = 0.08;
+const CHARACTER_TARGET_HEIGHT = 3.5; // Large characters - 40-50% of screen
 
 export function initCharacterSelection(onSelect) {
   _onSelectCallback = onSelect;
@@ -48,7 +50,7 @@ export function initCharacterSelection(onSelect) {
         bottom: 0;
         left: 0;
         width: 100%;
-        height: 33vh;
+        height: 50vh;
         z-index: 2;
       }
 
@@ -198,11 +200,13 @@ export function initCharacterSelection(onSelect) {
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
 
-  const canvasHeight = window.innerHeight * 0.33;
+  const canvasHeight = window.innerHeight * 0.5;
 
-  _camera = new THREE.PerspectiveCamera(45, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 2.2, 8);
-  _camera.lookAt(0, 0.9, 0);
+  // Camera positioned to align with circular platform in background image
+  // Platform center is at ~50% X, ~75% Y of screen
+  _camera = new THREE.PerspectiveCamera(55, window.innerWidth / canvasHeight, 0.1, 100);
+  _camera.position.set(0, 3.5, 6);
+  _camera.lookAt(0, 1.5, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
@@ -215,28 +219,28 @@ export function initCharacterSelection(onSelect) {
   _scene.add(ambient);
 
   const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
-  keyLight.position.set(3, 4, 3);
+  keyLight.position.set(3, 5, 3);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.width = 1024;
-  keyLight.shadow.mapSize.height = 1024;
+  keyLight.shadow.mapSize.width = 2048;
+  keyLight.shadow.mapSize.height = 2048;
   _scene.add(keyLight);
 
   const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  fillLight.position.set(-2, 2, -2);
+  fillLight.position.set(-2, 3, -2);
   _scene.add(fillLight);
 
   const rimLight = new THREE.DirectionalLight(0x88ccff, 0.6);
-  rimLight.position.set(0, 2, -3);
+  rimLight.position.set(0, 3, -3);
   _scene.add(rimLight);
 
   // Ground plane - subtle shadow receiver
-  const groundGeo = new THREE.CircleGeometry(8, 64);
+  const groundGeo = new THREE.CircleGeometry(CIRCLE_RADIUS + 1, 64);
   const groundMat = new THREE.MeshStandardMaterial({
     color: 0x2a2a2a,
     roughness: 0.9,
     metalness: 0.1,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.1,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
@@ -287,19 +291,23 @@ async function loadAllCharacters() {
         loader.load(modelPath, resolve, undefined, reject)
       );
 
-      const model = gltf.scene;
+      // Clone the entire scene using SkeletonUtils to preserve skeleton binding
+      const model = skeletonClone(gltf.scene);
 
-      // Scale to consistent height (1.8m)
+      // Scale to large size (40-50% of screen height)
       const box = new THREE.Box3().setFromObject(model);
       const height = box.getSize(new THREE.Vector3()).y;
-      const scale = 1.8 / height;
+      const scale = CHARACTER_TARGET_HEIGHT / height;
       model.scale.setScalar(scale);
 
-      // Position on ground
+      // Position on ground - recalculate after scaling
       model.updateMatrixWorld(true);
       const box2 = new THREE.Box3().setFromObject(model);
       const floorY = -box2.min.y;
       model.position.y = floorY;
+
+      // Lock rotation to prevent skeleton deformation
+      model.rotation.set(0, 0, 0);
 
       // Enable shadows
       model.traverse(n => {
@@ -313,7 +321,7 @@ async function loadAllCharacters() {
       const container = new THREE.Group();
       container.add(model);
 
-      // Position in circle
+      // Position in circle - aligned with background platform
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
@@ -321,15 +329,19 @@ async function loadAllCharacters() {
 
       _scene.add(container);
 
-      // Setup animation
+      // Setup animation mixer - IMMEDIATELY start idle to prevent T-pose
       let mixer = null;
       if (_idleClip) {
         mixer = new THREE.AnimationMixer(model);
         const action = mixer.clipAction(_idleClip);
         action.play();
+        // Update mixer immediately to apply first frame
+        mixer.update(0);
       }
 
       _characterModels.push({ container, model, mixer });
+
+      console.log(`[char-select] Loaded character ${i + 1}, scale: ${scale.toFixed(2)}`);
 
     } catch (err) {
       console.warn(`[char-select] Failed to load model${i + 1}:`, err);
@@ -416,6 +428,12 @@ function animate(time = 0) {
     char.container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
     char.container.rotation.y = -angle;
 
+    // Lock model rotation to prevent skeleton drift
+    if (char.model) {
+      char.model.rotation.x = 0;
+      char.model.rotation.z = 0;
+    }
+
     // Update animation
     if (char.mixer) {
       char.mixer.update(delta);
@@ -423,7 +441,7 @@ function animate(time = 0) {
 
     // Scale front character slightly larger
     const distFromFront = Math.abs(Math.sin(angle));
-    const scale = 1.0 + (1.0 - distFromFront) * 0.2;
+    const scale = 1.0 + (1.0 - distFromFront) * 0.15;
     char.container.scale.setScalar(scale);
   });
 
@@ -435,7 +453,7 @@ function animate(time = 0) {
 window.addEventListener('resize', () => {
   if (!_camera || !_renderer) return;
 
-  const canvasHeight = window.innerHeight * 0.33;
+  const canvasHeight = window.innerHeight * 0.5;
   _camera.aspect = window.innerWidth / canvasHeight;
   _camera.updateProjectionMatrix();
   _renderer.setSize(window.innerWidth, canvasHeight);
