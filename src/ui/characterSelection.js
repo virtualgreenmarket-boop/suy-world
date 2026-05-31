@@ -269,27 +269,36 @@ export function initCharacterSelection(onSelect) {
 async function loadAllCharacters() {
   const loader = new GLTFLoader();
 
+  console.log('[char-select] Starting to load characters...');
+
   // Load idle animation first
   try {
+    console.log('[char-select] Loading idle animation...');
     const gltf = await new Promise((resolve, reject) =>
       loader.load('/models/player/animations/idle.glb', resolve, undefined, reject)
     );
     if (gltf.animations && gltf.animations.length > 0) {
       _idleClip = gltf.animations[0];
-      console.log('[char-select] Idle animation loaded');
+      console.log('[char-select] ✅ Idle animation loaded successfully');
+    } else {
+      console.warn('[char-select] ⚠️ Idle animation loaded but no animations found');
     }
   } catch (err) {
-    console.warn('[char-select] Failed to load idle animation:', err);
+    console.error('[char-select] ❌ Failed to load idle animation:', err);
   }
 
   // Load all 6 characters in a circle
   for (let i = 0; i < CHARACTER_COUNT; i++) {
     const modelPath = `/models/player/characters/model${i + 1}.glb`;
 
+    console.log(`[char-select] Loading character ${i + 1} from ${modelPath}...`);
+
     try {
       const gltf = await new Promise((resolve, reject) =>
         loader.load(modelPath, resolve, undefined, reject)
       );
+
+      console.log(`[char-select] ✅ Character ${i + 1} GLB loaded, cloning scene...`);
 
       // Clone the entire scene using SkeletonUtils to preserve skeleton binding
       const model = skeletonClone(gltf.scene);
@@ -341,13 +350,14 @@ async function loadAllCharacters() {
 
       _characterModels.push({ container, model, mixer });
 
-      console.log(`[char-select] Loaded character ${i + 1}, scale: ${scale.toFixed(2)}`);
+      console.log(`[char-select] ✅ Character ${i + 1} fully loaded! Scale: ${scale.toFixed(2)}, Position: (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
 
     } catch (err) {
-      console.warn(`[char-select] Failed to load model${i + 1}:`, err);
+      console.error(`[char-select] ❌ Failed to load model${i + 1}:`, err);
     }
   }
 
+  console.log(`[char-select] ✅ All characters loaded! Total: ${_characterModels.length}`);
   updateCharacterName();
 }
 
@@ -407,6 +417,7 @@ export function getCharacterModelPath(charId) {
 
 // Animation loop
 let lastTime = 0;
+let _frameCount = 0;
 function animate(time = 0) {
   if (!_scene) return;
 
@@ -414,6 +425,13 @@ function animate(time = 0) {
 
   const delta = (time - lastTime) / 1000;
   lastTime = time;
+
+  // Debug log every 60 frames (~1 second)
+  _frameCount++;
+  if (_frameCount === 60) {
+    console.log(`[char-select] Animation running, ${_characterModels.length} characters visible`);
+    _frameCount = 0;
+  }
 
   // Smooth rotation interpolation
   const rotDiff = _targetRotation - _currentRotation;
