@@ -310,6 +310,7 @@ export function initChatUI() {
   inputEl.addEventListener('keydown', e => {
     if (e.code === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       if (inputEl.value.trim() === '') {
         collapseChat();
       } else {
