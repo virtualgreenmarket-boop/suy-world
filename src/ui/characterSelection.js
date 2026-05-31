@@ -250,8 +250,8 @@ export function initCharacterSelection(onSelect) {
   // Platform center is at ~50% X, ~75% Y of screen
   // Adjust camera to see characters better - HIGHER and TILTED
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 4.5, 8); // Further back to see full circle
-  _camera.lookAt(0, 1.5, 0);
+  _camera.position.set(0, 5, 10); // Further back and higher
+  _camera.lookAt(0, 2.5, 0);
 
   // Tilt camera UP 25% (like a tilted coin - REVERSED)
   // Rotate around X axis - top tilts toward, bottom tilts away
@@ -395,7 +395,7 @@ async function loadAllCharacters() {
       // Position in circle - aligned with background platform
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = 1.0; // Raised 20% higher
+      container.position.y = 2.0; // Raised 40% total
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
       container.rotation.y = -angle; // Face center
 
