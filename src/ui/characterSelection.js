@@ -309,24 +309,7 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'Enter') confirmSelection();
   });
 
-  // Add 6 colored test cubes in a circle
-  const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
-  for (let i = 0; i < CHARACTER_COUNT; i++) {
-    const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
-    const geometry = new THREE.BoxGeometry(1, 3, 1);
-    const material = new THREE.MeshStandardMaterial({ color: colors[i] });
-    const cube = new THREE.Mesh(geometry, material);
-
-    cube.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-    cube.position.y = 1.5;
-    cube.position.z = Math.cos(angle) * CIRCLE_RADIUS;
-    cube.castShadow = true;
-
-    _scene.add(cube);
-    debugLog(`[char-select] Added test cube ${i + 1} at (${cube.position.x.toFixed(2)}, ${cube.position.y.toFixed(2)}, ${cube.position.z.toFixed(2)})`);
-  }
-
-  // Load characters
+  // Load characters (no test cubes)
   loadAllCharacters();
 
   // Start animation loop
@@ -359,14 +342,14 @@ async function loadAllCharacters() {
   for (let i = 0; i < CHARACTER_COUNT; i++) {
     const modelPath = `/models/player/characters/model${i + 1}.glb`;
 
-    console.log(`[char-select] Loading character ${i + 1} from ${modelPath}...`);
+    debugLog(`[char-select] Loading character ${i + 1} from ${modelPath}...`);
 
     try {
       const gltf = await new Promise((resolve, reject) =>
         loader.load(modelPath, resolve, undefined, reject)
       );
 
-      console.log(`[char-select] ✅ Character ${i + 1} GLB loaded, cloning scene...`);
+      debugLog(`[char-select] ✅ Character ${i + 1} GLB loaded, cloning scene...`);
 
       // Clone the entire scene using SkeletonUtils to preserve skeleton binding
       const model = skeletonClone(gltf.scene);
