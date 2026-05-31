@@ -202,17 +202,25 @@ export function initCharacterSelection(onSelect) {
 
   const canvasHeight = window.innerHeight * 0.5;
 
+  console.log('[char-select] 📐 Canvas size:', window.innerWidth, 'x', canvasHeight);
+  console.log('[char-select] 🎥 Camera setup: FOV=55, aspect=' + (window.innerWidth / canvasHeight).toFixed(2));
+
   // Camera positioned to align with circular platform in background image
   // Platform center is at ~50% X, ~75% Y of screen
   _camera = new THREE.PerspectiveCamera(55, window.innerWidth / canvasHeight, 0.1, 100);
   _camera.position.set(0, 3.5, 6);
   _camera.lookAt(0, 1.5, 0);
 
+  console.log('[char-select] 📹 Camera position:', _camera.position);
+  console.log('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
+
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
   _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   _renderer.shadowMap.enabled = true;
   _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  console.log('[char-select] 🎨 Renderer setup complete');
 
   // Lighting - bright and clear
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
@@ -247,6 +255,15 @@ export function initCharacterSelection(onSelect) {
   ground.receiveShadow = true;
   _scene.add(ground);
 
+  // DEBUG: Add visible test cube to verify 3D rendering works
+  const testCubeGeo = new THREE.BoxGeometry(1, 2, 1);
+  const testCubeMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+  const testCube = new THREE.Mesh(testCubeGeo, testCubeMat);
+  testCube.position.set(0, 1, 0);
+  testCube.castShadow = true;
+  _scene.add(testCube);
+  console.log('[char-select] 🔴 DEBUG: Red test cube added at center');
+
   // UI event handlers
   document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(-1));
   document.getElementById('char-next').addEventListener('click', () => rotateCarousel(1));
@@ -263,6 +280,7 @@ export function initCharacterSelection(onSelect) {
   loadAllCharacters();
 
   // Start animation loop
+  console.log('[char-select] 🎬 Starting animation loop...');
   animate();
 }
 
@@ -464,7 +482,15 @@ function animate(time = 0) {
   });
 
   // Render
-  _renderer.render(_scene, _camera);
+  if (_renderer && _scene && _camera) {
+    _renderer.render(_scene, _camera);
+  } else {
+    console.error('[char-select] ❌ Cannot render - missing:', {
+      renderer: !!_renderer,
+      scene: !!_scene,
+      camera: !!_camera
+    });
+  }
 }
 
 // Handle window resize
