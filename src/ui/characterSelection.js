@@ -40,14 +40,15 @@ export function initCharacterSelection(onSelect) {
         height: 100%;
         object-fit: cover;
         z-index: 1;
+        opacity: 1;
       }
 
       #char-select-canvas {
         position: absolute;
-        top: 0;
+        bottom: 0;
         left: 0;
         width: 100%;
-        height: 100%;
+        height: 33vh;
         z-index: 2;
       }
 
@@ -61,25 +62,27 @@ export function initCharacterSelection(onSelect) {
 
       .char-select-title {
         position: absolute;
-        top: 40px;
+        top: 60px;
         left: 50%;
         transform: translateX(-50%);
         color: white;
-        font-size: 56px;
+        font-size: 64px;
         font-weight: bold;
-        text-shadow: 0 4px 12px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.6);
+        text-shadow: 0 6px 20px rgba(0,0,0,0.9), 0 3px 8px rgba(0,0,0,0.7);
         font-family: 'Segoe UI', Arial, sans-serif;
-        letter-spacing: 2px;
+        letter-spacing: 3px;
+        z-index: 10;
       }
 
       .char-select-controls {
         position: absolute;
-        bottom: 120px;
+        bottom: 15%;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
         align-items: center;
-        gap: 40px;
+        gap: 50px;
+        z-index: 10;
       }
 
       .char-select-arrow {
@@ -127,11 +130,11 @@ export function initCharacterSelection(onSelect) {
 
       .char-select-enter {
         position: absolute;
-        bottom: 30px;
+        bottom: 5%;
         left: 50%;
         transform: translateX(-50%);
-        padding: 20px 90px;
-        font-size: 26px;
+        padding: 22px 100px;
+        font-size: 28px;
         font-weight: bold;
         color: white;
         background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
@@ -139,15 +142,16 @@ export function initCharacterSelection(onSelect) {
         border-radius: 50px;
         cursor: pointer;
         transition: all 0.3s ease;
-        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.6);
+        box-shadow: 0 10px 30px rgba(76, 175, 80, 0.7);
         text-transform: uppercase;
-        letter-spacing: 2px;
+        letter-spacing: 2.5px;
         pointer-events: auto;
+        z-index: 10;
       }
 
       .char-select-enter:hover {
-        transform: translateX(-50%) translateY(-3px);
-        box-shadow: 0 12px 35px rgba(76, 175, 80, 0.8);
+        transform: translateX(-50%) translateY(-4px);
+        box-shadow: 0 14px 40px rgba(76, 175, 80, 0.9);
       }
 
       @media (max-width: 768px) {
@@ -194,43 +198,45 @@ export function initCharacterSelection(onSelect) {
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
 
-  _camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+  const canvasHeight = window.innerHeight * 0.33;
+
+  _camera = new THREE.PerspectiveCamera(50, window.innerWidth / canvasHeight, 0.1, 100);
   _camera.position.set(0, 1.5, 5);
   _camera.lookAt(0, 1, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  _renderer.setSize(window.innerWidth, window.innerHeight);
+  _renderer.setSize(window.innerWidth, canvasHeight);
   _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   _renderer.shadowMap.enabled = true;
   _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  // Lighting
-  const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+  // Lighting - bright and clear
+  const ambient = new THREE.AmbientLight(0xffffff, 1.2);
   _scene.add(ambient);
 
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
   keyLight.position.set(3, 4, 3);
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.width = 1024;
   keyLight.shadow.mapSize.height = 1024;
   _scene.add(keyLight);
 
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
   fillLight.position.set(-2, 2, -2);
   _scene.add(fillLight);
 
-  const rimLight = new THREE.DirectionalLight(0x88ccff, 0.4);
+  const rimLight = new THREE.DirectionalLight(0x88ccff, 0.6);
   rimLight.position.set(0, 2, -3);
   _scene.add(rimLight);
 
-  // Ground plane
+  // Ground plane - subtle shadow receiver
   const groundGeo = new THREE.CircleGeometry(8, 64);
   const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a1a,
-    roughness: 0.8,
-    metalness: 0.2,
+    color: 0x2a2a2a,
+    roughness: 0.9,
+    metalness: 0.1,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.15,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
@@ -429,7 +435,8 @@ function animate(time = 0) {
 window.addEventListener('resize', () => {
   if (!_camera || !_renderer) return;
 
-  _camera.aspect = window.innerWidth / window.innerHeight;
+  const canvasHeight = window.innerHeight * 0.33;
+  _camera.aspect = window.innerWidth / canvasHeight;
   _camera.updateProjectionMatrix();
-  _renderer.setSize(window.innerWidth, window.innerHeight);
+  _renderer.setSize(window.innerWidth, canvasHeight);
 });
