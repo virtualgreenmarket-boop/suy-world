@@ -18,13 +18,27 @@ export function initLoadingScreen(onComplete) {
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1e 100%);
+        background-image: url('/models/ui/pic/913ace22-ffad-4026-bfdd-4f53e9e272d2.png');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 30000;
         font-family: 'Segoe UI', Arial, sans-serif;
+      }
+
+      #loading-screen::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: -1;
       }
 
       .loading-logo {
