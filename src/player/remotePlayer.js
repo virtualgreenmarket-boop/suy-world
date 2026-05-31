@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { spawnCharacter, setAnimState, updateCharacterMixer } from './characterLoader.js';
 import { getSurfaceY } from '../systems/terrain.js';
 
 const LERP_POS = 0.18;
@@ -29,7 +28,13 @@ export function addRemotePlayer(id, data) {
     target: { x: data.x || 0, y: data.y || 0, z: data.z || 0, rotY: data.rotY || 0 },
   };
 
-  spawnCharacter(group); // async; model appears once loaded
+  // Create a simple placeholder cube for remote players
+  const geometry = new THREE.BoxGeometry(0.6, 1.8, 0.6);
+  const material = new THREE.MeshStandardMaterial({ color: 0x4CAF50 });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.position.y = 0.9;
+  group.add(mesh);
 }
 
 export function updateRemotePlayerTarget(id, x, y, z, rotY) {
@@ -60,17 +65,7 @@ export function updateRemotePlayers(delta) {
     const rotDiff = target.rotY - group.rotation.y;
     group.rotation.y += rotDiff * LERP_ROT;
 
-    const dx = group.position.x - prevX;
-    const dz = group.position.z - prevZ;
-    const speed = Math.sqrt(dx * dx + dz * dz) / delta;
-
-    let animTarget;
-    if (speed < 0.5)  animTarget = 'idle';
-    else if (speed < 10) animTarget = 'walk';
-    else               animTarget = 'run';
-
-    setAnimState(group, animTarget);
-    updateCharacterMixer(group, delta);
+    // Remote players use simple cubes for now (no animations needed)
   }
 }
 

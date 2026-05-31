@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
-import { preloadAnimations, buildClipForSkeleton } from '../player/animations.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { registerInteraction } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
@@ -329,25 +328,8 @@ export async function spawnAllPlazaNpcs(scene) {
         npc.baseY    = wy;
         npc.walkMode = 'sit';
 
-        if (!npc.sitAction) {
-          await preloadAnimations();
-          const boneNames = new Set();
-          npc.group.traverse(n => {
-            if (n.isBone)        boneNames.add(n.name);
-            if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
-          });
-          const sitClip = buildClipForSkeleton('sit', boneNames);
-          if (sitClip?.tracks.length > 0) {
-            npc.sitAction = npc.mixer.clipAction(sitClip);
-          }
-        }
-
-        npc.idleAction?.stop();
-        if (npc.sitAction) {
-          npc.sitAction.reset().play();
-        } else {
-          npc.idleAction?.reset().play();
-        }
+        // Use idle animation for sitting (no external sit animation needed)
+        npc.idleAction?.reset().play();
       }
     } else {
       npc.walkCenter = new THREE.Vector3(cfg.x, 0, cfg.z);
@@ -438,24 +420,8 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     mode = 'builtin';
 
   } else if (hasSkel) {
-    await preloadAnimations();
-    const boneNames = new Set();
-    clone.traverse(n => {
-      if (n.isBone)        boneNames.add(n.name);
-      if (n.isSkinnedMesh) n.skeleton.bones.forEach(b => boneNames.add(b.name));
-    });
-    if (boneNames.size > 0) {
-      const idleClip = buildClipForSkeleton('idle', boneNames);
-      const walkClip = buildClipForSkeleton('walk', boneNames);
-      if (idleClip?.tracks.length > 0) {
-        idleAction = mixer.clipAction(idleClip);
-        idleAction.play();
-        mode = 'retarget';
-      }
-      if (walkClip?.tracks.length > 0) {
-        walkAction = mixer.clipAction(walkClip);
-      }
-    }
+    // NPCs without built-in animations will use procedural animation
+    mode = 'procedural';
   }
 
   return {

@@ -18,10 +18,11 @@ import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemote
 import { initMultiplayer, updateMultiplayer, sendChat, getSocket }
   from './systems/multiplayer.js';
 import { initEconomy }      from './systems/economy.js';
-import { preloadCharacter } from './player/characterLoader.js';
-import { preloadAnimations } from './player/animations.js';
+import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision }    from './systems/collision.js';
+import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
+import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
 
 import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
@@ -35,23 +36,40 @@ import { initInteractionUI, updateInteractions }         from './ui/interactionU
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
-import { initLoginScreen, updateLoadingProgress } from './ui/loginScreen.js';
 
-// Loading progress tracking
-const loadingTracker = {
-  total: 4, // character, animations, trees, npcs
-  loaded: 0,
-  update() {
-    this.loaded++;
-    updateLoadingProgress(this.loaded, this.total);
+// ── Authentication & Character Selection Flow ────────────────────────
+
+// Check authentication first
+if (!isAuthenticated()) {
+  // Show login screen
+  initLoginScreen((username) => {
+    // After login, show character selection
+    showCharacterSelectionOrStart();
+  });
+} else {
+  // Already logged in, check character selection
+  showCharacterSelectionOrStart();
+}
+
+function showCharacterSelectionOrStart() {
+  const savedCharacter = getSavedCharacter();
+
+  if (!savedCharacter) {
+    // Show character selection
+    initCharacterSelection((characterId) => {
+      console.log('[main] Character selected:', characterId);
+      // Start game with selected character
+      startGame(characterId);
+    });
+  } else {
+    // Character already selected, start game
+    startGame(savedCharacter);
   }
-};
+}
 
-// Start login screen (shows loading screen)
-initLoginScreen();
+// ── Game Initialization ──────────────────────────────────────────────
 
-// Start game initialization immediately (loading happens in background)
-(function startGame() {
+function startGame(selectedCharacterId) {
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -162,22 +180,14 @@ initBeach(scene);
 initCollision();
 spawnPlazaTree(scene);
 
-// Kick off model + animation downloads immediately (all in parallel)
-preloadCharacter()
-  .then(() => loadingTracker.update())
-  .catch(err => console.error('[character] model failed:', err));
+// Kick off model + animation downloads immediately
+preloadPlayerCharacter(selectedCharacterId)
+  .catch(err => {
+    console.error('[player] Character preload failed:', err);
+  });
 
-preloadAnimations()
-  .then(() => loadingTracker.update())
-  .catch(err => console.error('[animations] failed:', err));
-
-preloadTrees()
-  .then(() => loadingTracker.update())
-  .catch(err => console.error('[trees] failed:', err));
-
-preloadAllNpcs()
-  .then(() => loadingTracker.update())
-  .catch(err => console.error('[npc-glb] failed:', err));
+preloadTrees().catch(err => console.error('[trees] failed:', err));
+preloadAllNpcs().catch(err => console.error('[npc-glb] failed:', err));
 
 // ── UI ─────────────────────────────────────────────────────────────────
 initHud();
@@ -202,7 +212,8 @@ setMuteAllCallback(b => setMuteAll(b));
 initRemotePlayers(scene);
 
 initMultiplayer(({ name, coins }) => {
-  initLocalPlayer(scene, camera, name);
+  const username = getUsername();
+  initLocalPlayer(scene, camera, username || name);
   initEconomy(getSocket(), coins, updateCoinDisplay);
 });
 
@@ -298,4 +309,4 @@ function animate() {
 
 animate();
 
-})(); // End of startGame IIFE
+} // End of startGame function

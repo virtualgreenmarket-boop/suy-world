@@ -1,258 +1,245 @@
-// Login and character selection system
+// ── Login Screen: Username/Password → Character Selection ──
 
-let _progressBar = null;
-let _progressText = null;
+let _onLoginComplete = null;
 
-export function initLoginScreen() {
-  // Hide HUD initially
-  hideHudElements();
+export function initLoginScreen(onComplete) {
+  _onLoginComplete = onComplete;
 
-  // Create loading screen first
-  createLoadingScreen();
-}
-
-export function updateLoadingProgress(current, total) {
-  if (!_progressBar || !_progressText) return;
-
-  const percentage = (current / total) * 100;
-  _progressBar.style.width = percentage + '%';
-  _progressText.textContent = percentage.toFixed(2) + '%';
-
-  // When loading is complete, show login screen
-  if (current >= total) {
-    setTimeout(() => {
-      document.getElementById('loading-screen').remove();
-      showLoginScreen();
-    }, 500);
-  }
-}
-
-function hideHudElements() {
-  const style = document.createElement('style');
-  style.id = 'login-hud-hide';
-  style.textContent = `
-    #hud-online, #hud-topleft, #hud-slot, #hud-coin { display: none !important; }
-  `;
-  document.head.appendChild(style);
-}
-
-function showHudElements() {
-  const style = document.getElementById('login-hud-hide');
-  if (style) style.remove();
-}
-
-// ── Loading Screen ────────────────────────────────────────────────────
-
-function createLoadingScreen() {
-  const container = document.createElement('div');
-  container.id = 'loading-screen';
-  container.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: #000 url('/models/ui/pic/913ace22-ffad-4026-bfdd-4f53e9e272d2.png') center/cover;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    color: #fff;
-    font-family: 'Segoe UI', Arial, sans-serif;
-  `;
-
-  container.innerHTML = `
-    <div style="text-align: center;">
-      <h1 style="font-size: 48px; margin-bottom: 30px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">
-        שוק ירוק וירטואלי
-      </h1>
-      <div style="width: 400px; height: 30px; background: rgba(0,0,0,0.5); border-radius: 15px; overflow: hidden; border: 2px solid #4CAF50;">
-        <div id="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); transition: width 0.3s;"></div>
-      </div>
-      <p id="progress-text" style="margin-top: 15px; font-size: 24px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">0.00%</p>
-      <p style="margin-top: 10px; font-size: 14px; opacity: 0.8;">טוען משאבים...</p>
-    </div>
-  `;
-
-  document.body.appendChild(container);
-
-  // Store references for external updates
-  _progressBar = document.getElementById('progress-bar');
-  _progressText = document.getElementById('progress-text');
-}
-
-// ── Login Screen ──────────────────────────────────────────────────────
-
-function showLoginScreen() {
   const container = document.createElement('div');
   container.id = 'login-screen';
-  container.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    font-family: 'Segoe UI', Arial, sans-serif;
-  `;
-
   container.innerHTML = `
-    <div style="background: rgba(255,255,255,0.95); padding: 40px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); width: 400px; direction: rtl;">
-      <h2 style="text-align: center; margin-bottom: 30px; color: #333; font-size: 32px;">כניסה למשחק</h2>
+    <style>
+      #login-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 20000;
+        font-family: 'Segoe UI', Arial, sans-serif;
+      }
 
-      <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600;">שם משתמש</label>
-        <input id="username" type="text" placeholder="ADMIN"
-          style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; direction: ltr; text-align: left;">
-      </div>
+      .login-box {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 50px 60px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        min-width: 400px;
+      }
 
-      <div style="margin-bottom: 30px;">
-        <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600;">סיסמה</label>
-        <input id="password" type="password" placeholder="1234"
-          style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; direction: ltr; text-align: left;">
-      </div>
+      .login-title {
+        color: white;
+        font-size: 42px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 10px;
+        text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
 
-      <p id="login-error" style="color: #f44336; text-align: center; margin-bottom: 15px; height: 20px; font-size: 14px;"></p>
+      .login-subtitle {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 16px;
+        text-align: center;
+        margin-bottom: 40px;
+      }
 
-      <button id="login-btn"
-        style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
-        התחבר
-      </button>
+      .input-group {
+        margin-bottom: 25px;
+      }
+
+      .input-label {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: block;
+      }
+
+      .input-field {
+        width: 100%;
+        padding: 15px 20px;
+        font-size: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        outline: none;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+      }
+
+      .input-field::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      .input-field:focus {
+        border-color: #4CAF50;
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+      }
+
+      .login-button {
+        width: 100%;
+        padding: 18px;
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        margin-top: 10px;
+      }
+
+      .login-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.6);
+      }
+
+      .login-button:active {
+        transform: translateY(0);
+      }
+
+      .error-message {
+        color: #ff6b6b;
+        font-size: 14px;
+        text-align: center;
+        margin-top: 15px;
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        .login-box {
+          min-width: 300px;
+          padding: 40px 30px;
+        }
+        .login-title { font-size: 32px; }
+      }
+    </style>
+
+    <div class="login-box">
+      <div class="login-title">Welcome</div>
+      <div class="login-subtitle">Enter your credentials to continue</div>
+
+      <form id="login-form">
+        <div class="input-group">
+          <label class="input-label">Username</label>
+          <input
+            type="text"
+            id="username-input"
+            class="input-field"
+            placeholder="Enter username"
+            autocomplete="username"
+            required
+          />
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Password</label>
+          <input
+            type="password"
+            id="password-input"
+            class="input-field"
+            placeholder="Enter password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+
+        <button type="submit" class="login-button">
+          Login
+        </button>
+
+        <div class="error-message" id="error-message">
+          Invalid credentials. Please try again.
+        </div>
+      </form>
     </div>
   `;
 
   document.body.appendChild(container);
 
-  // Event listeners
-  const loginBtn = document.getElementById('login-btn');
-  const usernameInput = document.getElementById('username');
-  const passwordInput = document.getElementById('password');
+  // Setup form submission
+  const form = container.querySelector('#login-form');
+  const usernameInput = container.querySelector('#username-input');
+  const passwordInput = container.querySelector('#password-input');
+  const errorMessage = container.querySelector('#error-message');
 
-  loginBtn.addEventListener('mouseenter', () => {
-    loginBtn.style.transform = 'scale(1.05)';
+  // Auto-fill if saved
+  const savedUsername = localStorage.getItem('username');
+  if (savedUsername) {
+    usernameInput.value = savedUsername;
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+
+    if (!username || !password) {
+      errorMessage.textContent = 'Please fill in all fields.';
+      errorMessage.style.display = 'block';
+      return;
+    }
+
+    // Simple validation (for demo - replace with real auth)
+    if (username.length < 3) {
+      errorMessage.textContent = 'Username must be at least 3 characters.';
+      errorMessage.style.display = 'block';
+      return;
+    }
+
+    // Save credentials
+    localStorage.setItem('username', username);
+    localStorage.setItem('user_authenticated', 'true');
+
+    // Hide error
+    errorMessage.style.display = 'none';
+
+    // Remove login screen
+    hideLoginScreen();
+
+    // Proceed to character selection or game
+    if (_onLoginComplete) {
+      _onLoginComplete(username);
+    }
   });
 
-  loginBtn.addEventListener('mouseleave', () => {
-    loginBtn.style.transform = 'scale(1)';
-  });
-
-  loginBtn.addEventListener('click', handleLogin);
-  passwordInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleLogin();
-  });
+  // Focus username field
+  setTimeout(() => usernameInput.focus(), 100);
 }
 
-function handleLogin() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-  const errorEl = document.getElementById('login-error');
-
-  if (username === 'ADMIN' && password === '1234') {
-    errorEl.textContent = '';
-    document.getElementById('login-screen').remove();
-    showCharacterSelection();
-  } else {
-    errorEl.textContent = 'שם משתמש או סיסמה שגויים!';
-    document.getElementById('password').value = '';
+export function hideLoginScreen() {
+  const container = document.getElementById('login-screen');
+  if (container) {
+    container.remove();
   }
 }
 
-// ── Character Selection ───────────────────────────────────────────────
+export function isAuthenticated() {
+  return localStorage.getItem('user_authenticated') === 'true';
+}
 
-function showCharacterSelection() {
-  const container = document.createElement('div');
-  container.id = 'character-selection';
-  container.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9998;
-    font-family: 'Segoe UI', Arial, sans-serif;
-  `;
+export function logout() {
+  localStorage.removeItem('user_authenticated');
+  localStorage.removeItem('selected_character');
+  window.location.reload();
+}
 
-  container.innerHTML = `
-    <div style="background: rgba(255,255,255,0.95); padding: 40px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 800px; direction: rtl;">
-      <h2 style="text-align: center; margin-bottom: 40px; color: #333; font-size: 32px;">בחר דמות</h2>
+export function getUsername() {
+  return localStorage.getItem('username') || 'Player';
+}
 
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
-
-        <div class="character-card" data-character="male" style="background: white; border: 3px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s;">
-          <div style="font-size: 64px; margin-bottom: 10px;">👨</div>
-          <h3 style="color: #333; font-size: 18px;">זכר</h3>
-        </div>
-
-        <div class="character-card" data-character="female" style="background: white; border: 3px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s;">
-          <div style="font-size: 64px; margin-bottom: 10px;">👩</div>
-          <h3 style="color: #333; font-size: 18px;">נקבה</h3>
-        </div>
-
-        <div class="character-card" data-character="custom" style="background: white; border: 3px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s;">
-          <div style="font-size: 64px; margin-bottom: 10px;">🎨</div>
-          <h3 style="color: #333; font-size: 18px;">מותאם אישית</h3>
-        </div>
-
-      </div>
-
-      <button id="start-game-btn" disabled
-        style="width: 100%; padding: 14px; background: #ccc; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: 600; cursor: not-allowed; transition: all 0.3s;">
-        התחל משחק
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(container);
-
-  let selectedCharacter = null;
-  const cards = container.querySelectorAll('.character-card');
-  const startBtn = document.getElementById('start-game-btn');
-
-  cards.forEach(card => {
-    card.addEventListener('mouseenter', () => {
-      if (card.dataset.character !== selectedCharacter) {
-        card.style.transform = 'scale(1.05)';
-        card.style.borderColor = '#999';
-      }
-    });
-
-    card.addEventListener('mouseleave', () => {
-      if (card.dataset.character !== selectedCharacter) {
-        card.style.transform = 'scale(1)';
-        card.style.borderColor = '#ddd';
-      }
-    });
-
-    card.addEventListener('click', () => {
-      // Deselect all
-      cards.forEach(c => {
-        c.style.background = 'white';
-        c.style.borderColor = '#ddd';
-        c.style.transform = 'scale(1)';
-      });
-
-      // Select this one
-      card.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-      card.style.borderColor = '#f5576c';
-      card.querySelector('h3').style.color = 'white';
-
-      selectedCharacter = card.dataset.character;
-
-      // Enable start button
-      startBtn.disabled = false;
-      startBtn.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-      startBtn.style.cursor = 'pointer';
-    });
-  });
-
-  startBtn.addEventListener('click', () => {
-    if (selectedCharacter) {
-      container.remove();
-      // Save character choice
-      localStorage.setItem('selectedCharacter', selectedCharacter);
-      // Show HUD elements now
-      showHudElements();
-      console.log('Selected character:', selectedCharacter);
-    }
-  });
+// No loading progress - that's handled by character selection now
+export function updateLoadingProgress() {
+  // Deprecated - kept for compatibility
 }

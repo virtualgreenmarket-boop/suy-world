@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { resolveCollision } from '../systems/collision.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { getSettings } from '../ui/settingsPanel.js';
-import { spawnCharacter, setAnimState, updateCharacterMixer, equipItem } from './characterLoader.js';
-import { toggleInventoryPanel, getLoadout } from '../ui/inventoryPanel.js';
+import { spawnPlayerCharacter, setPlayerAnimState, updatePlayerCharacterMixer } from './playerCharacterLoader.js';
+import { toggleInventoryPanel } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
 import { attachLabel } from '../ui/labels.js';
@@ -14,7 +14,7 @@ const KB_SPEED    = 10;
 const CAM_DIST_MIN = 3;
 const CAM_DIST_MAX = 20;
 const CAM_LOOK_H  = 1.6;
-const ISLAND_R    = 396;  // extended to include shallow water wading zone
+const ISLAND_R    = 396;
 const GRAVITY     = -22;
 const JUMP_FORCE  = 8;
 const MAX_STEP    = 0.82;
@@ -23,7 +23,7 @@ let _scene, _camera;
 let playerGroup;
 let cameraYaw   = 0;
 let cameraPitch = 0.42;
-let _camDist    = 10;   // mutable — changed by wheel and pinch-to-zoom
+let _camDist    = 10;
 let velocityY   = 0;
 let _isJumping  = false;
 let _isSitting  = false;
@@ -41,18 +41,15 @@ export function initLocalPlayer(scene, camera, name) {
   const _savedSpawn = _loadSpawn();
   playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
   scene.add(playerGroup);
-  attachLabel(playerGroup, 'אווטר', 2.4, 'player'); // 3.0 * 0.8 = 2.4 (20% lower)
+  attachLabel(playerGroup, name || 'Player', 2.4, 'player');
 
-  spawnCharacter(playerGroup).then(() => {
-    const saved = getLoadout();
-    for (const [cat, file] of Object.entries(saved)) {
-      if (!file) continue;
-      equipItem(playerGroup, cat, file);
-    }
+  // Spawn player character
+  spawnPlayerCharacter(playerGroup).catch(err => {
+    console.error('[local-player] Failed to spawn character:', err);
   });
 
   window.addEventListener('keydown', e => {
-    if (isChatOpen()) return; // swallow all keyboard input while typing
+    if (isChatOpen()) return;
     keys[e.code] = true;
     if (e.code === 'Space') {
       e.preventDefault();
@@ -64,12 +61,11 @@ export function initLocalPlayer(scene, camera, name) {
   window.addEventListener('keyup', e => { keys[e.code] = false; });
 
   const canvas = document.querySelector('canvas');
-  canvas.addEventListener('mousedown',   e => { isDragging = true;  lastMouseX = e.clientX; lastMouseY = e.clientY; });
-  window.addEventListener('mouseup',     () => { isDragging = false; });
-  window.addEventListener('mousemove',   e => _onMouseMove(e));
+  canvas.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+  window.addEventListener('mouseup', () => { isDragging = false; });
+  window.addEventListener('mousemove', e => _onMouseMove(e));
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-  // Mouse-wheel zoom (desktop)
   window.addEventListener('wheel', e => {
     e.preventDefault();
     _camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, _camDist + e.deltaY * 0.01));
@@ -90,25 +86,25 @@ function _onMouseMove(e) {
 function _triggerJump() {
   velocityY  = JUMP_FORCE;
   _isJumping = true;
-  setAnimState(playerGroup, 'jump');
+  setPlayerAnimState(playerGroup, 'jump');
 }
 
 // ── Update ────────────────────────────────────────────────────────────
 
 export function updateLocalPlayer(delta) {
-  // ── CRITICAL FIX: Ensure player group maintains proper rotation (no X/Z drift) ──
+  // Lock X/Z rotation to prevent skeleton drift
   if (playerGroup && !_isSitting) {
-    playerGroup.rotation.x = 0; // Lock X rotation to prevent skeleton tilt
-    playerGroup.rotation.z = 0; // Lock Z rotation to prevent skeleton roll
+    playerGroup.rotation.x = 0;
+    playerGroup.rotation.z = 0;
   }
 
-  // Pinch-to-zoom (mobile)
+  // Pinch-to-zoom
   const zoomDelta = consumeCameraZoom();
   if (zoomDelta !== 0) {
     _camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, _camDist + zoomDelta));
   }
 
-  // Camera rotation from touch drag (always allowed — lets player look around while typing)
+  // Camera rotation from touch
   const { dx, dy } = consumeCameraMovement();
   if (dx || dy) {
     const sens = getSettings().sensitivity * 0.005;
@@ -116,22 +112,22 @@ export function updateLocalPlayer(delta) {
     cameraPitch  = Math.max(-1.45, Math.min(1.55, cameraPitch - dy * sens));
   }
 
-  // Sitting: locked to bench — no movement, no gravity, just animate + camera
+  // Sitting: locked to bench
   if (_isSitting) {
-    updateCharacterMixer(playerGroup, delta);
+    updatePlayerCharacterMixer(playerGroup, delta);
     syncCamera();
     return;
   }
 
-  // Block all movement while chat is open
+  // Block movement while chat open
   if (isChatOpen()) {
-    updateCharacterMixer(playerGroup, delta);
+    updatePlayerCharacterMixer(playerGroup, delta);
     syncCamera();
     return;
   }
 
   const fwd   = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
-  const right  = new THREE.Vector3( Math.cos(cameraYaw), 0, -Math.sin(cameraYaw));
+  const right = new THREE.Vector3( Math.cos(cameraYaw), 0, -Math.sin(cameraYaw));
   const move  = new THREE.Vector3();
 
   if (keys['KeyW'] || keys['ArrowUp'])    move.add(fwd);
@@ -141,7 +137,7 @@ export function updateLocalPlayer(delta) {
 
   if (joystick.magnitude > 0) {
     move.addScaledVector(right, joystick.x);
-    move.addScaledVector(fwd,  -joystick.y);
+    move.addScaledVector(fwd, -joystick.y);
   }
 
   const kbMoving = keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'] ||
@@ -151,7 +147,7 @@ export function updateLocalPlayer(delta) {
 
   if (isMoving) {
     let speed;
-    if (sprint)       speed = RUN_SPEED;
+    if (sprint) speed = RUN_SPEED;
     else if (kbMoving) speed = KB_SPEED;
     else speed = WALK_SPEED + (RUN_SPEED - WALK_SPEED) * Math.min(joystick.magnitude / 0.78, 1);
 
@@ -178,7 +174,7 @@ export function updateLocalPlayer(delta) {
     if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
   }
 
-  // Gravity + terrain-aware floor clamping
+  // Gravity
   const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z);
   velocityY += GRAVITY * delta;
   playerGroup.position.y = Math.max(groundY, playerGroup.position.y + velocityY * delta);
@@ -189,10 +185,10 @@ export function updateLocalPlayer(delta) {
 
   if (!_isJumping) {
     const target = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
-    setAnimState(playerGroup, target);
+    setPlayerAnimState(playerGroup, target);
   }
 
-  updateCharacterMixer(playerGroup, delta);
+  updatePlayerCharacterMixer(playerGroup, delta);
   syncCamera();
 }
 
@@ -201,9 +197,8 @@ function syncCamera() {
   const cy = Math.cos(cameraPitch);
   const cx = p.x + Math.sin(cameraYaw) * _camDist * cy;
   const cz = p.z + Math.cos(cameraYaw) * _camDist * cy;
-  let   camY = p.y + CAM_LOOK_H + Math.sin(cameraPitch) * _camDist;
+  let camY = p.y + CAM_LOOK_H + Math.sin(cameraPitch) * _camDist;
 
-  // Prevent camera clipping through terrain
   const floorAtCam = getSurfaceY(cx, cz);
   if (camY < floorAtCam + 0.4) camY = floorAtCam + 0.4;
 
@@ -214,10 +209,10 @@ function syncCamera() {
 // ── Exports ───────────────────────────────────────────────────────────
 
 export function getLocalPlayerPosition() { return playerGroup?.position; }
-export function getLocalPlayerRotY()     { return playerGroup?.rotation.y ?? 0; }
+export function getLocalPlayerRotY() { return playerGroup?.rotation.y ?? 0; }
 
-export function equipLocalPlayerItem(category, filename) {
-  if (playerGroup) equipItem(playerGroup, category, filename);
+export function equipLocalPlayerItem() {
+  // No equipment system for now
 }
 
 export function savePlayerPosition() {
@@ -247,19 +242,18 @@ export function sitOnBench(x, y, z, facingY) {
   if (!playerGroup || _isSitting) return;
   _isSitting = true;
   velocityY  = 0;
-  // Shift 0.3 m toward backrest so character sits on the seat
   const ox = x + Math.sin(facingY) * 0.3;
   const oz = z + Math.cos(facingY) * 0.3;
   playerGroup.position.set(ox, y, oz);
-  playerGroup.rotation.set(0, facingY, 0); // Lock X and Z rotation to prevent bone drift
-  playerGroup.scale.set(1.2, 1.2, 1.2); // Use uniform scale to prevent bone deformation
-  setAnimState(playerGroup, 'sit');
+  playerGroup.rotation.set(0, facingY, 0);
+  playerGroup.scale.set(1.2, 1.2, 1.2);
+  setPlayerAnimState(playerGroup, 'sit');
 }
 
 export function standUp() {
   if (!playerGroup || !_isSitting) return;
   _isSitting = false;
-  playerGroup.scale.set(1.0, 1.0, 1.0); // Reset scale uniformly
-  playerGroup.rotation.set(0, playerGroup.rotation.y, 0); // Keep Y rotation, reset X and Z
-  setAnimState(playerGroup, 'idle');
+  playerGroup.scale.set(1.0, 1.0, 1.0);
+  playerGroup.rotation.set(0, playerGroup.rotation.y, 0);
+  setPlayerAnimState(playerGroup, 'idle');
 }
