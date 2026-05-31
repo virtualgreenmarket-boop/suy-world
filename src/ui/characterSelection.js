@@ -239,7 +239,7 @@ export function initCharacterSelection(onSelect) {
   // Setup 3D scene
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
-  _scene.background = null; // Transparent to show background image
+  _scene.background = new THREE.Color(0x87CEEB); // Sky blue to see characters
 
   const canvasHeight = window.innerHeight * 0.5;
 
