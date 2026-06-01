@@ -16,7 +16,7 @@ let _isInitialized = false;
 const CHARACTER_COUNT = 6;
 const CIRCLE_RADIUS = 4.29; // 30% larger (was 3.3)
 const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height
+const CHARACTER_TARGET_HEIGHT = 2.5; // Taller for better visibility
 const GROUND_Y = 0; // Ground plane at Y=0
 
 // Debug log to screen
