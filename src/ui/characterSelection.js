@@ -14,7 +14,7 @@ let _selectedIndex = 0;
 let _isInitialized = false;
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 3.3; // 10% larger (was 3)
+const CIRCLE_RADIUS = 4.29; // 30% larger (was 3.3)
 const ROTATION_SPEED = 0.08;
 const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height
 const GROUND_Y = 0; // Ground plane at Y=0
