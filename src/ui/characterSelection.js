@@ -248,8 +248,8 @@ export function initCharacterSelection(onSelect) {
 
   // Camera setup: lower angle view (more from the side)
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 2, 10); // Lower Y, further Z = lower side angle
-  _camera.lookAt(0, 1, 0); // Look at center at character height
+  _camera.position.set(0, 3, 10); // Raised Y to lower carousel on screen
+  _camera.lookAt(0, 0.5, 0); // Look slightly lower
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
