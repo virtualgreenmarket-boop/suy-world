@@ -283,6 +283,13 @@ export function initCharacterSelection(onSelect) {
   rimLight.position.set(0, 3, -3);
   _scene.add(rimLight);
 
+  // Create carousel group to tilt everything together
+  const carouselGroup = new THREE.Group();
+  carouselGroup.name = 'carouselGroup';
+  carouselGroup.position.y = 3.5; // Raise entire carousel
+  carouselGroup.rotation.x = -0.3; // Tilt forward like a coin on table
+  _scene.add(carouselGroup);
+
   // Ground plane - subtle shadow receiver
   const groundGeo = new THREE.CircleGeometry(CIRCLE_RADIUS + 1, 64);
   const groundMat = new THREE.MeshStandardMaterial({
@@ -295,7 +302,7 @@ export function initCharacterSelection(onSelect) {
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
-  _scene.add(ground);
+  carouselGroup.add(ground); // Add to carousel group instead of scene
 
   // UI event handlers
   document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(-1));
@@ -390,13 +397,19 @@ async function loadAllCharacters() {
       // Position in circle - aligned with background platform
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = 3.5; // Much higher
+      container.position.y = 0; // Relative to carousel group
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
       container.rotation.y = -angle; // Face center
 
       debugLog(`[char-select] Character ${i + 1} container at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
 
-      _scene.add(container);
+      // Add to carousel group (which is tilted)
+      const carouselGroup = _scene.getObjectByName('carouselGroup');
+      if (carouselGroup) {
+        carouselGroup.add(container);
+      } else {
+        _scene.add(container); // Fallback
+      }
 
       // Setup animation mixer - IMMEDIATELY start idle to prevent T-pose
       let mixer = null;
