@@ -249,7 +249,7 @@ export function initCharacterSelection(onSelect) {
   // Camera setup: very low angle (almost horizontal - 6°)
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
   _camera.position.set(0, 1, 10); // Y=1, Z=10 → 6° angle
-  _camera.lookAt(0, 1, 0); // Look at character center height
+  _camera.lookAt(0, 0, 0); // Look at ground level (Y=0)
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
