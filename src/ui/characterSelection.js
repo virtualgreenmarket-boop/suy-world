@@ -260,6 +260,29 @@ export function initCharacterSelection(onSelect) {
 
   debugLog('[char-select] 🎨 Renderer setup complete');
 
+  // Log scene dimensions and camera info
+  console.log('═══════════════════════════════════════════');
+  console.log('📐 CHARACTER SELECTION - SCENE INFO');
+  console.log('═══════════════════════════════════════════');
+  console.log('🎥 CAMERA:');
+  console.log(`   Position: (${_camera.position.x}, ${_camera.position.y}, ${_camera.position.z})`);
+  console.log(`   FOV: ${_camera.fov}°`);
+  console.log(`   Aspect: ${_camera.aspect.toFixed(3)}`);
+  console.log(`   Near/Far: ${_camera.near} / ${_camera.far}`);
+  console.log('');
+  console.log('🖥️ RENDERER:');
+  console.log(`   Size: ${window.innerWidth} x ${window.innerHeight}`);
+  console.log(`   Pixel Ratio: ${_renderer.getPixelRatio()}`);
+  console.log(`   Actual Pixels: ${_renderer.getSize(new THREE.Vector2()).x} x ${_renderer.getSize(new THREE.Vector2()).y}`);
+  console.log('');
+  console.log('🎪 CAROUSEL:');
+  console.log(`   Radius: ${CIRCLE_RADIUS} units`);
+  console.log(`   Diameter: ${(CIRCLE_RADIUS * 2).toFixed(2)} units`);
+  console.log(`   Character Count: ${CHARACTER_COUNT}`);
+  console.log(`   Character Height: ${CHARACTER_TARGET_HEIGHT}m`);
+  console.log(`   Ground Y: ${GROUND_Y}`);
+  console.log('═══════════════════════════════════════════');
+
   // Lighting
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
   _scene.add(ambient);
