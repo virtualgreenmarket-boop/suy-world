@@ -247,15 +247,10 @@ export function initCharacterSelection(onSelect) {
   debugLog('[char-select] 🎥 Camera setup: FOV=55, aspect=' + (window.innerWidth / canvasHeight).toFixed(2));
 
   // Camera positioned to align with circular platform in background image
-  // Platform center is at ~50% X, ~75% Y of screen
-  // Adjust camera to see characters better - HIGHER and TILTED
-  _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 5, 12); // Further back
-  _camera.lookAt(0, 4.5, 0); // Look at center of characters
-
-  // Tilt camera UP 25% (like a tilted coin - REVERSED)
-  // Rotate around X axis - top tilts toward, bottom tilts away
-  _camera.rotation.x += 0.4; // About 23 degrees
+  // View from above at an angle
+  _camera = new THREE.PerspectiveCamera(65, window.innerWidth / canvasHeight, 0.1, 100);
+  _camera.position.set(0, 8, 3); // High up, slightly back
+  _camera.lookAt(0, 3.7, 0); // Look at center of characters (Y=3.5 + 0.2)
 
   debugLog('[char-select] 📹 Camera position:', _camera.position);
   debugLog('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
