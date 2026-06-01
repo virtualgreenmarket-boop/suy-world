@@ -246,11 +246,10 @@ export function initCharacterSelection(onSelect) {
   debugLog('[char-select] 📐 Canvas size:', window.innerWidth, 'x', canvasHeight);
   debugLog('[char-select] 🎥 Camera setup: FOV=55, aspect=' + (window.innerWidth / canvasHeight).toFixed(2));
 
-  // Camera positioned to align with circular platform in background image
-  // View from above at an angle
-  _camera = new THREE.PerspectiveCamera(65, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 8, 3); // High up, slightly back
-  _camera.lookAt(0, 3.7, 0); // Look at center of characters (Y=3.5 + 0.2)
+  // Camera positioned directly above - bird's eye view
+  _camera = new THREE.PerspectiveCamera(70, window.innerWidth / canvasHeight, 0.1, 100);
+  _camera.position.set(0, 10, 0); // Directly above, looking straight down
+  _camera.lookAt(0, 0, 0); // Look at center
 
   debugLog('[char-select] 📹 Camera position:', _camera.position);
   debugLog('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
@@ -283,11 +282,11 @@ export function initCharacterSelection(onSelect) {
   rimLight.position.set(0, 3, -3);
   _scene.add(rimLight);
 
-  // Create carousel group to tilt everything together
+  // Create carousel group
   const carouselGroup = new THREE.Group();
   carouselGroup.name = 'carouselGroup';
-  carouselGroup.position.y = 3.5; // Raise entire carousel
-  carouselGroup.rotation.x = -0.3; // Tilt forward like a coin on table
+  carouselGroup.position.y = 0; // Ground level - FLAT
+  carouselGroup.rotation.x = 0; // NO TILT - completely flat
   _scene.add(carouselGroup);
 
   // Ground plane - subtle shadow receiver
