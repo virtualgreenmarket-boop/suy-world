@@ -11,14 +11,14 @@ let _idleClip = null;
 let _currentRotation = 0;
 let _targetRotation = 0;
 let _selectedIndex = 0;
-let _isInitialized = false; // Prevent double initialization
+let _isInitialized = false;
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 5.0; // Larger circle
+const CIRCLE_RADIUS = 5.0;
 const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 0.36; // 80% smaller (1.8 * 0.2)
+const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height
 
-// Debug log to screen (F12 crashes)
+// Debug log to screen
 function debugLog(msg) {
   console.log(msg);
   const logDiv = document.getElementById('debug-log');
@@ -177,6 +177,23 @@ export function initCharacterSelection(onSelect) {
         box-shadow: 0 14px 40px rgba(76, 175, 80, 0.9);
       }
 
+      #debug-log {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        width: 400px;
+        max-height: 90vh;
+        background: rgba(0,0,0,0.9);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 10px;
+        overflow-y: auto;
+        z-index: 999999;
+        border: 2px solid #0f0;
+        pointer-events: none;
+      }
+
       @media (max-width: 768px) {
         .char-select-title { font-size: 36px; top: 20px; }
         .char-select-controls { bottom: 100px; gap: 25px; }
@@ -213,22 +230,7 @@ export function initCharacterSelection(onSelect) {
         Enter Game
       </button>
 
-      <div style="
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        width: 400px;
-        max-height: 90vh;
-        background: rgba(0,0,0,0.9);
-        color: #0f0;
-        font-family: monospace;
-        font-size: 12px;
-        padding: 10px;
-        overflow-y: auto;
-        z-index: 999999;
-        border: 2px solid #0f0;
-        pointer-events: none;
-      " id="debug-log">
+      <div id="debug-log">
         <div style="color: #fff; font-weight: bold; margin-bottom: 5px;">DEBUG LOG:</div>
       </div>
     </div>
@@ -239,31 +241,25 @@ export function initCharacterSelection(onSelect) {
   // Setup 3D scene
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
-  _scene.background = null; // Transparent - show background image
+  _scene.background = null; // Transparent
 
   const canvasHeight = window.innerHeight;
 
-  debugLog('[char-select] 📐 Canvas size:', window.innerWidth, 'x', canvasHeight);
-  debugLog('[char-select] 🎥 Camera setup: FOV=55, aspect=' + (window.innerWidth / canvasHeight).toFixed(2));
-
-  // Camera positioned directly above - bird's eye view
-  _camera = new THREE.PerspectiveCamera(70, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 10, 0); // Directly above, looking straight down
-  _camera.lookAt(0, 0, 0); // Look at center
-
-  debugLog('[char-select] 📹 Camera position:', _camera.position);
-  debugLog('[char-select] 👁️ Camera looking at: (0, 1.5, 0)');
+  // Camera at an angle looking down - like 3rd person game camera
+  _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
+  _camera.position.set(0, 6, 8); // Behind and above
+  _camera.lookAt(0, 1, 0); // Look at center at character height
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
   _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   _renderer.shadowMap.enabled = true;
   _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  _renderer.setClearColor(0x000000, 0); // Transparent background
+  _renderer.setClearColor(0x000000, 0);
 
   debugLog('[char-select] 🎨 Renderer setup complete');
 
-  // Lighting - bright and clear
+  // Lighting
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
   _scene.add(ambient);
 
@@ -282,26 +278,20 @@ export function initCharacterSelection(onSelect) {
   rimLight.position.set(0, 3, -3);
   _scene.add(rimLight);
 
-  // Create carousel group
-  const carouselGroup = new THREE.Group();
-  carouselGroup.name = 'carouselGroup';
-  carouselGroup.position.y = 0; // Ground level - FLAT
-  carouselGroup.rotation.x = 0; // NO TILT - completely flat
-  _scene.add(carouselGroup);
-
-  // Ground plane - subtle shadow receiver
+  // Ground plane - flat circle on XZ plane
   const groundGeo = new THREE.CircleGeometry(CIRCLE_RADIUS + 1, 64);
   const groundMat = new THREE.MeshStandardMaterial({
     color: 0x2a2a2a,
     roughness: 0.9,
     metalness: 0.1,
     transparent: true,
-    opacity: 0.5, // 50% transparency
+    opacity: 0.5,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2;
+  ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal (XZ plane)
+  ground.position.y = 0;
   ground.receiveShadow = true;
-  carouselGroup.add(ground); // Add to carousel group instead of scene
+  _scene.add(ground);
 
   // UI event handlers
   document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(-1));
@@ -315,7 +305,7 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'Enter') confirmSelection();
   });
 
-  // Load characters (no test cubes)
+  // Load characters
   loadAllCharacters();
 
   // Start animation loop
@@ -344,7 +334,7 @@ async function loadAllCharacters() {
     debugLog('❌ [char-select] ❌ Failed to load idle animation:', err);
   }
 
-  // Load all 6 characters in a circle
+  // Load all 6 characters in a FLAT circle on the ground
   for (let i = 0; i < CHARACTER_COUNT; i++) {
     const modelPath = `/models/player/characters/model${i + 1}.glb`;
 
@@ -357,28 +347,22 @@ async function loadAllCharacters() {
 
       debugLog(`[char-select] ✅ Character ${i + 1} GLB loaded, cloning scene...`);
 
-      // Clone the entire scene using SkeletonUtils to preserve skeleton binding
+      // Clone using SkeletonUtils
       const model = skeletonClone(gltf.scene);
 
-      // Scale to large size (40-50% of screen height)
+      // Scale to normal height
       const box = new THREE.Box3().setFromObject(model);
       const height = box.getSize(new THREE.Vector3()).y;
       const scale = CHARACTER_TARGET_HEIGHT / height;
       model.scale.setScalar(scale);
 
-      debugLog(`[char-select] Character ${i + 1} original height: ${height.toFixed(4)}m, scale: ${scale.toFixed(2)}`);
-
-      // Position on ground - recalculate after scaling
+      // Position on ground
       model.updateMatrixWorld(true);
       const box2 = new THREE.Box3().setFromObject(model);
-      const modelHeight = box2.getSize(new THREE.Vector3()).y;
       const floorY = -box2.min.y;
-
-      debugLog(`[char-select] Character ${i + 1} floor offset: ${floorY.toFixed(2)}, height after scale: ${modelHeight.toFixed(2)}`);
-
       model.position.y = floorY;
 
-      // Lock rotation to prevent skeleton deformation
+      // Keep upright - no rotation
       model.rotation.set(0, 0, 0);
 
       // Enable shadows
@@ -389,40 +373,34 @@ async function loadAllCharacters() {
         }
       });
 
-      // Create container for rotation
+      // Create container
       const container = new THREE.Group();
       container.add(model);
 
-      // Position in circle - aligned with background platform
+      // Position in FLAT circle on XZ plane
+      // Selected character (index 0) is at FRONT (positive Z, closest to camera)
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = 0; // Relative to carousel group
+      container.position.y = 0; // Ground level
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
-      container.rotation.y = -angle; // Face center
 
-      debugLog(`[char-select] Character ${i + 1} container at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
+      // Face OUTWARD from center (toward camera)
+      container.rotation.y = angle + Math.PI;
 
-      // Add to carousel group (which is tilted)
-      const carouselGroup = _scene.getObjectByName('carouselGroup');
-      if (carouselGroup) {
-        carouselGroup.add(container);
-      } else {
-        _scene.add(container); // Fallback
-      }
+      _scene.add(container);
 
-      // Setup animation mixer - IMMEDIATELY start idle to prevent T-pose
+      // Setup animation
       let mixer = null;
       if (_idleClip) {
         mixer = new THREE.AnimationMixer(model);
         const action = mixer.clipAction(_idleClip);
         action.play();
-        // Update mixer immediately to apply first frame
         mixer.update(0);
       }
 
       _characterModels.push({ container, model, mixer });
 
-      debugLog(`[char-select] ✅ Character ${i + 1} fully loaded! Scale: ${scale.toFixed(2)}, Position: (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
+      debugLog(`[char-select] ✅ Character ${i + 1} loaded at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
 
     } catch (err) {
       debugLog(`❌ [char-select] Failed to load model${i + 1}: ${err.message}`);
@@ -459,7 +437,6 @@ function hideCharacterSelection() {
     container.remove();
   }
 
-  // Cleanup
   if (_renderer) {
     _renderer.dispose();
     _renderer = null;
@@ -489,7 +466,6 @@ export function getCharacterModelPath(charId) {
 
 // Animation loop
 let lastTime = 0;
-let _frameCount = 0;
 function animate(time = 0) {
   if (!_scene) return;
 
@@ -498,27 +474,23 @@ function animate(time = 0) {
   const delta = (time - lastTime) / 1000;
   lastTime = time;
 
-  // Debug log every 60 frames (~1 second)
-  _frameCount++;
-  if (_frameCount === 60) {
-    console.log(`[char-select] Animation running, ${_characterModels.length} characters visible`);
-    _frameCount = 0;
-  }
-
   // Smooth rotation interpolation
   const rotDiff = _targetRotation - _currentRotation;
   _currentRotation += rotDiff * ROTATION_SPEED;
 
-  // Rotate all characters around the circle
+  // Rotate all characters around Y axis (vertical)
   _characterModels.forEach((char, index) => {
     const baseAngle = (index / CHARACTER_COUNT) * Math.PI * 2;
     const angle = baseAngle + _currentRotation;
 
+    // Position in flat circle on XZ plane
     char.container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
     char.container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
-    char.container.rotation.y = -angle;
 
-    // Lock model rotation to prevent skeleton drift
+    // Face outward from center
+    char.container.rotation.y = angle + Math.PI;
+
+    // Lock X/Z rotation (keep standing upright)
     if (char.model) {
       char.model.rotation.x = 0;
       char.model.rotation.z = 0;
@@ -538,12 +510,6 @@ function animate(time = 0) {
   // Render
   if (_renderer && _scene && _camera) {
     _renderer.render(_scene, _camera);
-  } else {
-    debugLog('❌ [char-select] ❌ Cannot render - missing:', {
-      renderer: !!_renderer,
-      scene: !!_scene,
-      camera: !!_camera
-    });
   }
 }
 
