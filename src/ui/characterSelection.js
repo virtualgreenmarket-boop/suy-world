@@ -16,7 +16,7 @@ let _isInitialized = false; // Prevent double initialization
 const CHARACTER_COUNT = 6;
 const CIRCLE_RADIUS = 5.0; // Larger circle
 const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 3.5; // Large characters - 40-50% of screen
+const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height - NOT giant!
 
 // Debug log to screen (F12 crashes)
 function debugLog(msg) {
@@ -400,14 +400,6 @@ async function loadAllCharacters() {
       container.rotation.y = -angle; // Face center
 
       debugLog(`[char-select] Character ${i + 1} container at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
-
-      // Add debug cube at same position
-      const debugCube = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 3.5, 0.5),
-        new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true })
-      );
-      debugCube.position.set(0, 1.75, 0);
-      container.add(debugCube);
 
       _scene.add(container);
 
