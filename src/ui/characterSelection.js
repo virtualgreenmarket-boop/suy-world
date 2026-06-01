@@ -14,9 +14,10 @@ let _selectedIndex = 0;
 let _isInitialized = false;
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 5.0;
+const CIRCLE_RADIUS = 3; // 3 units as specified
 const ROTATION_SPEED = 0.08;
 const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height
+const GROUND_Y = 0; // Ground plane at Y=0
 
 // Debug log to screen
 function debugLog(msg) {
@@ -245,10 +246,10 @@ export function initCharacterSelection(onSelect) {
 
   const canvasHeight = window.innerHeight;
 
-  // Camera at an angle looking down - like 3rd person game camera
+  // Camera setup as specified: Y=3, Z=8, looking down at center
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 6, 8); // Behind and above
-  _camera.lookAt(0, 1, 0); // Look at center at character height
+  _camera.position.set(0, 3, 8); // Y=3, Z=8 as specified
+  _camera.lookAt(0, 1, 0); // Look at center (character waist height)
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
@@ -278,20 +279,22 @@ export function initCharacterSelection(onSelect) {
   rimLight.position.set(0, 3, -3);
   _scene.add(rimLight);
 
-  // Ground plane - flat circle on XZ plane
-  const groundGeo = new THREE.CircleGeometry(CIRCLE_RADIUS + 1, 64);
+  // Ground plane at Y=0 - visible plaza floor
+  const groundGeo = new THREE.CircleGeometry(CIRCLE_RADIUS + 2, 64);
   const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x2a2a2a,
-    roughness: 0.9,
-    metalness: 0.1,
+    color: 0x555555, // Visible gray ground
+    roughness: 0.8,
+    metalness: 0.2,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.7, // Semi-transparent to see background
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal (XZ plane)
-  ground.position.y = 0;
+  ground.rotation.x = -Math.PI / 2; // Horizontal plane (XZ)
+  ground.position.y = GROUND_Y; // Y=0
   ground.receiveShadow = true;
   _scene.add(ground);
+
+  debugLog('[char-select] ✅ Ground plane created at Y=0');
 
   // UI event handlers
   document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(-1));
@@ -373,15 +376,15 @@ async function loadAllCharacters() {
         }
       });
 
-      // Create container
+      // Create container at ground level (Y=0)
       const container = new THREE.Group();
       container.add(model);
 
-      // Position in FLAT circle on XZ plane
+      // Position in FLAT circle on XZ plane, radius=3, Y=0
       // Selected character (index 0) is at FRONT (positive Z, closest to camera)
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = 0; // Ground level
+      container.position.y = GROUND_Y; // Y=0 - ground plane
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
 
       // Face OUTWARD from center (toward camera)
@@ -483,8 +486,9 @@ function animate(time = 0) {
     const baseAngle = (index / CHARACTER_COUNT) * Math.PI * 2;
     const angle = baseAngle + _currentRotation;
 
-    // Position in flat circle on XZ plane
+    // Position in flat circle on XZ plane at Y=0
     char.container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
+    char.container.position.y = GROUND_Y; // Keep at ground level (Y=0)
     char.container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
 
     // Face outward from center
