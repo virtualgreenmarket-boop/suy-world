@@ -16,7 +16,7 @@ let _isInitialized = false; // Prevent double initialization
 const CHARACTER_COUNT = 6;
 const CIRCLE_RADIUS = 5.0; // Larger circle
 const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height - NOT giant!
+const CHARACTER_TARGET_HEIGHT = 0.36; // 80% smaller (1.8 * 0.2)
 
 // Debug log to screen (F12 crashes)
 function debugLog(msg) {
@@ -295,7 +295,7 @@ export function initCharacterSelection(onSelect) {
     roughness: 0.9,
     metalness: 0.1,
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.5, // 50% transparency
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
