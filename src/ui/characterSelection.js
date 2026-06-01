@@ -246,10 +246,10 @@ export function initCharacterSelection(onSelect) {
 
   const canvasHeight = window.innerHeight;
 
-  // Camera setup as specified: Y=3, Z=8, looking down at center
+  // Camera setup: 50% flatter (more top-down)
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 3, 8); // Y=3, Z=8 as specified
-  _camera.lookAt(0, 1, 0); // Look at center (character waist height)
+  _camera.position.set(0, 6, 4); // Higher Y, closer Z = flatter angle
+  _camera.lookAt(0, 0.5, 0); // Look at center near ground
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
