@@ -377,17 +377,27 @@ async function loadAllCharacters() {
       // Clone using SkeletonUtils
       const model = skeletonClone(gltf.scene);
 
-      // Get original bounding box
+      // Get original bounding box BEFORE any changes
       const box = new THREE.Box3().setFromObject(model);
       const originalHeight = box.getSize(new THREE.Vector3()).y;
-      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m`);
+      const originalMinY = box.min.y;
+      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m, minY: ${originalMinY.toFixed(6)}m`);
 
       // Calculate scale to match target height (2.5m)
       const targetScale = CHARACTER_TARGET_HEIGHT / originalHeight;
+
+      // Apply scale
       model.scale.setScalar(targetScale);
 
-      // Position model at center (Y = 1.25m) - EXACTLY like red boxes
-      model.position.y = CHARACTER_TARGET_HEIGHT / 2;
+      // AFTER scaling, recalculate bounding box
+      model.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(model);
+
+      // Position so bottom is at Y=0 (like red boxes)
+      const floorOffset = -box2.min.y;
+      model.position.y = floorOffset;
+
+      debugLog(`[char-select] After scale: ${targetScale.toFixed(2)}x, floor offset: ${floorOffset.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
@@ -395,8 +405,6 @@ async function loadAllCharacters() {
       // Create container at ground level (Y=0)
       const container = new THREE.Group();
       container.add(model);
-
-      debugLog(`[char-select] Model positioned at Y=${CHARACTER_TARGET_HEIGHT / 2}m`);
 
       // Position in FLAT circle on XZ plane - EXACT SAME AS BOXES
       // Selected character (index 0) is at FRONT (positive Z, closest to camera)
