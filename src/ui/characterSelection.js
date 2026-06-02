@@ -483,7 +483,11 @@ async function loadAllCharacters() {
 
 function rotateCarousel(direction) {
   _selectedIndex = (_selectedIndex - direction + CHARACTER_COUNT) % CHARACTER_COUNT;
-  _targetRotation = (_selectedIndex / CHARACTER_COUNT) * Math.PI * 2;
+
+  // INFINITE CAROUSEL FIX: Don't reset rotation, just add/subtract
+  // This makes it loop smoothly without visible reset
+  _targetRotation += direction * (Math.PI * 2 / CHARACTER_COUNT);
+
   updateCharacterName();
 }
 
@@ -552,6 +556,9 @@ function animate(time = 0) {
   _selectedCharacterSpinTime += delta;
 
   // Rotate all characters around Y axis (vertical)
+  let frontCharIndex = -1;
+  let maxZ = -Infinity;
+
   _characterModels.forEach((char, index) => {
     const baseAngle = (index / CHARACTER_COUNT) * Math.PI * 2;
     const angle = baseAngle + _currentRotation;
@@ -561,17 +568,30 @@ function animate(time = 0) {
     char.container.position.y = GROUND_Y; // Keep at ground level (Y=0)
     char.container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
 
+    // Track which character is at front (highest Z = closest to camera)
+    if (char.container.position.z > maxZ) {
+      maxZ = char.container.position.z;
+      frontCharIndex = index;
+    }
+
     // Face outward from center
     let faceRotation = angle + Math.PI;
 
-    // Add 180° spin animation to selected character (index at front)
-    if (index === _selectedIndex) {
+    char.container.rotation.y = faceRotation;
+
+    // Store if this is front character for animation check below
+    char.isFront = false;
+  });
+
+  // Now apply spin animation ONLY to the front character
+  _characterModels.forEach((char, index) => {
+    if (index === frontCharIndex) {
+      char.isFront = true;
       // Continuous 180° back-and-forth spin (3 seconds per cycle)
       const spinCycle = Math.sin(_selectedCharacterSpinTime * (Math.PI / 3)) * Math.PI;
-      faceRotation += spinCycle;
+      char.container.rotation.y += spinCycle;
     }
-
-    char.container.rotation.y = faceRotation;
+  });
 
     // Lock X/Z rotation (keep standing upright)
     if (char.model) {
