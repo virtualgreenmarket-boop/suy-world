@@ -320,15 +320,15 @@ export function initCharacterSelection(onSelect) {
 
   debugLog('[char-select] ✅ Ground plane created at Y=0');
 
-  // UI event handlers
-  document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(-1));
-  document.getElementById('char-next').addEventListener('click', () => rotateCarousel(1));
+  // UI event handlers (fixed: prev=+1, next=-1)
+  document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(1));
+  document.getElementById('char-next').addEventListener('click', () => rotateCarousel(-1));
   document.getElementById('char-enter').addEventListener('click', confirmSelection);
 
-  // Keyboard controls
+  // Keyboard controls (fixed: left=+1, right=-1)
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowLeft') rotateCarousel(-1);
-    if (e.code === 'ArrowRight') rotateCarousel(1);
+    if (e.code === 'ArrowLeft') rotateCarousel(1);
+    if (e.code === 'ArrowRight') rotateCarousel(-1);
     if (e.code === 'Enter') confirmSelection();
   });
 
