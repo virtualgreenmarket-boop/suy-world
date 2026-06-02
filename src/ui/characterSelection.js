@@ -247,10 +247,51 @@ export function initCharacterSelection(onSelect) {
 
   const canvasHeight = window.innerHeight;
 
-  // Camera setup: very low angle (almost horizontal - 6°)
-  _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 1, 10); // Y=1, Z=10 → 6° angle
-  _camera.lookAt(0, 2, 0); // Look at Y=2 (above ground)
+  // STEP 1: Log current camera and character dimensions
+  console.log('═══════════════════════════════════════════');
+  console.log('🔧 CAMERA FIX - STEP 1: Current Values');
+  console.log('═══════════════════════════════════════════');
+  console.log('Current Camera Position:', { x: 0, y: 1, z: 10 });
+  console.log('Current Camera LookAt:', { x: 0, y: 2, z: 0 });
+  console.log('Current FOV:', 60);
+  console.log('Character Height:', CHARACTER_TARGET_HEIGHT, 'm');
+  console.log('Circle Radius:', CIRCLE_RADIUS, 'units');
+  console.log('Ground Y:', GROUND_Y);
+
+  // STEP 2: Calculate correct camera distance
+  // Character height = 2.5m, we want to see full body (0 to 2.5m) with 20% padding
+  const characterHeight = CHARACTER_TARGET_HEIGHT;
+  const paddingFactor = 1.4; // 40% extra space (20% above, 20% below)
+  const visibleHeight = characterHeight * paddingFactor; // 2.5 * 1.4 = 3.5m
+
+  // For perspective camera: tan(FOV/2) = (height/2) / distance
+  // distance = (height/2) / tan(FOV/2)
+  const fov = 60; // degrees
+  const fovRadians = (fov * Math.PI) / 180;
+  const optimalDistance = (visibleHeight / 2) / Math.tan(fovRadians / 2);
+
+  console.log('');
+  console.log('🔧 STEP 2: Calculated Values');
+  console.log('Visible Height Needed:', visibleHeight.toFixed(2), 'm (with padding)');
+  console.log('Optimal Camera Distance:', optimalDistance.toFixed(2), 'm');
+
+  // STEP 3: Set camera to optimal position
+  // Keep Y at character center (1.25m), move Z back to optimal distance
+  const cameraY = characterHeight / 2; // 1.25m (center of character)
+  const cameraZ = optimalDistance;
+  const lookAtY = characterHeight / 2; // Look at center
+
+  console.log('');
+  console.log('🔧 STEP 3: New Camera Settings');
+  console.log('New Camera Position:', { x: 0, y: cameraY.toFixed(2), z: cameraZ.toFixed(2) });
+  console.log('New LookAt:', { x: 0, y: lookAtY.toFixed(2), z: 0 });
+  console.log('FOV (unchanged):', fov, '°');
+  console.log('═══════════════════════════════════════════');
+
+  // Camera setup: optimal distance to show full characters
+  _camera = new THREE.PerspectiveCamera(fov, window.innerWidth / canvasHeight, 0.1, 100);
+  _camera.position.set(0, cameraY, cameraZ);
+  _camera.lookAt(0, lookAtY, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
