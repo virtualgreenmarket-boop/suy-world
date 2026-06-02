@@ -362,75 +362,42 @@ async function loadAllCharacters() {
 
   // Load all 6 characters in a FLAT circle on the ground
   for (let i = 0; i < CHARACTER_COUNT; i++) {
-    const modelPath = `/models/player/characters/model${i + 1}.glb`;
+    debugLog(`[char-select] Creating debug box ${i + 1}...`);
 
-    debugLog(`[char-select] Loading character ${i + 1} from ${modelPath}...`);
+    // RED BOX PLACEHOLDER (0.5 x 1.8 x 0.5)
+    const geometry = new THREE.BoxGeometry(0.5, CHARACTER_TARGET_HEIGHT, 0.5);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xff0000,
+      roughness: 0.7,
+      metalness: 0.3
+    });
+    const model = new THREE.Mesh(geometry, material);
 
-    try {
-      const gltf = await new Promise((resolve, reject) =>
-        loader.load(modelPath, resolve, undefined, reject)
-      );
+    // Position box so bottom is at Y=0
+    model.position.y = CHARACTER_TARGET_HEIGHT / 2;
 
-      debugLog(`[char-select] ✅ Character ${i + 1} GLB loaded, cloning scene...`);
+    model.castShadow = true;
+    model.receiveShadow = true;
 
-      // Clone using SkeletonUtils
-      const model = skeletonClone(gltf.scene);
+    // Create container at ground level (Y=0)
+    const container = new THREE.Group();
+    container.add(model);
 
-      // Scale to normal height
-      const box = new THREE.Box3().setFromObject(model);
-      const height = box.getSize(new THREE.Vector3()).y;
-      const scale = CHARACTER_TARGET_HEIGHT / height;
-      model.scale.setScalar(scale);
+    // Position in FLAT circle on XZ plane, radius=3, Y=0
+    // Selected character (index 0) is at FRONT (positive Z, closest to camera)
+    const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
+    container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
+    container.position.y = GROUND_Y; // Y=0 - ground plane
+    container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
 
-      // Position on ground
-      model.updateMatrixWorld(true);
-      const box2 = new THREE.Box3().setFromObject(model);
-      const floorY = -box2.min.y;
-      model.position.y = floorY;
+    // Face OUTWARD from center (toward camera)
+    container.rotation.y = angle + Math.PI;
 
-      // Keep upright - no rotation
-      model.rotation.set(0, 0, 0);
+    _scene.add(container);
 
-      // Enable shadows
-      model.traverse(n => {
-        if (n.isMesh) {
-          n.castShadow = true;
-          n.receiveShadow = true;
-        }
-      });
+    _characterModels.push({ container, model, mixer: null });
 
-      // Create container at ground level (Y=0)
-      const container = new THREE.Group();
-      container.add(model);
-
-      // Position in FLAT circle on XZ plane, radius=3, Y=0
-      // Selected character (index 0) is at FRONT (positive Z, closest to camera)
-      const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
-      container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = GROUND_Y; // Y=0 - ground plane
-      container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
-
-      // Face OUTWARD from center (toward camera)
-      container.rotation.y = angle + Math.PI;
-
-      _scene.add(container);
-
-      // Setup animation
-      let mixer = null;
-      if (_idleClip) {
-        mixer = new THREE.AnimationMixer(model);
-        const action = mixer.clipAction(_idleClip);
-        action.play();
-        mixer.update(0);
-      }
-
-      _characterModels.push({ container, model, mixer });
-
-      debugLog(`[char-select] ✅ Character ${i + 1} loaded at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
-
-    } catch (err) {
-      debugLog(`❌ [char-select] Failed to load model${i + 1}: ${err.message}`);
-    }
+    debugLog(`[char-select] ✅ Debug box ${i + 1} created at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
   }
 
   debugLog(`[char-select] ✅ All characters loaded! Total: ${_characterModels.length}`);
@@ -523,7 +490,7 @@ function animate(time = 0) {
       char.model.rotation.z = 0;
     }
 
-    // Update animation
+    // Update animation (skipped for debug boxes)
     if (char.mixer) {
       char.mixer.update(delta);
     }
