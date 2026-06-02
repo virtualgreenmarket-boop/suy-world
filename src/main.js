@@ -77,6 +77,8 @@ if (document.readyState === 'loading') {
 
 function startGame(selectedCharacterId) {
 
+console.log(`[main] 🎮 Starting game with character ${selectedCharacterId}`);
+
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 // Background is a sky sphere added in initIsland; keep a dark fallback only
@@ -187,7 +189,11 @@ initCollision();
 spawnPlazaTree(scene);
 
 // Kick off model + animation downloads immediately
+console.log(`[main] 📥 Preloading selected character model: model${selectedCharacterId}.glb`);
 preloadPlayerCharacter(selectedCharacterId)
+  .then(() => {
+    console.log(`[main] ✅ Character ${selectedCharacterId} preloaded successfully!`);
+  })
   .catch(err => {
     console.error('[player] Character preload failed:', err);
   });

@@ -23,6 +23,7 @@ const ANIMATION_FILES = {
 
 export async function preloadPlayerCharacter(characterId) {
   const modelPath = getCharacterModelPath(characterId);
+  console.log(`[player] 🎭 Loading character ${characterId} from ${modelPath}`);
 
   // Load character model
   const gltf = await new Promise((resolve, reject) =>
@@ -40,7 +41,7 @@ export async function preloadPlayerCharacter(characterId) {
   const box = new THREE.Box3().setFromObject(_characterTemplate);
   _modelFloorY = -box.min.y;
 
-  console.log('[player] Loaded character', characterId);
+  console.log(`[player] ✅ Character ${characterId} loaded successfully! (model${characterId}.glb)`);
 
   // Load animations
   await loadAnimations();
