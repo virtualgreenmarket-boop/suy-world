@@ -12,6 +12,7 @@ let _currentRotation = 0;
 let _targetRotation = 0;
 let _selectedIndex = 0;
 let _isInitialized = false;
+let _selectedCharacterSpinTime = 0; // For 180° spin animation
 
 const CHARACTER_COUNT = 6;
 const CIRCLE_RADIUS = 4.29; // 30% larger (was 3.3)
@@ -504,6 +505,9 @@ function animate(time = 0) {
   const rotDiff = _targetRotation - _currentRotation;
   _currentRotation += rotDiff * ROTATION_SPEED;
 
+  // Update spin time for selected character
+  _selectedCharacterSpinTime += delta;
+
   // Rotate all characters around Y axis (vertical)
   _characterModels.forEach((char, index) => {
     const baseAngle = (index / CHARACTER_COUNT) * Math.PI * 2;
@@ -515,7 +519,16 @@ function animate(time = 0) {
     char.container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
 
     // Face outward from center
-    char.container.rotation.y = angle + Math.PI;
+    let faceRotation = angle + Math.PI;
+
+    // Add 180° spin animation to selected character (index at front)
+    if (index === _selectedIndex) {
+      // Continuous 180° back-and-forth spin (3 seconds per cycle)
+      const spinCycle = Math.sin(_selectedCharacterSpinTime * (Math.PI / 3)) * Math.PI;
+      faceRotation += spinCycle;
+    }
+
+    char.container.rotation.y = faceRotation;
 
     // Lock X/Z rotation (keep standing upright)
     if (char.model) {
