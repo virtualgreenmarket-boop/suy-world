@@ -404,6 +404,9 @@ async function loadAllCharacters() {
       container.scale.setScalar(targetScale);
       debugLog(`[char-select] Container scale: ${targetScale.toFixed(2)}x`);
 
+      // Store base scale for later use
+      container.userData.baseScale = targetScale;
+
       // Position in FLAT circle on XZ plane - EXACT SAME AS BOXES
       // Selected character (index 0) is at FRONT (positive Z, closest to camera)
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
@@ -541,10 +544,11 @@ function animate(time = 0) {
       char.mixer.update(delta);
     }
 
-    // Scale front character slightly larger
+    // Scale front character slightly larger (preserve base scale)
+    const baseScale = char.container.userData.baseScale || 1.0;
     const distFromFront = Math.abs(Math.sin(angle));
-    const scale = 1.0 + (1.0 - distFromFront) * 0.15;
-    char.container.scale.setScalar(scale);
+    const scaleFactor = 1.0 + (1.0 - distFromFront) * 0.15;
+    char.container.scale.setScalar(baseScale * scaleFactor);
   });
 
   // Render
