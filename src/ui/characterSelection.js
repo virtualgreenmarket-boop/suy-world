@@ -386,24 +386,17 @@ async function loadAllCharacters() {
       const targetScale = CHARACTER_TARGET_HEIGHT / originalHeight;
       model.scale.setScalar(targetScale);
 
-      // Position model so it's centered at half height (like red boxes were)
-      // This makes bottom at Y=0 when container is at Y=0
-      model.position.set(0, CHARACTER_TARGET_HEIGHT / 2, 0);
-      model.rotation.set(0, 0, 0);
+      // Position model at center (Y = 1.25m) - EXACTLY like red boxes
+      model.position.y = CHARACTER_TARGET_HEIGHT / 2;
 
-      // Enable shadows
-      model.traverse(n => {
-        if (n.isMesh) {
-          n.castShadow = true;
-          n.receiveShadow = true;
-        }
-      });
+      model.castShadow = true;
+      model.receiveShadow = true;
 
       // Create container at ground level (Y=0)
       const container = new THREE.Group();
       container.add(model);
 
-      debugLog(`[char-select] Model positioned at Y=${CHARACTER_TARGET_HEIGHT / 2} (centered)`);
+      debugLog(`[char-select] Model positioned at Y=${CHARACTER_TARGET_HEIGHT / 2}m`);
 
       // Position in FLAT circle on XZ plane - EXACT SAME AS BOXES
       // Selected character (index 0) is at FRONT (positive Z, closest to camera)
