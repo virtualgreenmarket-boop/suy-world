@@ -418,27 +418,27 @@ async function loadAllCharacters() {
       // Clone using SkeletonUtils
       const model = skeletonClone(gltf.scene);
 
-      // Get original bounding box BEFORE any changes
+      // Get original bounding box for logging only
       const box = new THREE.Box3().setFromObject(model);
       const originalHeight = box.getSize(new THREE.Vector3()).y;
-      const originalMinY = box.min.y;
-      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m, minY: ${originalMinY.toFixed(6)}m`);
+      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m`);
 
-      // Calculate scale to match target height (2.5m)
-      const targetScale = CHARACTER_TARGET_HEIGHT / originalHeight;
+      // FIXED SCALE - NO AUTO-CALCULATION
+      const FIXED_SCALE = 1.0; // Start with 1.0, maximum 1.5 if too small
+      model.scale.setScalar(FIXED_SCALE);
 
-      // Apply scale
-      model.scale.setScalar(targetScale);
+      debugLog(`[char-select] Applied FIXED scale: ${FIXED_SCALE}x (no auto-calculation)`);
 
       // AFTER scaling, recalculate bounding box
       model.updateMatrixWorld(true);
       const box2 = new THREE.Box3().setFromObject(model);
 
-      // Position so bottom is at Y=0 (like red boxes)
+      // Position so bottom is at Y=0
       const floorOffset = -box2.min.y;
       model.position.y = floorOffset;
 
-      debugLog(`[char-select] After scale: ${targetScale.toFixed(2)}x, floor offset: ${floorOffset.toFixed(3)}m`);
+      const finalHeight = box2.getSize(new THREE.Vector3()).y;
+      debugLog(`[char-select] Final height after scale: ${finalHeight.toFixed(3)}m, floor offset: ${floorOffset.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
