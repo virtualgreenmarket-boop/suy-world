@@ -188,20 +188,7 @@ initBeach(scene);
 initCollision();
 spawnPlazaTree(scene);
 
-// Kick off model + animation downloads immediately
-console.log(`[main] 📥 Preloading selected character model: model${selectedCharacterId}.glb`);
-preloadPlayerCharacter(selectedCharacterId)
-  .then(() => {
-    console.log(`[main] ✅ Character ${selectedCharacterId} preloaded successfully!`);
-  })
-  .catch(err => {
-    console.error('[player] Character preload failed:', err);
-  });
-
-preloadTrees().catch(err => console.error('[trees] failed:', err));
-preloadAllNpcs().catch(err => console.error('[npc-glb] failed:', err));
-
-// ── UI ─────────────────────────────────────────────────────────────────
+// ── UI (initialize early, before character loads) ─────────────────────
 initHud();
 initChatUI();
 bindSendChat(sendChat);
@@ -220,14 +207,37 @@ setMuteAll(_s.muteAll);
 setMusicVolumeCallback(v => setMusicVolume(v));
 setMuteAllCallback(b => setMuteAll(b));
 
-// ── Multiplayer ────────────────────────────────────────────────────────
-initRemotePlayers(scene);
+// Preload trees and NPCs in background
+preloadTrees().catch(err => console.error('[trees] failed:', err));
+preloadAllNpcs().catch(err => console.error('[npc-glb] failed:', err));
 
-initMultiplayer(({ name, coins }) => {
-  const username = getUsername();
-  initLocalPlayer(scene, camera, username || name);
-  initEconomy(getSocket(), coins, updateCoinDisplay);
-});
+// ── CRITICAL: Load selected character BEFORE initializing player ───────
+console.log(`[main] 📥 Preloading selected character model: model${selectedCharacterId}.glb`);
+
+preloadPlayerCharacter(selectedCharacterId)
+  .then(() => {
+    console.log(`[main] ✅ Character ${selectedCharacterId} preloaded successfully!`);
+
+    // NOW initialize multiplayer and player (character is ready)
+    initRemotePlayers(scene);
+
+    initMultiplayer(({ name, coins }) => {
+      const username = getUsername();
+      console.log(`[main] 🎮 Initializing local player with character ${selectedCharacterId}`);
+      initLocalPlayer(scene, camera, username || name, selectedCharacterId);
+      initEconomy(getSocket(), coins, updateCoinDisplay);
+    });
+  })
+  .catch(err => {
+    console.error('[player] ❌ Character preload failed:', err);
+    // Initialize anyway with default (will show error in console)
+    initRemotePlayers(scene);
+    initMultiplayer(({ name, coins }) => {
+      const username = getUsername();
+      initLocalPlayer(scene, camera, username || name, selectedCharacterId);
+      initEconomy(getSocket(), coins, updateCoinDisplay);
+    });
+  });
 
 // ── Resize ─────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {

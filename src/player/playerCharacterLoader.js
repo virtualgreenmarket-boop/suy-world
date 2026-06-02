@@ -70,10 +70,13 @@ async function loadAnimations() {
 
 // ── Spawn character instance ──────────────────────────────────────────
 
-export async function spawnPlayerCharacter(parentGroup) {
+export async function spawnPlayerCharacter(parentGroup, characterId) {
   if (!_characterTemplate) {
+    console.error('[player] ❌ Character template not preloaded! CharacterId:', characterId);
     throw new Error('[player] Character not preloaded');
   }
+
+  console.log(`[player] ✅ Spawning character ${characterId} (template ready)`);
 
   // Remove any existing model
   if (parentGroup.userData._charModel) {
@@ -90,6 +93,8 @@ export async function spawnPlayerCharacter(parentGroup) {
 
   parentGroup.add(clone);
   parentGroup.userData._charModel = clone;
+
+  console.log(`[player] 🎭 Character ${characterId} spawned successfully!`);
 
   // Build bone map
   const boneMap = new Map();

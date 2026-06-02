@@ -33,7 +33,7 @@ let isDragging = false, lastMouseX = 0, lastMouseY = 0;
 
 // ── Init ──────────────────────────────────────────────────────────────
 
-export function initLocalPlayer(scene, camera, name) {
+export function initLocalPlayer(scene, camera, name, characterId) {
   _scene  = scene;
   _camera = camera;
 
@@ -43,8 +43,10 @@ export function initLocalPlayer(scene, camera, name) {
   scene.add(playerGroup);
   attachLabel(playerGroup, name || 'Player', 2.4, 'player');
 
-  // Spawn player character
-  spawnPlayerCharacter(playerGroup).catch(err => {
+  console.log(`[local-player] 🎭 Spawning character ${characterId} for player`);
+
+  // Spawn player character (character already preloaded in main.js)
+  spawnPlayerCharacter(playerGroup, characterId).catch(err => {
     console.error('[local-player] Failed to spawn character:', err);
   });
 
