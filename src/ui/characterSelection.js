@@ -376,19 +376,14 @@ async function loadAllCharacters() {
       // Clone using SkeletonUtils
       const model = skeletonClone(gltf.scene);
 
-      // Scale to exact height (same as red boxes: 2.5m)
+      // DO NOT scale the model directly - keep original size
+      // Get original bounding box
       const box = new THREE.Box3().setFromObject(model);
-      const height = box.getSize(new THREE.Vector3()).y;
-      const scale = CHARACTER_TARGET_HEIGHT / height;
-      model.scale.setScalar(scale);
+      const originalHeight = box.getSize(new THREE.Vector3()).y;
+      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m`);
 
-      // Position on ground - bottom at Y=0
-      model.updateMatrixWorld(true);
-      const box2 = new THREE.Box3().setFromObject(model);
-      const floorY = -box2.min.y;
-      model.position.y = floorY;
-
-      // Keep upright - no rotation
+      // Position model at origin
+      model.position.set(0, 0, 0);
       model.rotation.set(0, 0, 0);
 
       // Enable shadows
@@ -402,6 +397,11 @@ async function loadAllCharacters() {
       // Create container at ground level (Y=0)
       const container = new THREE.Group();
       container.add(model);
+
+      // Calculate scale to match red boxes (2.5m height)
+      const targetScale = CHARACTER_TARGET_HEIGHT / originalHeight;
+      container.scale.setScalar(targetScale);
+      debugLog(`[char-select] Container scale: ${targetScale.toFixed(2)}x`);
 
       // Position in FLAT circle on XZ plane - EXACT SAME AS BOXES
       // Selected character (index 0) is at FRONT (positive Z, closest to camera)
