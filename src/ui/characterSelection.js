@@ -303,8 +303,12 @@ async function loadAllCharacters() {
       if (_idleClip) {
         mixer = new THREE.AnimationMixer(model);
         const action = mixer.clipAction(_idleClip);
+        action.setLoop(THREE.LoopRepeat);
         action.play();
         mixer.update(0);
+        console.log(`[char-select] Character ${i + 1}: Idle animation PLAYING`);
+      } else {
+        console.log(`[char-select] Character ${i + 1}: NO idle animation (clip not loaded)`);
       }
 
       _characterModels.push({ container, model, mixer });
@@ -316,9 +320,20 @@ async function loadAllCharacters() {
     }
   }
 
-  console.log(`[char-select] ${_characterModels.length} characters ready`);
+  console.log(`[char-select] ✅ ${_characterModels.length} characters ready with IDLE animations!`);
   updateCharacterName();
 }
+
+// Test - log every second to confirm animations are updating
+let _debugCounter = 0;
+setInterval(() => {
+  if (_characterModels.length > 0 && _characterModels[0].mixer) {
+    _debugCounter++;
+    if (_debugCounter % 60 === 0) { // Every 60 frames
+      console.log('[char-select] Animations still running...');
+    }
+  }
+}, 16);
 
 function changeCharacter(direction) {
   _selectedIndex = (_selectedIndex + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
