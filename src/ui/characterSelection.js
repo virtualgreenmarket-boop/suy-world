@@ -328,24 +328,28 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
-      // Get original size
+      // Get original size for logging
       const box = new THREE.Box3().setFromObject(model);
       const originalHeight = box.getSize(new THREE.Vector3()).y;
+      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m`);
 
-      // Scale to target height (EXACTLY like red boxes were 2.5m tall)
-      const scale = CHARACTER_TARGET_HEIGHT / originalHeight;
-      model.scale.setScalar(scale);
+      // FIXED SCALE - test small values
+      const FIXED_SCALE = 1.0;
+      model.scale.setScalar(FIXED_SCALE);
       model.updateMatrixWorld(true);
 
-      // Position so bottom is at Y=0 (EXACTLY like red boxes)
+      // Position so bottom is at Y=0
       const box2 = new THREE.Box3().setFromObject(model);
       const floorOffset = -box2.min.y;
+      const finalHeight = box2.getSize(new THREE.Vector3()).y;
       model.position.y = floorOffset;
+
+      debugLog(`[char-select] FIXED scale=${FIXED_SCALE}, final height=${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
 
-      // Container (EXACTLY like red boxes)
+      // Container
       const container = new THREE.Group();
       container.add(model);
 
@@ -367,7 +371,7 @@ async function loadAllCharacters() {
 
       _characterModels.push({ container, model, mixer });
 
-      debugLog(`[char-select] ✅ Character ${i + 1} loaded (scale: ${scale.toFixed(1)}x, height: ${CHARACTER_TARGET_HEIGHT}m)`);
+      debugLog(`[char-select] ✅ Character ${i + 1} loaded`);
 
     } catch (err) {
       debugLog(`❌ [char-select] Failed to load model${i + 1}`);
