@@ -322,17 +322,11 @@ export function initCharacterSelection(onSelect) {
         Enter Game
       </button>
 
-      <div class="height-controls">
-        <button class="height-btn" id="height-up">▲</button>
-        <button class="height-btn" id="height-down">▼</button>
-      </div>
-
       <div class="arrow-controls">
         <button class="arrow-btn" id="arrow-up">▲</button>
         <button class="arrow-btn" id="arrow-down">▼</button>
       </div>
 
-      <div class="zoom-info" id="camera-info">Camera Y: 3.0</div>
       <div class="arrow-info" id="arrow-info">Arrow Y: 1.5</div>
     </div>
   `;
@@ -412,28 +406,6 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'ArrowLeft') changeCharacter(-1);
     if (e.code === 'ArrowRight') changeCharacter(1);
     if (e.code === 'Enter') confirmSelection();
-  });
-
-  // Height controls (move camera Y up/down)
-  let cameraY = 3.0; // User-finalized value
-  const updateCameraInfo = () => {
-    document.getElementById('camera-info').textContent = `Camera Y: ${cameraY.toFixed(1)}`;
-  };
-
-  document.getElementById('height-up').addEventListener('click', () => {
-    cameraY += 0.2;
-    _camera.position.y = cameraY;
-    _camera.lookAt(0, cameraY, 0);
-    updateCameraInfo();
-    console.log(`[char-select] Camera Y: ${cameraY.toFixed(1)}`);
-  });
-
-  document.getElementById('height-down').addEventListener('click', () => {
-    cameraY -= 0.2;
-    _camera.position.y = cameraY;
-    _camera.lookAt(0, cameraY, 0);
-    updateCameraInfo();
-    console.log(`[char-select] Camera Y: ${cameraY.toFixed(1)}`);
   });
 
   // Arrow height controls (move arrow Y up/down)
