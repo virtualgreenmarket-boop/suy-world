@@ -13,8 +13,9 @@ let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
-let _characterScaleX = 1.0; // Width/depth scale
-let _characterScaleY = 1.0; // Height scale (adjustable separately)
+let _characterScaleX = 1.0; // Width/depth scale (adjustable)
+let _characterScaleY = 1.0; // Height scale (adjustable)
+let _characterScaleUniform = 1.0; // Uniform scale multiplier
 
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 4; // Distance between characters
@@ -300,7 +301,27 @@ export function initCharacterSelection(onSelect) {
 
       .scale-controls {
         position: absolute;
-        bottom: 20%;
+        bottom: 35%;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 10000;
+        pointer-events: auto;
+      }
+
+      .width-controls {
+        position: absolute;
+        bottom: 27%;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 10000;
+        pointer-events: auto;
+      }
+
+      .size-controls {
+        position: absolute;
+        bottom: 19%;
         right: 20px;
         display: flex;
         gap: 10px;
@@ -309,13 +330,13 @@ export function initCharacterSelection(onSelect) {
       }
 
       .scale-btn {
-        width: 80px;
-        height: 50px;
+        width: 70px;
+        height: 45px;
         background: rgba(33, 150, 243, 0.3);
         border: 2px solid rgba(33, 150, 243, 0.6);
         border-radius: 10px;
         color: white;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: bold;
         cursor: pointer;
         transition: all 0.3s;
@@ -331,16 +352,90 @@ export function initCharacterSelection(onSelect) {
         transform: scale(1.1);
       }
 
+      .width-btn {
+        width: 70px;
+        height: 45px;
+        background: rgba(156, 39, 176, 0.3);
+        border: 2px solid rgba(156, 39, 176, 0.6);
+        border-radius: 10px;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .width-btn:hover {
+        background: rgba(156, 39, 176, 0.5);
+        transform: scale(1.1);
+      }
+
+      .size-btn {
+        width: 70px;
+        height: 45px;
+        background: rgba(255, 87, 34, 0.3);
+        border: 2px solid rgba(255, 87, 34, 0.6);
+        border-radius: 10px;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .size-btn:hover {
+        background: rgba(255, 87, 34, 0.5);
+        transform: scale(1.1);
+      }
+
       .scale-info {
         position: absolute;
-        bottom: 20%;
-        right: 210px;
+        bottom: 35%;
+        right: 170px;
         background: rgba(0,0,0,0.8);
         color: #2196f3;
-        padding: 10px 20px;
+        padding: 8px 15px;
         border-radius: 10px;
         font-family: monospace;
-        font-size: 14px;
+        font-size: 13px;
+        z-index: 10001;
+        pointer-events: none;
+      }
+
+      .width-info {
+        position: absolute;
+        bottom: 27%;
+        right: 170px;
+        background: rgba(0,0,0,0.8);
+        color: #9c27b0;
+        padding: 8px 15px;
+        border-radius: 10px;
+        font-family: monospace;
+        font-size: 13px;
+        z-index: 10001;
+        pointer-events: none;
+      }
+
+      .size-info {
+        position: absolute;
+        bottom: 19%;
+        right: 170px;
+        background: rgba(0,0,0,0.8);
+        color: #ff5722;
+        padding: 8px 15px;
+        border-radius: 10px;
+        font-family: monospace;
+        font-size: 13px;
         z-index: 10001;
         pointer-events: none;
       }
@@ -376,8 +471,19 @@ export function initCharacterSelection(onSelect) {
         <button class="scale-btn" id="scale-down">−</button>
         <button class="scale-btn" id="scale-up">+</button>
       </div>
-
       <div class="scale-info" id="scale-info">Height: 1.00x</div>
+
+      <div class="width-controls">
+        <button class="width-btn" id="width-down">−</button>
+        <button class="width-btn" id="width-up">+</button>
+      </div>
+      <div class="width-info" id="width-info">Width: 1.00x</div>
+
+      <div class="size-controls">
+        <button class="size-btn" id="size-down">−</button>
+        <button class="size-btn" id="size-up">+</button>
+      </div>
+      <div class="size-info" id="size-info">Size: 1.00x</div>
     </div>
   `;
 
@@ -459,26 +565,61 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'Enter') confirmSelection();
   });
 
-  // Scale controls (adjust character HEIGHT to make them thinner/fatter)
+  // HEIGHT controls (blue - adjust Y scale)
   const updateScaleInfo = () => {
-    const infoEl = document.getElementById('scale-info');
-    if (infoEl) {
-      infoEl.textContent = `Height: ${_characterScaleY.toFixed(2)}x`;
-    }
+    document.getElementById('scale-info').textContent = `Height: ${_characterScaleY.toFixed(2)}x`;
   };
 
   document.getElementById('scale-up').addEventListener('click', () => {
-    _characterScaleY += 0.05; // Make taller (thinner looking)
+    _characterScaleY += 0.05;
     updateAllCharacterScales();
     updateScaleInfo();
-    console.log(`[char-select] ScaleY: ${_characterScaleY.toFixed(2)}x (taller)`);
+    console.log(`[char-select] Height: ${_characterScaleY.toFixed(2)}x`);
   });
 
   document.getElementById('scale-down').addEventListener('click', () => {
-    _characterScaleY = Math.max(0.1, _characterScaleY - 0.05); // Make shorter (fatter looking)
+    _characterScaleY = Math.max(0.1, _characterScaleY - 0.05);
     updateAllCharacterScales();
     updateScaleInfo();
-    console.log(`[char-select] ScaleY: ${_characterScaleY.toFixed(2)}x (shorter)`);
+    console.log(`[char-select] Height: ${_characterScaleY.toFixed(2)}x`);
+  });
+
+  // WIDTH controls (purple - adjust X/Z scale)
+  const updateWidthInfo = () => {
+    document.getElementById('width-info').textContent = `Width: ${_characterScaleX.toFixed(2)}x`;
+  };
+
+  document.getElementById('width-up').addEventListener('click', () => {
+    _characterScaleX += 0.05;
+    updateAllCharacterScales();
+    updateWidthInfo();
+    console.log(`[char-select] Width: ${_characterScaleX.toFixed(2)}x`);
+  });
+
+  document.getElementById('width-down').addEventListener('click', () => {
+    _characterScaleX = Math.max(0.1, _characterScaleX - 0.05);
+    updateAllCharacterScales();
+    updateWidthInfo();
+    console.log(`[char-select] Width: ${_characterScaleX.toFixed(2)}x`);
+  });
+
+  // SIZE controls (orange - adjust uniform scale)
+  const updateSizeInfo = () => {
+    document.getElementById('size-info').textContent = `Size: ${_characterScaleUniform.toFixed(2)}x`;
+  };
+
+  document.getElementById('size-up').addEventListener('click', () => {
+    _characterScaleUniform += 0.1;
+    updateAllCharacterScales();
+    updateSizeInfo();
+    console.log(`[char-select] Uniform Size: ${_characterScaleUniform.toFixed(2)}x`);
+  });
+
+  document.getElementById('size-down').addEventListener('click', () => {
+    _characterScaleUniform = Math.max(0.1, _characterScaleUniform - 0.1);
+    updateAllCharacterScales();
+    updateSizeInfo();
+    console.log(`[char-select] Uniform Size: ${_characterScaleUniform.toFixed(2)}x`);
   });
 
   loadAllCharacters();
@@ -488,16 +629,18 @@ export function initCharacterSelection(onSelect) {
 function updateAllCharacterScales() {
   _characterModels.forEach((char, i) => {
     if (char.model) {
-      // Set different scale for Y (height) vs X/Z (width/depth)
-      char.model.scale.set(_characterScaleX, _characterScaleY, _characterScaleX);
+      // Final scale = (individual height/width) * uniform size
+      const finalX = _characterScaleX * _characterScaleUniform;
+      const finalY = _characterScaleY * _characterScaleUniform;
+      const finalZ = _characterScaleX * _characterScaleUniform;
+
+      char.model.scale.set(finalX, finalY, finalZ);
       char.model.updateMatrixWorld(true);
 
       // Recalculate floor position
       const box = new THREE.Box3().setFromObject(char.model);
       const floorOffset = -box.min.y;
       char.model.position.y = floorOffset;
-
-      console.log(`[char-select] Char ${i + 1} rescaled: X/Z=${_characterScaleX.toFixed(2)}, Y=${_characterScaleY.toFixed(2)}`);
     }
   });
 }
@@ -537,8 +680,10 @@ async function loadAllCharacters() {
       const boxBefore = new THREE.Box3().setFromObject(model);
       const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
 
-      // Scale up (use global scale values)
-      model.scale.set(_characterScaleX, _characterScaleY, _characterScaleX);
+      // Scale up (use global scale values with uniform multiplier)
+      const finalX = _characterScaleX * _characterScaleUniform;
+      const finalY = _characterScaleY * _characterScaleUniform;
+      model.scale.set(finalX, finalY, finalX);
       model.updateMatrixWorld(true);
 
       // Position on ground
@@ -547,7 +692,7 @@ async function loadAllCharacters() {
       const finalHeight = box.getSize(new THREE.Vector3()).y;
       model.position.y = floorOffset;
 
-      console.log(`[char-select] Char ${i + 1}: orig=${originalHeight.toFixed(6)}m, scaleX=${_characterScaleX}, scaleY=${_characterScaleY}, final=${finalHeight.toFixed(3)}m`);
+      console.log(`[char-select] Char ${i + 1}: orig=${originalHeight.toFixed(6)}m, X=${finalX.toFixed(2)}, Y=${finalY.toFixed(2)}, final=${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
