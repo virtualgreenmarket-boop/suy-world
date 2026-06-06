@@ -13,11 +13,11 @@ let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
+let _characterScale = 1.0; // Global character scale (adjustable)
 
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 4; // Distance between characters
 const CAMERA_Z = 13.0; // User-specified camera distance
-const CHARACTER_SCALE = 1.0; // User-specified scale (models are 0.005m originally)
 
 function debugLog(msg) {
   console.log(msg);
@@ -296,6 +296,53 @@ export function initCharacterSelection(onSelect) {
         z-index: 10001;
         pointer-events: none;
       }
+
+      .scale-controls {
+        position: absolute;
+        bottom: 20%;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 10000;
+        pointer-events: auto;
+      }
+
+      .scale-btn {
+        width: 80px;
+        height: 50px;
+        background: rgba(33, 150, 243, 0.3);
+        border: 2px solid rgba(33, 150, 243, 0.6);
+        border-radius: 10px;
+        color: white;
+        font-size: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .scale-btn:hover {
+        background: rgba(33, 150, 243, 0.5);
+        transform: scale(1.1);
+      }
+
+      .scale-info {
+        position: absolute;
+        bottom: 20%;
+        right: 210px;
+        background: rgba(0,0,0,0.8);
+        color: #2196f3;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-family: monospace;
+        font-size: 14px;
+        z-index: 10001;
+        pointer-events: none;
+      }
     </style>
 
     <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
@@ -323,6 +370,13 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
+
+      <div class="scale-controls">
+        <button class="scale-btn" id="scale-down">−</button>
+        <button class="scale-btn" id="scale-up">+</button>
+      </div>
+
+      <div class="scale-info" id="scale-info">Scale: 1.0x</div>
     </div>
   `;
 
@@ -404,8 +458,46 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'Enter') confirmSelection();
   });
 
+  // Scale controls (adjust character size)
+  const updateScaleInfo = () => {
+    const infoEl = document.getElementById('scale-info');
+    if (infoEl) {
+      infoEl.textContent = `Scale: ${_characterScale.toFixed(1)}x`;
+    }
+  };
+
+  document.getElementById('scale-up').addEventListener('click', () => {
+    _characterScale += 0.1;
+    updateAllCharacterScales();
+    updateScaleInfo();
+    console.log(`[char-select] Scale: ${_characterScale.toFixed(1)}x`);
+  });
+
+  document.getElementById('scale-down').addEventListener('click', () => {
+    _characterScale = Math.max(0.1, _characterScale - 0.1); // Min 0.1
+    updateAllCharacterScales();
+    updateScaleInfo();
+    console.log(`[char-select] Scale: ${_characterScale.toFixed(1)}x`);
+  });
+
   loadAllCharacters();
   animate();
+}
+
+function updateAllCharacterScales() {
+  _characterModels.forEach((char, i) => {
+    if (char.model) {
+      char.model.scale.setScalar(_characterScale);
+      char.model.updateMatrixWorld(true);
+
+      // Recalculate floor position
+      const box = new THREE.Box3().setFromObject(char.model);
+      const floorOffset = -box.min.y;
+      char.model.position.y = floorOffset;
+
+      console.log(`[char-select] Char ${i + 1} rescaled to ${_characterScale.toFixed(1)}x`);
+    }
+  });
 }
 
 async function loadAllCharacters() {
@@ -443,8 +535,8 @@ async function loadAllCharacters() {
       const boxBefore = new THREE.Box3().setFromObject(model);
       const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
 
-      // Scale up
-      model.scale.setScalar(CHARACTER_SCALE);
+      // Scale up (use global _characterScale)
+      model.scale.setScalar(_characterScale);
       model.updateMatrixWorld(true);
 
       // Position on ground
@@ -453,7 +545,7 @@ async function loadAllCharacters() {
       const finalHeight = box.getSize(new THREE.Vector3()).y;
       model.position.y = floorOffset;
 
-      console.log(`[char-select] Char ${i + 1}: orig=${originalHeight.toFixed(6)}m, scale=${CHARACTER_SCALE}x, final=${finalHeight.toFixed(3)}m`);
+      console.log(`[char-select] Char ${i + 1}: orig=${originalHeight.toFixed(6)}m, scale=${_characterScale}x, final=${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
