@@ -12,7 +12,7 @@ let _selectedIndex = 0;
 let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
-let _arrowY = 1.5; // Global arrow Y position
+let _arrowY = 4.8; // Global arrow Y position (user-finalized)
 
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 4; // Distance between characters
@@ -329,7 +329,7 @@ export function initCharacterSelection(onSelect) {
         <button class="arrow-btn" id="arrow-down">▼</button>
       </div>
 
-      <div class="arrow-info" id="arrow-info">Arrow Y: 1.5</div>
+      <div class="arrow-info" id="arrow-info">Arrow Y: 4.8</div>
     </div>
   `;
 
@@ -374,18 +374,18 @@ export function initCharacterSelection(onSelect) {
   _scene.add(_selectionLight);
   _scene.add(_selectionLight.target);
 
-  // Selection arrow (3D arrow pointing down) - HUGE & BRIGHT
-  const arrowShape = new THREE.ConeGeometry(0.8, 1.5, 8);
+  // Selection arrow (3D arrow pointing down)
+  const arrowShape = new THREE.ConeGeometry(0.3, 0.6, 8);
   const arrowMaterial = new THREE.MeshStandardMaterial({
-    color: 0xff0000, // RED - very visible!
-    emissive: 0xff0000,
-    emissiveIntensity: 2.0,
+    color: 0xffff00,
+    emissive: 0xffff00,
+    emissiveIntensity: 0.5,
   });
   _selectionArrow = new THREE.Mesh(arrowShape, arrowMaterial);
   _selectionArrow.rotation.x = Math.PI; // Point down
   _selectionArrow.position.set(0, _arrowY, 0); // Use global _arrowY
   _scene.add(_selectionArrow);
-  console.log(`[char-select] 🔴 RED ARROW created at Y=${_arrowY}`);
+  console.log(`[char-select] Arrow created at Y=${_arrowY}`);
 
   // Ground plane (wider to fit all characters)
   const groundGeo = new THREE.PlaneGeometry(30, 10);
