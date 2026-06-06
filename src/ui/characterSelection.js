@@ -13,7 +13,7 @@ let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
-let _characterScale = 100.0; // Global character scale (start high - models might be tiny)
+let _characterScale = 1.0; // Global character scale (NEW models are already big!)
 
 const CHARACTER_COUNT = 2; // Changed from 6 to 2 (new models)
 const CHARACTER_SPACING = 4; // Distance between characters
@@ -377,7 +377,7 @@ export function initCharacterSelection(onSelect) {
         <button class="size-btn" id="size-down">−</button>
         <button class="size-btn" id="size-up">+</button>
       </div>
-      <div class="size-info" id="size-info">Size: 100.0x</div>
+      <div class="size-info" id="size-info">Size: 1.0x</div>
     </div>
   `;
 
@@ -465,14 +465,14 @@ export function initCharacterSelection(onSelect) {
   };
 
   document.getElementById('size-up').addEventListener('click', () => {
-    _characterScale += 10; // Larger steps for big adjustments
+    _characterScale += 0.1; // Small steps - models are already big
     updateAllCharacterScales();
     updateSizeInfo();
     console.log(`[char-select] Size: ${_characterScale.toFixed(1)}x`);
   });
 
   document.getElementById('size-down').addEventListener('click', () => {
-    _characterScale = Math.max(1, _characterScale - 10); // Min 1, step 10
+    _characterScale = Math.max(0.1, _characterScale - 0.1); // Min 0.1, step 0.1
     updateAllCharacterScales();
     updateSizeInfo();
     console.log(`[char-select] Size: ${_characterScale.toFixed(1)}x`);
