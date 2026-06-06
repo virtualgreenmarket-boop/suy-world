@@ -15,10 +15,10 @@ let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
 let _characterScale = 1.0; // Global character scale (NEW models are already big!)
 
-const CHARACTER_COUNT = 2; // Changed from 6 to 2 (new models)
+const CHARACTER_COUNT = 1; // Single character
 const CHARACTER_SPACING = 4; // Distance between characters
 const CAMERA_Z = 13.0; // User-specified camera distance
-const CHARACTER_MODELS = ['BowGirl.glb', 'OGirl1.glb']; // New model filenames
+const CHARACTER_MODELS = ['Muscular.glb']; // New model filename
 
 function debugLog(msg) {
   console.log(msg);
