@@ -12,6 +12,7 @@ let _selectedIndex = 0;
 let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
+let _arrowY = 1.5; // Global arrow Y position
 
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 4; // Distance between characters
@@ -382,7 +383,7 @@ export function initCharacterSelection(onSelect) {
   });
   _selectionArrow = new THREE.Mesh(arrowShape, arrowMaterial);
   _selectionArrow.rotation.x = Math.PI; // Point down
-  _selectionArrow.position.set(0, 1.5, 0); // User-adjusted
+  _selectionArrow.position.set(0, _arrowY, 0); // Use global _arrowY
   _scene.add(_selectionArrow);
 
   // Ground plane (wider to fit all characters)
@@ -410,11 +411,10 @@ export function initCharacterSelection(onSelect) {
   });
 
   // Arrow height controls (move arrow Y up/down)
-  let arrowY = 1.5; // User-finalized value
   const updateArrowInfo = () => {
     const infoEl = document.getElementById('arrow-info');
     if (infoEl) {
-      infoEl.textContent = `Arrow Y: ${arrowY.toFixed(1)}`;
+      infoEl.textContent = `Arrow Y: ${_arrowY.toFixed(1)}`;
     }
   };
 
@@ -426,11 +426,11 @@ export function initCharacterSelection(onSelect) {
 
   if (arrowUpBtn) {
     arrowUpBtn.addEventListener('click', () => {
-      console.log('[char-select] ▲ CLICKED! Current arrowY:', arrowY);
-      arrowY += 0.1;
+      console.log('[char-select] ▲ CLICKED! Current arrowY:', _arrowY);
+      _arrowY += 0.1;
       if (_selectionArrow) {
-        _selectionArrow.position.y = arrowY;
-        console.log(`[char-select] Arrow moved to Y: ${arrowY.toFixed(1)}`);
+        _selectionArrow.position.y = _arrowY;
+        console.log(`[char-select] Arrow moved to Y: ${_arrowY.toFixed(1)}`);
       } else {
         console.log('[char-select] ERROR: _selectionArrow is null!');
       }
@@ -442,11 +442,11 @@ export function initCharacterSelection(onSelect) {
 
   if (arrowDownBtn) {
     arrowDownBtn.addEventListener('click', () => {
-      console.log('[char-select] ▼ CLICKED! Current arrowY:', arrowY);
-      arrowY -= 0.1;
+      console.log('[char-select] ▼ CLICKED! Current arrowY:', _arrowY);
+      _arrowY -= 0.1;
       if (_selectionArrow) {
-        _selectionArrow.position.y = arrowY;
-        console.log(`[char-select] Arrow moved to Y: ${arrowY.toFixed(1)}`);
+        _selectionArrow.position.y = _arrowY;
+        console.log(`[char-select] Arrow moved to Y: ${_arrowY.toFixed(1)}`);
       } else {
         console.log('[char-select] ERROR: _selectionArrow is null!');
       }
@@ -585,6 +585,7 @@ function updateSelection() {
 
   if (_selectionArrow) {
     _selectionArrow.position.x = x;
+    _selectionArrow.position.y = _arrowY; // Preserve Y position!
   }
 
   console.log(`[char-select] Selected character ${_selectedIndex + 1} at X=${x}`);
