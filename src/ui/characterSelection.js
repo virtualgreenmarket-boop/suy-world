@@ -12,6 +12,8 @@ let _selectedIndex = 0;
 let _isInitialized = false;
 let _cameraTargetX = 0;
 let _currentCameraX = 0;
+let _cameraZ = 5; // Camera distance (zoom)
+let _currentScale = 50; // Current character scale
 
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 3; // Distance between characters
@@ -163,6 +165,54 @@ export function initCharacterSelection(onSelect) {
         transform: translateX(-50%) translateY(-4px);
         box-shadow: 0 14px 40px rgba(76, 175, 80, 0.9);
       }
+
+      .zoom-controls {
+        position: absolute;
+        top: 50%;
+        right: 20px;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 1004;
+      }
+
+      .zoom-btn {
+        width: 60px;
+        height: 60px;
+        background: rgba(255,255,255,0.2);
+        border: 2px solid rgba(255,255,255,0.5);
+        border-radius: 50%;
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .zoom-btn:hover {
+        background: rgba(255,255,255,0.4);
+        transform: scale(1.1);
+      }
+
+      .zoom-info {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-family: monospace;
+        font-size: 14px;
+        z-index: 1005;
+        pointer-events: none;
+      }
     </style>
 
     <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
@@ -190,6 +240,18 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
+
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in" title="Zoom In (W)">+</button>
+        <button class="zoom-btn" id="zoom-out" title="Zoom Out (S)">−</button>
+        <button class="zoom-btn" id="scale-up" title="Scale Up (E)">⬆</button>
+        <button class="zoom-btn" id="scale-down" title="Scale Down (D)">⬇</button>
+      </div>
+
+      <div class="zoom-info" id="zoom-info">
+        Camera Z: 5.0<br>
+        Scale: 50x
+      </div>
     </div>
   `;
 
@@ -244,10 +306,22 @@ export function initCharacterSelection(onSelect) {
   document.getElementById('char-next').addEventListener('click', () => changeCharacter(1));
   document.getElementById('char-enter').addEventListener('click', confirmSelection);
 
+  // Zoom controls
+  document.getElementById('zoom-in').addEventListener('click', () => adjustZoom(-0.5));
+  document.getElementById('zoom-out').addEventListener('click', () => adjustZoom(0.5));
+  document.getElementById('scale-up').addEventListener('click', () => adjustScale(10));
+  document.getElementById('scale-down').addEventListener('click', () => adjustScale(-10));
+
   window.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft') changeCharacter(-1);
     if (e.code === 'ArrowRight') changeCharacter(1);
     if (e.code === 'Enter') confirmSelection();
+
+    // Zoom hotkeys
+    if (e.code === 'KeyW') adjustZoom(-0.5); // Zoom in
+    if (e.code === 'KeyS') adjustZoom(0.5);  // Zoom out
+    if (e.code === 'KeyE') adjustScale(10);   // Scale up
+    if (e.code === 'KeyD') adjustScale(-10);  // Scale down
   });
 
   loadAllCharacters();
@@ -287,9 +361,8 @@ async function loadAllCharacters() {
       const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
       console.log(`[char-select] Character ${i + 1} ORIGINAL height: ${originalHeight.toFixed(6)}m`);
 
-      // Try BIGGER scale
-      const SCALE = 50.0; // Much bigger!
-      model.scale.setScalar(SCALE);
+      // Use global scale
+      model.scale.setScalar(_currentScale);
       model.updateMatrixWorld(true);
 
       // Position on ground
@@ -298,7 +371,7 @@ async function loadAllCharacters() {
       const finalHeight = box.getSize(new THREE.Vector3()).y;
       model.position.y = floorOffset;
 
-      console.log(`[char-select] Character ${i + 1} SCALED: ${SCALE}x, final height: ${finalHeight.toFixed(3)}m`);
+      console.log(`[char-select] Character ${i + 1} SCALED: ${_currentScale}x, final height: ${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
@@ -353,6 +426,40 @@ function changeCharacter(direction) {
   _selectedIndex = (_selectedIndex + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
   _cameraTargetX = _selectedIndex * CHARACTER_SPACING;
   updateCharacterName();
+}
+
+function adjustZoom(delta) {
+  _cameraZ += delta;
+  _cameraZ = Math.max(1, Math.min(20, _cameraZ)); // Clamp between 1 and 20
+  _camera.position.z = _cameraZ;
+  updateZoomInfo();
+  console.log(`[char-select] Camera Z: ${_cameraZ.toFixed(1)}`);
+}
+
+function adjustScale(delta) {
+  _currentScale += delta;
+  _currentScale = Math.max(1, Math.min(1000, _currentScale)); // Clamp between 1 and 1000
+
+  // Update all character scales
+  _characterModels.forEach(char => {
+    char.model.scale.setScalar(_currentScale);
+    char.model.updateMatrixWorld(true);
+
+    // Recalculate floor position
+    const box = new THREE.Box3().setFromObject(char.model);
+    const floorOffset = -box.min.y;
+    char.model.position.y = floorOffset;
+  });
+
+  updateZoomInfo();
+  console.log(`[char-select] Scale: ${_currentScale}x`);
+}
+
+function updateZoomInfo() {
+  const info = document.getElementById('zoom-info');
+  if (info) {
+    info.innerHTML = `Camera Z: ${_cameraZ.toFixed(1)}<br>Scale: ${_currentScale}x`;
+  }
 }
 
 function updateCharacterName() {
