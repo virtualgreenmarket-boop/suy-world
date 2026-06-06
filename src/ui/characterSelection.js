@@ -292,8 +292,8 @@ export function initCharacterSelection(onSelect) {
   // Camera positioned to see all 6 characters
   // Characters are at X: -10, -6, -2, 2, 6, 10 (total width ~20)
   _camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-  _camera.position.set(0, 1, CAMERA_Z); // Center view, Z=13
-  _camera.lookAt(0, 1, 0);
+  _camera.position.set(0, 3.0, CAMERA_Z); // User-adjusted: Y=3.0
+  _camera.lookAt(0, 3.0, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, window.innerHeight);
@@ -333,7 +333,7 @@ export function initCharacterSelection(onSelect) {
   });
   _selectionArrow = new THREE.Mesh(arrowShape, arrowMaterial);
   _selectionArrow.rotation.x = Math.PI; // Point down
-  _selectionArrow.position.set(0, 3, 0);
+  _selectionArrow.position.set(0, 3.5, 0); // User-adjusted: raised by 0.5
   _scene.add(_selectionArrow);
 
   // Ground plane (wider to fit all characters)
@@ -361,7 +361,7 @@ export function initCharacterSelection(onSelect) {
   });
 
   // Height controls (move camera Y up/down)
-  let cameraY = 1.0;
+  let cameraY = 3.0; // User-finalized value
   const updateCameraInfo = () => {
     document.getElementById('camera-info').textContent = `Camera Y: ${cameraY.toFixed(1)}`;
   };
