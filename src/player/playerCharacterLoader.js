@@ -38,28 +38,15 @@ export async function preloadPlayerCharacter(characterId) {
     }
   });
 
-  // Get original size for logging
+  // Get original size - DON'T scale template yet!
   const box = new THREE.Box3().setFromObject(_characterTemplate);
   const originalHeight = box.getSize(new THREE.Vector3()).y;
+  _modelFloorY = -box.min.y;
+
   console.log(`[player] Original model height: ${originalHeight.toFixed(6)}m`);
+  console.log(`[player] ✅ Character ${characterId} template loaded (will scale on spawn)`);
 
-  // Target height for normal human character (1.8m)
-  const TARGET_HEIGHT = 1.8;
-  const scale = TARGET_HEIGHT / originalHeight;
-
-  // Apply scale to template
-  _characterTemplate.scale.setScalar(scale);
-  _characterTemplate.updateMatrixWorld(true);
-
-  // NOW calculate floor offset AFTER scaling
-  const box2 = new THREE.Box3().setFromObject(_characterTemplate);
-  _modelFloorY = -box2.min.y;
-
-  const finalHeight = box2.getSize(new THREE.Vector3()).y;
-  console.log(`[player] Scaled to: ${scale.toFixed(2)}x, final height: ${finalHeight.toFixed(3)}m, floor offset: ${_modelFloorY.toFixed(3)}m`);
-  console.log(`[player] ✅ Character ${characterId} loaded successfully! (model${characterId}.glb)`);
-
-  // Load animations
+  // Load animations BEFORE scaling
   await loadAnimations();
 }
 
@@ -101,16 +88,29 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   }
 
   const clone = skeletonClone(_characterTemplate);
-  // DON'T scale again - template is already scaled correctly
+
+  // Calculate scale to 1.8m (normal human height)
+  const box = new THREE.Box3().setFromObject(clone);
+  const originalHeight = box.getSize(new THREE.Vector3()).y;
+  const TARGET_HEIGHT = 1.8;
+  const scale = TARGET_HEIGHT / originalHeight;
+
+  clone.scale.setScalar(scale);
   clone.rotation.set(0, 0, 0);
-  clone.position.set(0, _modelFloorY, 0);
+  clone.updateMatrixWorld(true);
+
+  // Calculate floor position AFTER scaling
+  const box2 = new THREE.Box3().setFromObject(clone);
+  const floorOffset = -box2.min.y;
+  clone.position.set(0, floorOffset, 0);
+
   clone.updateMatrix();
   clone.matrixAutoUpdate = true;
 
   parentGroup.add(clone);
   parentGroup.userData._charModel = clone;
 
-  console.log(`[player] 🎭 Character ${characterId} spawned at Y=${_modelFloorY.toFixed(3)}m`);
+  console.log(`[player] 🎭 Character ${characterId} spawned: scale=${scale.toFixed(2)}x, height=${TARGET_HEIGHT}m, Y=${floorOffset.toFixed(3)}m`);
 
   // Build bone map
   const boneMap = new Map();

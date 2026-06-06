@@ -17,7 +17,7 @@ let _selectedCharacterSpinTime = 0; // For 180° spin animation
 const CHARACTER_COUNT = 6;
 const CIRCLE_RADIUS = 4.29; // 30% larger (was 3.3)
 const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height (same as game)
+const CHARACTER_TARGET_HEIGHT = 2.5; // Taller for better visibility in selection screen
 const GROUND_Y = 0; // Ground plane at Y=0
 
 // Debug log to screen
