@@ -246,6 +246,54 @@ export function initCharacterSelection(onSelect) {
         background: rgba(76, 175, 80, 0.5);
         transform: scale(1.1);
       }
+
+      .arrow-controls {
+        position: absolute;
+        top: 50%;
+        right: 100px;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 1004;
+      }
+
+      .arrow-btn {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 193, 7, 0.3);
+        border: 2px solid rgba(255, 193, 7, 0.6);
+        border-radius: 50%;
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .arrow-btn:hover {
+        background: rgba(255, 193, 7, 0.5);
+        transform: scale(1.1);
+      }
+
+      .arrow-info {
+        position: absolute;
+        top: 60px;
+        right: 20px;
+        background: rgba(0,0,0,0.8);
+        color: #ffeb3b;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-family: monospace;
+        font-size: 14px;
+        z-index: 1005;
+        pointer-events: none;
+      }
     </style>
 
     <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
@@ -279,7 +327,13 @@ export function initCharacterSelection(onSelect) {
         <button class="height-btn" id="height-down">▼</button>
       </div>
 
-      <div class="zoom-info" id="camera-info">Camera Y: 1.0</div>
+      <div class="arrow-controls">
+        <button class="arrow-btn" id="arrow-up">▲</button>
+        <button class="arrow-btn" id="arrow-down">▼</button>
+      </div>
+
+      <div class="zoom-info" id="camera-info">Camera Y: 3.0</div>
+      <div class="arrow-info" id="arrow-info">Arrow Y: 1.5</div>
     </div>
   `;
 
@@ -380,6 +434,30 @@ export function initCharacterSelection(onSelect) {
     _camera.lookAt(0, cameraY, 0);
     updateCameraInfo();
     console.log(`[char-select] Camera Y: ${cameraY.toFixed(1)}`);
+  });
+
+  // Arrow height controls (move arrow Y up/down)
+  let arrowY = 1.5; // User-finalized value
+  const updateArrowInfo = () => {
+    document.getElementById('arrow-info').textContent = `Arrow Y: ${arrowY.toFixed(1)}`;
+  };
+
+  document.getElementById('arrow-up').addEventListener('click', () => {
+    arrowY += 0.1;
+    if (_selectionArrow) {
+      _selectionArrow.position.y = arrowY;
+    }
+    updateArrowInfo();
+    console.log(`[char-select] Arrow Y: ${arrowY.toFixed(1)}`);
+  });
+
+  document.getElementById('arrow-down').addEventListener('click', () => {
+    arrowY -= 0.1;
+    if (_selectionArrow) {
+      _selectionArrow.position.y = arrowY;
+    }
+    updateArrowInfo();
+    console.log(`[char-select] Arrow Y: ${arrowY.toFixed(1)}`);
   });
 
   loadAllCharacters();
