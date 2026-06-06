@@ -282,14 +282,23 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
-      // Simple scale - test with 1.0
-      model.scale.setScalar(1.0);
+      // Get original size
+      const boxBefore = new THREE.Box3().setFromObject(model);
+      const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
+      console.log(`[char-select] Character ${i + 1} ORIGINAL height: ${originalHeight.toFixed(6)}m`);
+
+      // Try BIGGER scale
+      const SCALE = 50.0; // Much bigger!
+      model.scale.setScalar(SCALE);
       model.updateMatrixWorld(true);
 
       // Position on ground
       const box = new THREE.Box3().setFromObject(model);
       const floorOffset = -box.min.y;
+      const finalHeight = box.getSize(new THREE.Vector3()).y;
       model.position.y = floorOffset;
+
+      console.log(`[char-select] Character ${i + 1} SCALED: ${SCALE}x, final height: ${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
