@@ -18,7 +18,7 @@ let _characterScale = 100.0; // Global character scale (start high - models migh
 const CHARACTER_COUNT = 2; // Changed from 6 to 2 (new models)
 const CHARACTER_SPACING = 4; // Distance between characters
 const CAMERA_Z = 13.0; // User-specified camera distance
-const CHARACTER_MODELS = ['BowGirl.glb', 'OGirl.glb']; // New model filenames
+const CHARACTER_MODELS = ['BowGirl.glb', 'OGirl1.glb']; // New model filenames
 
 function debugLog(msg) {
   console.log(msg);

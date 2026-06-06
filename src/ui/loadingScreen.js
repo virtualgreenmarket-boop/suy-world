@@ -188,7 +188,7 @@ async function startRealLoading() {
 
     // Load 2 character models (updated from 6)
     console.log('[loading] 📥 Loading 2 character models...');
-    const characterModels = ['BowGirl.glb', 'OGirl.glb'];
+    const characterModels = ['BowGirl.glb', 'OGirl1.glb'];
     const characterPromises = [];
     for (let i = 0; i < characterModels.length; i++) {
       characterPromises.push(
