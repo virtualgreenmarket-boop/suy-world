@@ -16,7 +16,7 @@ let _selectionArrow = null;
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 4; // Distance between characters
 const CAMERA_Z = 13.0; // Fixed camera distance
-const CHARACTER_SCALE = 1.0; // Fixed scale
+const CHARACTER_SCALE = 200.0; // Increased from 1 - models are TINY (0.005m)
 
 function debugLog(msg) {
   console.log(msg);
@@ -351,14 +351,21 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
-      // Fixed scale (as specified by user)
+      // Get original size
+      const boxBefore = new THREE.Box3().setFromObject(model);
+      const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
+
+      // Scale up
       model.scale.setScalar(CHARACTER_SCALE);
       model.updateMatrixWorld(true);
 
       // Position on ground
       const box = new THREE.Box3().setFromObject(model);
       const floorOffset = -box.min.y;
+      const finalHeight = box.getSize(new THREE.Vector3()).y;
       model.position.y = floorOffset;
+
+      console.log(`[char-select] Char ${i + 1}: orig=${originalHeight.toFixed(6)}m, scale=${CHARACTER_SCALE}x, final=${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
@@ -381,11 +388,18 @@ async function loadAllCharacters() {
         mixer = new THREE.AnimationMixer(model);
         const action = mixer.clipAction(_idleClip);
         action.setLoop(THREE.LoopRepeat);
+        action.clampWhenFinished = false;
+        action.enabled = true;
+        action.timeScale = 1.0;
+        action.reset();
         action.play();
-        mixer.update(0);
-        console.log(`[char-select] Character ${i + 1}: Idle animation PLAYING`);
+
+        // Force first frame
+        mixer.update(0.01);
+
+        console.log(`[char-select] Char ${i + 1}: IDLE animation ACTIVE (clip duration: ${_idleClip.duration.toFixed(2)}s)`);
       } else {
-        console.log(`[char-select] Character ${i + 1}: NO idle animation (clip not loaded)`);
+        console.log(`[char-select] Char ${i + 1}: NO idle clip!`);
       }
 
       _characterModels.push({ container, model, mixer });
@@ -401,16 +415,18 @@ async function loadAllCharacters() {
   updateSelection(); // Position arrow and light on first character
 }
 
-// Test - log every second to confirm animations are updating
-let _debugCounter = 0;
+// Debug: Check mixer state every 2 seconds
+let _debugTimer = 0;
 setInterval(() => {
   if (_characterModels.length > 0 && _characterModels[0].mixer) {
-    _debugCounter++;
-    if (_debugCounter % 60 === 0) { // Every 60 frames
-      console.log('[char-select] Animations still running...');
+    _debugTimer++;
+    if (_debugTimer % 1 === 0) {
+      const mixer = _characterModels[0].mixer;
+      const time = mixer.time.toFixed(2);
+      console.log(`[char-select] ✅ Idle animation time: ${time}s (running)`);
     }
   }
-}, 16);
+}, 2000);
 
 function changeCharacter(direction) {
   _selectedIndex = (_selectedIndex + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
@@ -494,10 +510,11 @@ function animate(time = 0) {
     _selectionArrow.position.y = 3 + Math.sin(time * 0.003) * 0.2;
   }
 
-  // Update animations
+  // Update animations - FORCE update even if delta is 0
+  const clampedDelta = Math.max(delta, 0.001); // Ensure minimum delta
   _characterModels.forEach((char) => {
     if (char.mixer) {
-      char.mixer.update(delta);
+      char.mixer.update(clampedDelta);
     }
   });
 
