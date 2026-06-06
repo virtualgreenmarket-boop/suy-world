@@ -10,14 +10,13 @@ let _characterModels = [];
 let _idleClip = null;
 let _selectedIndex = 0;
 let _isInitialized = false;
-let _cameraTargetX = 0;
-let _currentCameraX = 0;
-let _cameraZ = 5; // Camera distance (zoom)
-let _currentScale = 50; // Current character scale
+let _selectionLight = null;
+let _selectionArrow = null;
 
 const CHARACTER_COUNT = 6;
-const CHARACTER_SPACING = 3; // Distance between characters
-const CAMERA_SMOOTH = 0.1;
+const CHARACTER_SPACING = 4; // Distance between characters
+const CAMERA_Z = 13.0; // Fixed camera distance
+const CHARACTER_SCALE = 1.0; // Fixed scale
 
 function debugLog(msg) {
   console.log(msg);
@@ -240,18 +239,6 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
-
-      <div class="zoom-controls">
-        <button class="zoom-btn" id="zoom-in" title="Zoom In (W)">+</button>
-        <button class="zoom-btn" id="zoom-out" title="Zoom Out (S)">−</button>
-        <button class="zoom-btn" id="scale-up" title="Scale Up (E)">⬆</button>
-        <button class="zoom-btn" id="scale-down" title="Scale Down (D)">⬇</button>
-      </div>
-
-      <div class="zoom-info" id="zoom-info">
-        Camera Z: 5.0<br>
-        Scale: 50x
-      </div>
     </div>
   `;
 
@@ -261,9 +248,10 @@ export function initCharacterSelection(onSelect) {
   _scene = new THREE.Scene();
   _scene.background = null;
 
-  // Simple camera - straight view from front
+  // Camera positioned to see all 6 characters
+  // Characters are at X: -10, -6, -2, 2, 6, 10 (total width ~20)
   _camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-  _camera.position.set(0, 1, 5); // Straight in front
+  _camera.position.set(0, 1, CAMERA_Z); // Center view, Z=13
   _camera.lookAt(0, 1, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -288,13 +276,32 @@ export function initCharacterSelection(onSelect) {
   fillLight.position.set(-2, 2, 3);
   _scene.add(fillLight);
 
-  // Ground plane
-  const groundGeo = new THREE.PlaneGeometry(50, 10);
+  // Selection spotlight (initially hidden)
+  _selectionLight = new THREE.SpotLight(0x00ff00, 5, 10, Math.PI / 6, 0.5, 1);
+  _selectionLight.position.set(0, 5, 0);
+  _selectionLight.target.position.set(0, 0, 0);
+  _scene.add(_selectionLight);
+  _scene.add(_selectionLight.target);
+
+  // Selection arrow (3D arrow pointing down)
+  const arrowShape = new THREE.ConeGeometry(0.3, 0.6, 8);
+  const arrowMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffff00,
+    emissive: 0xffff00,
+    emissiveIntensity: 0.5,
+  });
+  _selectionArrow = new THREE.Mesh(arrowShape, arrowMaterial);
+  _selectionArrow.rotation.x = Math.PI; // Point down
+  _selectionArrow.position.set(0, 3, 0);
+  _scene.add(_selectionArrow);
+
+  // Ground plane (wider to fit all characters)
+  const groundGeo = new THREE.PlaneGeometry(30, 10);
   const groundMat = new THREE.MeshStandardMaterial({
     color: 0x444444,
     roughness: 0.8,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.3,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
@@ -306,22 +313,10 @@ export function initCharacterSelection(onSelect) {
   document.getElementById('char-next').addEventListener('click', () => changeCharacter(1));
   document.getElementById('char-enter').addEventListener('click', confirmSelection);
 
-  // Zoom controls
-  document.getElementById('zoom-in').addEventListener('click', () => adjustZoom(-0.5));
-  document.getElementById('zoom-out').addEventListener('click', () => adjustZoom(0.5));
-  document.getElementById('scale-up').addEventListener('click', () => adjustScale(10));
-  document.getElementById('scale-down').addEventListener('click', () => adjustScale(-10));
-
   window.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft') changeCharacter(-1);
     if (e.code === 'ArrowRight') changeCharacter(1);
     if (e.code === 'Enter') confirmSelection();
-
-    // Zoom hotkeys
-    if (e.code === 'KeyW') adjustZoom(-0.5); // Zoom in
-    if (e.code === 'KeyS') adjustZoom(0.5);  // Zoom out
-    if (e.code === 'KeyE') adjustScale(10);   // Scale up
-    if (e.code === 'KeyD') adjustScale(-10);  // Scale down
   });
 
   loadAllCharacters();
@@ -356,35 +351,30 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
-      // Get original size
-      const boxBefore = new THREE.Box3().setFromObject(model);
-      const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
-      console.log(`[char-select] Character ${i + 1} ORIGINAL height: ${originalHeight.toFixed(6)}m`);
-
-      // Use global scale
-      model.scale.setScalar(_currentScale);
+      // Fixed scale (as specified by user)
+      model.scale.setScalar(CHARACTER_SCALE);
       model.updateMatrixWorld(true);
 
       // Position on ground
       const box = new THREE.Box3().setFromObject(model);
       const floorOffset = -box.min.y;
-      const finalHeight = box.getSize(new THREE.Vector3()).y;
       model.position.y = floorOffset;
-
-      console.log(`[char-select] Character ${i + 1} SCALED: ${_currentScale}x, final height: ${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
 
-      // Position in a LINE (not circle)
-      // Character 0 at X=0, Character 1 at X=3, etc.
+      // Position characters in a LINE
+      // Center them: Character 0,1,2,3,4,5 → positions -10,-6,-2,2,6,10
       const container = new THREE.Group();
       container.add(model);
-      container.position.x = i * CHARACTER_SPACING;
+      const totalWidth = (CHARACTER_COUNT - 1) * CHARACTER_SPACING;
+      container.position.x = (i * CHARACTER_SPACING) - (totalWidth / 2);
       container.position.z = 0;
       container.position.y = 0;
 
       _scene.add(container);
+
+      console.log(`[char-select] Character ${i + 1} at X=${container.position.x}`);
 
       let mixer = null;
       if (_idleClip) {
@@ -400,7 +390,6 @@ async function loadAllCharacters() {
 
       _characterModels.push({ container, model, mixer });
 
-      console.log(`[char-select] Character ${i + 1} loaded at X=${i * CHARACTER_SPACING}`);
 
     } catch (err) {
       console.log(`[char-select] Failed to load model${i + 1}`);
@@ -409,6 +398,7 @@ async function loadAllCharacters() {
 
   console.log(`[char-select] ✅ ${_characterModels.length} characters ready with IDLE animations!`);
   updateCharacterName();
+  updateSelection(); // Position arrow and light on first character
 }
 
 // Test - log every second to confirm animations are updating
@@ -424,42 +414,27 @@ setInterval(() => {
 
 function changeCharacter(direction) {
   _selectedIndex = (_selectedIndex + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
-  _cameraTargetX = _selectedIndex * CHARACTER_SPACING;
   updateCharacterName();
+  updateSelection();
 }
 
-function adjustZoom(delta) {
-  _cameraZ += delta;
-  _cameraZ = Math.max(1, Math.min(20, _cameraZ)); // Clamp between 1 and 20
-  _camera.position.z = _cameraZ;
-  updateZoomInfo();
-  console.log(`[char-select] Camera Z: ${_cameraZ.toFixed(1)}`);
-}
+function updateSelection() {
+  if (!_characterModels[_selectedIndex]) return;
 
-function adjustScale(delta) {
-  _currentScale += delta;
-  _currentScale = Math.max(1, Math.min(1000, _currentScale)); // Clamp between 1 and 1000
+  // Move spotlight and arrow to selected character
+  const selectedChar = _characterModels[_selectedIndex];
+  const x = selectedChar.container.position.x;
 
-  // Update all character scales
-  _characterModels.forEach(char => {
-    char.model.scale.setScalar(_currentScale);
-    char.model.updateMatrixWorld(true);
-
-    // Recalculate floor position
-    const box = new THREE.Box3().setFromObject(char.model);
-    const floorOffset = -box.min.y;
-    char.model.position.y = floorOffset;
-  });
-
-  updateZoomInfo();
-  console.log(`[char-select] Scale: ${_currentScale}x`);
-}
-
-function updateZoomInfo() {
-  const info = document.getElementById('zoom-info');
-  if (info) {
-    info.innerHTML = `Camera Z: ${_cameraZ.toFixed(1)}<br>Scale: ${_currentScale}x`;
+  if (_selectionLight) {
+    _selectionLight.position.x = x;
+    _selectionLight.target.position.x = x;
   }
+
+  if (_selectionArrow) {
+    _selectionArrow.position.x = x;
+  }
+
+  console.log(`[char-select] Selected character ${_selectedIndex + 1} at X=${x}`);
 }
 
 function updateCharacterName() {
@@ -514,9 +489,10 @@ function animate(time = 0) {
   const delta = (time - lastTime) / 1000;
   lastTime = time;
 
-  // Smooth camera movement
-  _currentCameraX += (_cameraTargetX - _currentCameraX) * CAMERA_SMOOTH;
-  _camera.position.x = _currentCameraX;
+  // Animate arrow (bob up and down)
+  if (_selectionArrow) {
+    _selectionArrow.position.y = 3 + Math.sin(time * 0.003) * 0.2;
+  }
 
   // Update animations
   _characterModels.forEach((char) => {
