@@ -436,6 +436,9 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
+      // Reset rotation to ensure model is upright
+      model.rotation.set(0, 0, 0);
+
       // Get original size
       const boxBefore = new THREE.Box3().setFromObject(model);
       const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
