@@ -323,13 +323,6 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
-
-      <div class="arrow-controls">
-        <button class="arrow-btn" id="arrow-up">▲</button>
-        <button class="arrow-btn" id="arrow-down">▼</button>
-      </div>
-
-      <div class="arrow-info" id="arrow-info">Arrow Y: 4.8</div>
     </div>
   `;
 
@@ -410,52 +403,6 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'ArrowRight') changeCharacter(1);
     if (e.code === 'Enter') confirmSelection();
   });
-
-  // Arrow height controls (move arrow Y up/down)
-  const updateArrowInfo = () => {
-    const infoEl = document.getElementById('arrow-info');
-    if (infoEl) {
-      infoEl.textContent = `Arrow Y: ${_arrowY.toFixed(1)}`;
-    }
-  };
-
-  const arrowUpBtn = document.getElementById('arrow-up');
-  const arrowDownBtn = document.getElementById('arrow-down');
-
-  console.log('[char-select] Arrow buttons:', arrowUpBtn, arrowDownBtn);
-  console.log('[char-select] Arrow object:', _selectionArrow);
-
-  if (arrowUpBtn) {
-    arrowUpBtn.addEventListener('click', () => {
-      console.log('[char-select] ▲ CLICKED! Current arrowY:', _arrowY);
-      _arrowY += 0.1;
-      if (_selectionArrow) {
-        _selectionArrow.position.y = _arrowY;
-        console.log(`[char-select] Arrow moved to Y: ${_arrowY.toFixed(1)}`);
-      } else {
-        console.log('[char-select] ERROR: _selectionArrow is null!');
-      }
-      updateArrowInfo();
-    });
-  } else {
-    console.log('[char-select] ERROR: arrow-up button not found!');
-  }
-
-  if (arrowDownBtn) {
-    arrowDownBtn.addEventListener('click', () => {
-      console.log('[char-select] ▼ CLICKED! Current arrowY:', _arrowY);
-      _arrowY -= 0.1;
-      if (_selectionArrow) {
-        _selectionArrow.position.y = _arrowY;
-        console.log(`[char-select] Arrow moved to Y: ${_arrowY.toFixed(1)}`);
-      } else {
-        console.log('[char-select] ERROR: _selectionArrow is null!');
-      }
-      updateArrowInfo();
-    });
-  } else {
-    console.log('[char-select] ERROR: arrow-down button not found!');
-  }
 
   loadAllCharacters();
   animate();
