@@ -212,6 +212,40 @@ export function initCharacterSelection(onSelect) {
         z-index: 1005;
         pointer-events: none;
       }
+
+      .height-controls {
+        position: absolute;
+        top: 50%;
+        left: 20px;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 1004;
+      }
+
+      .height-btn {
+        width: 60px;
+        height: 60px;
+        background: rgba(76, 175, 80, 0.3);
+        border: 2px solid rgba(76, 175, 80, 0.6);
+        border-radius: 50%;
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .height-btn:hover {
+        background: rgba(76, 175, 80, 0.5);
+        transform: scale(1.1);
+      }
     </style>
 
     <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
@@ -239,6 +273,13 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
+
+      <div class="height-controls">
+        <button class="height-btn" id="height-up">▲</button>
+        <button class="height-btn" id="height-down">▼</button>
+      </div>
+
+      <div class="zoom-info" id="camera-info">Camera Y: 1.0</div>
     </div>
   `;
 
@@ -317,6 +358,28 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'ArrowLeft') changeCharacter(-1);
     if (e.code === 'ArrowRight') changeCharacter(1);
     if (e.code === 'Enter') confirmSelection();
+  });
+
+  // Height controls (move camera Y up/down)
+  let cameraY = 1.0;
+  const updateCameraInfo = () => {
+    document.getElementById('camera-info').textContent = `Camera Y: ${cameraY.toFixed(1)}`;
+  };
+
+  document.getElementById('height-up').addEventListener('click', () => {
+    cameraY += 0.2;
+    _camera.position.y = cameraY;
+    _camera.lookAt(0, cameraY, 0);
+    updateCameraInfo();
+    console.log(`[char-select] Camera Y: ${cameraY.toFixed(1)}`);
+  });
+
+  document.getElementById('height-down').addEventListener('click', () => {
+    cameraY -= 0.2;
+    _camera.position.y = cameraY;
+    _camera.lookAt(0, cameraY, 0);
+    updateCameraInfo();
+    console.log(`[char-select] Camera Y: ${cameraY.toFixed(1)}`);
   });
 
   loadAllCharacters();
