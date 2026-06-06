@@ -13,6 +13,7 @@ let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
+let _characterScale = 1.0; // Global character scale (adjustable)
 
 const CHARACTER_COUNT = 2; // Changed from 6 to 2 (new models)
 const CHARACTER_SPACING = 4; // Distance between characters
@@ -297,6 +298,53 @@ export function initCharacterSelection(onSelect) {
         pointer-events: none;
       }
 
+      .size-controls {
+        position: absolute;
+        bottom: 20%;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 10000;
+        pointer-events: auto;
+      }
+
+      .size-btn {
+        width: 70px;
+        height: 50px;
+        background: rgba(33, 150, 243, 0.3);
+        border: 2px solid rgba(33, 150, 243, 0.6);
+        border-radius: 10px;
+        color: white;
+        font-size: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .size-btn:hover {
+        background: rgba(33, 150, 243, 0.5);
+        transform: scale(1.1);
+      }
+
+      .size-info {
+        position: absolute;
+        bottom: 20%;
+        right: 170px;
+        background: rgba(0,0,0,0.8);
+        color: #2196f3;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-family: monospace;
+        font-size: 14px;
+        z-index: 10001;
+        pointer-events: none;
+      }
+
     </style>
 
     <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
@@ -324,6 +372,12 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
+
+      <div class="size-controls">
+        <button class="size-btn" id="size-down">−</button>
+        <button class="size-btn" id="size-up">+</button>
+      </div>
+      <div class="size-info" id="size-info">Size: 1.0x</div>
     </div>
   `;
 
@@ -405,8 +459,43 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'Enter') confirmSelection();
   });
 
+  // Size controls (adjust uniform scale)
+  const updateSizeInfo = () => {
+    document.getElementById('size-info').textContent = `Size: ${_characterScale.toFixed(1)}x`;
+  };
+
+  document.getElementById('size-up').addEventListener('click', () => {
+    _characterScale += 0.1;
+    updateAllCharacterScales();
+    updateSizeInfo();
+    console.log(`[char-select] Size: ${_characterScale.toFixed(1)}x`);
+  });
+
+  document.getElementById('size-down').addEventListener('click', () => {
+    _characterScale = Math.max(0.1, _characterScale - 0.1);
+    updateAllCharacterScales();
+    updateSizeInfo();
+    console.log(`[char-select] Size: ${_characterScale.toFixed(1)}x`);
+  });
+
   loadAllCharacters();
   animate();
+}
+
+function updateAllCharacterScales() {
+  _characterModels.forEach((char, i) => {
+    if (char.model) {
+      char.model.scale.setScalar(_characterScale);
+      char.model.updateMatrixWorld(true);
+
+      // Recalculate floor position
+      const box = new THREE.Box3().setFromObject(char.model);
+      const floorOffset = -box.min.y;
+      char.model.position.y = floorOffset;
+
+      console.log(`[char-select] Char ${i + 1} rescaled to ${_characterScale.toFixed(1)}x`);
+    }
+  });
 }
 
 async function loadAllCharacters() {
@@ -437,7 +526,8 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
-      // DON'T touch scale or rotation - load models exactly as they are in the file
+      // Apply global scale
+      model.scale.setScalar(_characterScale);
       model.updateMatrixWorld(true);
 
       // Position on ground
@@ -446,7 +536,7 @@ async function loadAllCharacters() {
       const size = box.getSize(new THREE.Vector3());
       model.position.y = floorOffset;
 
-      console.log(`[char-select] Char ${i + 1} loaded AS-IS: size=${size.x.toFixed(3)}×${size.y.toFixed(3)}×${size.z.toFixed(3)}m`);
+      console.log(`[char-select] Char ${i + 1} loaded: scale=${_characterScale.toFixed(1)}x, size=${size.x.toFixed(3)}×${size.y.toFixed(3)}×${size.z.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
