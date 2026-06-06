@@ -250,12 +250,13 @@ export function initCharacterSelection(onSelect) {
       .arrow-controls {
         position: absolute;
         top: 50%;
-        right: 100px;
+        right: 20px;
         transform: translateY(-50%);
         display: flex;
         flex-direction: column;
         gap: 10px;
-        z-index: 1004;
+        z-index: 10000;
+        pointer-events: auto;
       }
 
       .arrow-btn {
@@ -291,7 +292,7 @@ export function initCharacterSelection(onSelect) {
         border-radius: 10px;
         font-family: monospace;
         font-size: 14px;
-        z-index: 1005;
+        z-index: 10001;
         pointer-events: none;
       }
     </style>
