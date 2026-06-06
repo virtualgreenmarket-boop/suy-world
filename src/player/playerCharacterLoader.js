@@ -81,8 +81,8 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   const box = new THREE.Box3().setFromObject(clone);
   const originalHeight = box.getSize(new THREE.Vector3()).y;
 
-  // SIMPLE: scale 1.0
-  clone.scale.setScalar(1.0);
+  // Scale to match character selection (0.35 for Muscular model)
+  clone.scale.setScalar(0.35);
   clone.rotation.set(0, 0, 0);
   clone.updateMatrixWorld(true);
 
