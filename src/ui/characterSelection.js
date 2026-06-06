@@ -13,7 +13,7 @@ let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
-let _characterScale = 1.0; // Global character scale (NEW models are already big!)
+let _characterScale = 0.35; // Global character scale (user-finalized: 0.35x)
 
 const CHARACTER_COUNT = 1; // Single character
 const CHARACTER_SPACING = 4; // Distance between characters
@@ -377,7 +377,7 @@ export function initCharacterSelection(onSelect) {
         <button class="size-btn" id="size-down">−</button>
         <button class="size-btn" id="size-up">+</button>
       </div>
-      <div class="size-info" id="size-info">Size: 1.0x</div>
+      <div class="size-info" id="size-info">Size: 0.35x</div>
     </div>
   `;
 
