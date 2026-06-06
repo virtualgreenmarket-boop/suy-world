@@ -15,8 +15,8 @@ let _selectionArrow = null;
 
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 4; // Distance between characters
-const CAMERA_Z = 13.0; // Fixed camera distance
-const CHARACTER_SCALE = 200.0; // Increased from 1 - models are TINY (0.005m)
+const CAMERA_Z = 13.0; // User-specified camera distance
+const CHARACTER_SCALE = 1.0; // User-specified scale (models are 0.005m originally)
 
 function debugLog(msg) {
   console.log(msg);
