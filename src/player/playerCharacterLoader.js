@@ -89,19 +89,21 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
 
   const clone = skeletonClone(_characterTemplate);
 
-  // Calculate scale to 1.8m (normal human height)
+  // Get original bounding box for logging
   const box = new THREE.Box3().setFromObject(clone);
   const originalHeight = box.getSize(new THREE.Vector3()).y;
-  const TARGET_HEIGHT = 1.8;
-  const scale = TARGET_HEIGHT / originalHeight;
+  console.log(`[player] Clone original height: ${originalHeight.toFixed(6)}m`);
 
-  clone.scale.setScalar(scale);
+  // FIXED SCALE - test with small scale first
+  const FIXED_SCALE = 1.0; // Start with 1.0, can adjust if needed
+  clone.scale.setScalar(FIXED_SCALE);
   clone.rotation.set(0, 0, 0);
   clone.updateMatrixWorld(true);
 
   // Calculate floor position AFTER scaling
   const box2 = new THREE.Box3().setFromObject(clone);
   const floorOffset = -box2.min.y;
+  const finalHeight = box2.getSize(new THREE.Vector3()).y;
   clone.position.set(0, floorOffset, 0);
 
   clone.updateMatrix();
@@ -110,7 +112,7 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   parentGroup.add(clone);
   parentGroup.userData._charModel = clone;
 
-  console.log(`[player] 🎭 Character ${characterId} spawned: scale=${scale.toFixed(2)}x, height=${TARGET_HEIGHT}m, Y=${floorOffset.toFixed(3)}m`);
+  console.log(`[player] 🎭 Character ${characterId} spawned: FIXED scale=${FIXED_SCALE}x, height=${finalHeight.toFixed(3)}m, Y=${floorOffset.toFixed(3)}m`);
 
   // Build bone map
   const boneMap = new Map();
