@@ -62,13 +62,14 @@ export function initCharacterSelection(onSelect) {
         width: 100%;
         height: 100vh;
         z-index: 2;
+        pointer-events: none; /* Let UI elements receive clicks */
       }
 
       .char-select-ui {
         position: absolute;
         width: 100%;
         height: 100%;
-        z-index: 3;
+        z-index: 1000;
         pointer-events: none;
       }
 
@@ -82,6 +83,8 @@ export function initCharacterSelection(onSelect) {
         font-weight: bold;
         text-shadow: 0 6px 20px rgba(0,0,0,0.9);
         font-family: 'Segoe UI', Arial, sans-serif;
+        z-index: 1001;
+        pointer-events: none;
       }
 
       .char-select-controls {
@@ -92,6 +95,7 @@ export function initCharacterSelection(onSelect) {
         display: flex;
         align-items: center;
         gap: 50px;
+        z-index: 1002;
       }
 
       .char-select-arrow {
@@ -152,6 +156,7 @@ export function initCharacterSelection(onSelect) {
         text-transform: uppercase;
         letter-spacing: 2.5px;
         pointer-events: auto;
+        z-index: 1003;
       }
 
       .char-select-enter:hover {
