@@ -579,20 +579,6 @@ function animate(time = 0) {
 
     char.container.rotation.y = faceRotation;
 
-    // Store if this is front character for animation check below
-    char.isFront = false;
-  });
-
-  // Now apply spin animation ONLY to the front character
-  _characterModels.forEach((char, index) => {
-    if (index === frontCharIndex) {
-      char.isFront = true;
-      // Continuous 180° back-and-forth spin (3 seconds per cycle)
-      const spinCycle = Math.sin(_selectedCharacterSpinTime * (Math.PI / 3)) * Math.PI;
-      char.container.rotation.y += spinCycle;
-    }
-  });
-
     // Lock X/Z rotation (keep standing upright)
     if (char.model) {
       char.model.rotation.x = 0;
@@ -603,9 +589,15 @@ function animate(time = 0) {
     if (char.mixer) {
       char.mixer.update(delta);
     }
+  });
 
-    // DO NOT change scale - it was set once during load and should stay fixed
-    // Changing scale every frame was causing distortion
+  // Now apply spin animation ONLY to the front character
+  _characterModels.forEach((char, index) => {
+    if (index === frontCharIndex) {
+      // Continuous 180° back-and-forth spin (3 seconds per cycle)
+      const spinCycle = Math.sin(_selectedCharacterSpinTime * (Math.PI / 3)) * Math.PI;
+      char.container.rotation.y += spinCycle;
+    }
   });
 
   // Render
