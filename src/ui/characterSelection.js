@@ -333,7 +333,7 @@ export function initCharacterSelection(onSelect) {
   });
   _selectionArrow = new THREE.Mesh(arrowShape, arrowMaterial);
   _selectionArrow.rotation.x = Math.PI; // Point down
-  _selectionArrow.position.set(0, 5.0, 0); // User-adjusted
+  _selectionArrow.position.set(0, 1.5, 0); // User-adjusted
   _scene.add(_selectionArrow);
 
   // Ground plane (wider to fit all characters)
