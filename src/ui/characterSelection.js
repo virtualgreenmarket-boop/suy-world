@@ -13,9 +13,6 @@ let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
-let _characterScaleX = 1.0; // Width/depth scale (adjustable)
-let _characterScaleY = 1.0; // Height scale (adjustable)
-let _characterScaleUniform = 1.0; // Uniform scale multiplier
 
 const CHARACTER_COUNT = 6;
 const CHARACTER_SPACING = 4; // Distance between characters
@@ -299,146 +296,6 @@ export function initCharacterSelection(onSelect) {
         pointer-events: none;
       }
 
-      .scale-controls {
-        position: absolute;
-        bottom: 35%;
-        right: 20px;
-        display: flex;
-        gap: 10px;
-        z-index: 10000;
-        pointer-events: auto;
-      }
-
-      .width-controls {
-        position: absolute;
-        bottom: 27%;
-        right: 20px;
-        display: flex;
-        gap: 10px;
-        z-index: 10000;
-        pointer-events: auto;
-      }
-
-      .size-controls {
-        position: absolute;
-        bottom: 19%;
-        right: 20px;
-        display: flex;
-        gap: 10px;
-        z-index: 10000;
-        pointer-events: auto;
-      }
-
-      .scale-btn {
-        width: 70px;
-        height: 45px;
-        background: rgba(33, 150, 243, 0.3);
-        border: 2px solid rgba(33, 150, 243, 0.6);
-        border-radius: 10px;
-        color: white;
-        font-size: 18px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s;
-        pointer-events: auto;
-        backdrop-filter: blur(10px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .scale-btn:hover {
-        background: rgba(33, 150, 243, 0.5);
-        transform: scale(1.1);
-      }
-
-      .width-btn {
-        width: 70px;
-        height: 45px;
-        background: rgba(156, 39, 176, 0.3);
-        border: 2px solid rgba(156, 39, 176, 0.6);
-        border-radius: 10px;
-        color: white;
-        font-size: 18px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s;
-        pointer-events: auto;
-        backdrop-filter: blur(10px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .width-btn:hover {
-        background: rgba(156, 39, 176, 0.5);
-        transform: scale(1.1);
-      }
-
-      .size-btn {
-        width: 70px;
-        height: 45px;
-        background: rgba(255, 87, 34, 0.3);
-        border: 2px solid rgba(255, 87, 34, 0.6);
-        border-radius: 10px;
-        color: white;
-        font-size: 18px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s;
-        pointer-events: auto;
-        backdrop-filter: blur(10px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .size-btn:hover {
-        background: rgba(255, 87, 34, 0.5);
-        transform: scale(1.1);
-      }
-
-      .scale-info {
-        position: absolute;
-        bottom: 35%;
-        right: 170px;
-        background: rgba(0,0,0,0.8);
-        color: #2196f3;
-        padding: 8px 15px;
-        border-radius: 10px;
-        font-family: monospace;
-        font-size: 13px;
-        z-index: 10001;
-        pointer-events: none;
-      }
-
-      .width-info {
-        position: absolute;
-        bottom: 27%;
-        right: 170px;
-        background: rgba(0,0,0,0.8);
-        color: #9c27b0;
-        padding: 8px 15px;
-        border-radius: 10px;
-        font-family: monospace;
-        font-size: 13px;
-        z-index: 10001;
-        pointer-events: none;
-      }
-
-      .size-info {
-        position: absolute;
-        bottom: 19%;
-        right: 170px;
-        background: rgba(0,0,0,0.8);
-        color: #ff5722;
-        padding: 8px 15px;
-        border-radius: 10px;
-        font-family: monospace;
-        font-size: 13px;
-        z-index: 10001;
-        pointer-events: none;
-      }
     </style>
 
     <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
@@ -466,24 +323,6 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
-
-      <div class="scale-controls">
-        <button class="scale-btn" id="scale-down">−</button>
-        <button class="scale-btn" id="scale-up">+</button>
-      </div>
-      <div class="scale-info" id="scale-info">Height: 1.00x</div>
-
-      <div class="width-controls">
-        <button class="width-btn" id="width-down">−</button>
-        <button class="width-btn" id="width-up">+</button>
-      </div>
-      <div class="width-info" id="width-info">Width: 1.00x</div>
-
-      <div class="size-controls">
-        <button class="size-btn" id="size-down">−</button>
-        <button class="size-btn" id="size-up">+</button>
-      </div>
-      <div class="size-info" id="size-info">Size: 1.00x</div>
     </div>
   `;
 
@@ -565,84 +404,8 @@ export function initCharacterSelection(onSelect) {
     if (e.code === 'Enter') confirmSelection();
   });
 
-  // HEIGHT controls (blue - adjust Y scale)
-  const updateScaleInfo = () => {
-    document.getElementById('scale-info').textContent = `Height: ${_characterScaleY.toFixed(2)}x`;
-  };
-
-  document.getElementById('scale-up').addEventListener('click', () => {
-    _characterScaleY += 0.05;
-    updateAllCharacterScales();
-    updateScaleInfo();
-    console.log(`[char-select] Height: ${_characterScaleY.toFixed(2)}x`);
-  });
-
-  document.getElementById('scale-down').addEventListener('click', () => {
-    _characterScaleY = Math.max(0.1, _characterScaleY - 0.05);
-    updateAllCharacterScales();
-    updateScaleInfo();
-    console.log(`[char-select] Height: ${_characterScaleY.toFixed(2)}x`);
-  });
-
-  // WIDTH controls (purple - adjust X/Z scale)
-  const updateWidthInfo = () => {
-    document.getElementById('width-info').textContent = `Width: ${_characterScaleX.toFixed(2)}x`;
-  };
-
-  document.getElementById('width-up').addEventListener('click', () => {
-    _characterScaleX += 0.05;
-    updateAllCharacterScales();
-    updateWidthInfo();
-    console.log(`[char-select] Width: ${_characterScaleX.toFixed(2)}x`);
-  });
-
-  document.getElementById('width-down').addEventListener('click', () => {
-    _characterScaleX = Math.max(0.1, _characterScaleX - 0.05);
-    updateAllCharacterScales();
-    updateWidthInfo();
-    console.log(`[char-select] Width: ${_characterScaleX.toFixed(2)}x`);
-  });
-
-  // SIZE controls (orange - adjust uniform scale)
-  const updateSizeInfo = () => {
-    document.getElementById('size-info').textContent = `Size: ${_characterScaleUniform.toFixed(2)}x`;
-  };
-
-  document.getElementById('size-up').addEventListener('click', () => {
-    _characterScaleUniform += 0.1;
-    updateAllCharacterScales();
-    updateSizeInfo();
-    console.log(`[char-select] Uniform Size: ${_characterScaleUniform.toFixed(2)}x`);
-  });
-
-  document.getElementById('size-down').addEventListener('click', () => {
-    _characterScaleUniform = Math.max(0.1, _characterScaleUniform - 0.1);
-    updateAllCharacterScales();
-    updateSizeInfo();
-    console.log(`[char-select] Uniform Size: ${_characterScaleUniform.toFixed(2)}x`);
-  });
-
   loadAllCharacters();
   animate();
-}
-
-function updateAllCharacterScales() {
-  _characterModels.forEach((char, i) => {
-    if (char.model) {
-      // Final scale = (individual height/width) * uniform size
-      const finalX = _characterScaleX * _characterScaleUniform;
-      const finalY = _characterScaleY * _characterScaleUniform;
-      const finalZ = _characterScaleX * _characterScaleUniform;
-
-      char.model.scale.set(finalX, finalY, finalZ);
-      char.model.updateMatrixWorld(true);
-
-      // Recalculate floor position
-      const box = new THREE.Box3().setFromObject(char.model);
-      const floorOffset = -box.min.y;
-      char.model.position.y = floorOffset;
-    }
-  });
 }
 
 async function loadAllCharacters() {
@@ -673,26 +436,16 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
-      // Reset rotation to ensure model is upright
-      model.rotation.set(0, 0, 0);
-
-      // Get original size
-      const boxBefore = new THREE.Box3().setFromObject(model);
-      const originalHeight = boxBefore.getSize(new THREE.Vector3()).y;
-
-      // Scale up (use global scale values with uniform multiplier)
-      const finalX = _characterScaleX * _characterScaleUniform;
-      const finalY = _characterScaleY * _characterScaleUniform;
-      model.scale.set(finalX, finalY, finalX);
+      // DON'T touch scale or rotation - load models exactly as they are in the file
       model.updateMatrixWorld(true);
 
       // Position on ground
       const box = new THREE.Box3().setFromObject(model);
       const floorOffset = -box.min.y;
-      const finalHeight = box.getSize(new THREE.Vector3()).y;
+      const size = box.getSize(new THREE.Vector3());
       model.position.y = floorOffset;
 
-      console.log(`[char-select] Char ${i + 1}: orig=${originalHeight.toFixed(6)}m, X=${finalX.toFixed(2)}, Y=${finalY.toFixed(2)}, final=${finalHeight.toFixed(3)}m`);
+      console.log(`[char-select] Char ${i + 1} loaded AS-IS: size=${size.x.toFixed(3)}×${size.y.toFixed(3)}×${size.z.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
