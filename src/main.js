@@ -181,7 +181,7 @@ composer.addPass(new OutputPass());
 initIsland(scene, { lowQuality: isMobile, maxTrees: isMobile ? 28 : 55 });
 initPlaza(scene);
 initPaths(scene);
-initHangars(scene);
+initHangars(scene, camera);
 initMarina(scene);
 initDecor(scene);
 initBeach(scene);

@@ -324,9 +324,69 @@ export const allSlots = []; // populated during init, used by stores.js
 const _hangarNpcs    = []; // FBX NPCs with animation mixers
 const _doorPlacements = []; // filled by buildRooms, consumed by _placeDoorModels
 
+// ── Door interaction ──────────────────────────────────────────────────
+
+const INTERACTION_DISTANCE = 5;
+const _doors = [];
+let _camera = null;
+
+function _registerDoor(door) {
+  door.userData.isOpen = false;
+  door.userData.isAnimating = false;
+  door.userData.closedRotationY = door.rotation.y;
+  door.userData.openRotationY   = door.rotation.y + Math.PI / 2;
+  _doors.push(door);
+}
+
+function _getNearestDoor() {
+  let nearestDoor = null;
+  let nearestDistance = Infinity;
+  const worldPos = new THREE.Vector3();
+
+  _doors.forEach(door => {
+    door.getWorldPosition(worldPos);
+    const dist = _camera.position.distanceTo(worldPos);
+    if (dist < nearestDistance) {
+      nearestDistance = dist;
+      nearestDoor = door;
+    }
+  });
+
+  return nearestDistance <= INTERACTION_DISTANCE ? nearestDoor : null;
+}
+
+function _toggleDoor(door) {
+  const targetRotation = door.userData.isOpen
+    ? door.userData.closedRotationY
+    : door.userData.openRotationY;
+
+  door.userData.isAnimating = true;
+
+  const startRotation = door.rotation.y;
+  const duration = 400;
+  const startTime = performance.now();
+
+  function animateDoor(time) {
+    const elapsed  = time - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    door.rotation.y = startRotation + (targetRotation - startRotation) * progress;
+
+    if (progress < 1) {
+      requestAnimationFrame(animateDoor);
+    } else {
+      door.rotation.y = targetRotation;
+      door.userData.isOpen      = !door.userData.isOpen;
+      door.userData.isAnimating = false;
+    }
+  }
+
+  requestAnimationFrame(animateDoor);
+}
+
 // ── Public ────────────────────────────────────────────────────────────
 
-export function initHangars(scene) {
+export function initHangars(scene, camera) {
+  _camera = camera;
   // Hangar positions - moved 20% further from plaza for elliptical island
   // 135.5 × 1.2 = 162.6m from center
   const configs = [
@@ -373,6 +433,13 @@ export function initHangars(scene) {
   });
 
   _placeDoorModels();
+
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'KeyE') return;
+    const door = _getNearestDoor();
+    if (!door || door.userData.isAnimating) return;
+    _toggleDoor(door);
+  });
 }
 
 // ── Build one hangar ──────────────────────────────────────────────────
@@ -618,26 +685,32 @@ async function _placeDoorModels() {
   }
 
   const template = gltf.scene;
-  const origBox  = new THREE.Box3().setFromObject(template);
-  const origSize = new THREE.Vector3();
-  origBox.getSize(origSize);
-  console.log('[door] Original model size — X:', origSize.x.toFixed(4), 'Y:', origSize.y.toFixed(4), 'Z:', origSize.z.toFixed(4));
-
-  // Uniform scale: fit within the opening without overflowing either dimension.
-  // Then rotate 90° around Y so model X becomes world Z.
-  const s = Math.min(DOOR_W / origSize.x, DOOR_H / origSize.y);
 
   _doorPlacements.forEach(({ group, x, z }) => {
     const door = template.clone(true);
-    door.scale.setScalar(s);
-    door.rotation.y = Math.PI / 2; // model X (width) → world Z
+
+    // Step 1: rotate first so world-Z becomes the door's width axis
+    door.rotation.y = Math.PI / 2;
     door.position.set(0, 0, 0);
 
-    // Measure actual bounding box after scale+rotation so we can align precisely
+    // Step 2: measure actual rendered size after rotation (scale still 1)
+    door.updateMatrixWorld(true);
+    const sizeBox = new THREE.Box3().setFromObject(door);
+    const size = new THREE.Vector3();
+    sizeBox.getSize(size);
+    // After rotation: size.z = visible door width in world Z
+    //                 size.y = visible door height in world Y
+
+    // Step 3: compute per-axis scale factors and use the larger to fill completely
+    const scaleByWidth  = DOOR_W / size.z;
+    const scaleByHeight = DOOR_H / size.y;
+    const fitScale = Math.max(scaleByWidth, scaleByHeight);
+    door.scale.multiplyScalar(fitScale);
+
+    // Step 4: re-measure after scaling, then align
     door.updateMatrixWorld(true);
     const b = new THREE.Box3().setFromObject(door);
 
-    // Align: center X on wall (x), floor Y at 0, center Z on room centerZ
     door.position.set(
       x - (b.min.x + b.max.x) / 2,  // center on wall X
       -b.min.y,                       // floor-align (Y bottom = 0)
@@ -654,6 +727,7 @@ async function _placeDoorModels() {
       }
     });
     group.add(door);
+    _registerDoor(door);
   });
 
   console.log(`[hangars] Placed ${_doorPlacements.length} GLB door(s)`);
