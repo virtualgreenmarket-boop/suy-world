@@ -17,6 +17,7 @@ let _arrowY = 4.8; // Global arrow Y position (user-finalized)
 const CHARACTER_COUNT = 2; // Changed from 6 to 2 (new models)
 const CHARACTER_SPACING = 4; // Distance between characters
 const CAMERA_Z = 13.0; // User-specified camera distance
+const CHARACTER_MODELS = ['BowGirl.glb', 'OGirl.glb']; // New model filenames
 
 function debugLog(msg) {
   console.log(msg);
@@ -427,7 +428,7 @@ async function loadAllCharacters() {
   console.log('[char-select] Loading characters...');
 
   for (let i = 0; i < CHARACTER_COUNT; i++) {
-    const modelPath = `/models/player/characters/model${i + 1}.glb`;
+    const modelPath = `/models/player/characters/${CHARACTER_MODELS[i]}`;
 
     try {
       const gltf = await new Promise((resolve, reject) =>
@@ -574,7 +575,13 @@ export function clearSavedCharacter() {
 }
 
 export function getCharacterModelPath(charId) {
-  return `/models/player/characters/model${charId}.glb`;
+  // charId is 1-based (1 or 2), array is 0-based
+  const modelIndex = charId - 1;
+  if (modelIndex >= 0 && modelIndex < CHARACTER_MODELS.length) {
+    return `/models/player/characters/${CHARACTER_MODELS[modelIndex]}`;
+  }
+  // Fallback
+  return `/models/player/characters/BowGirl.glb`;
 }
 
 let lastTime = 0;

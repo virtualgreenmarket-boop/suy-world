@@ -188,13 +188,14 @@ async function startRealLoading() {
 
     // Load 2 character models (updated from 6)
     console.log('[loading] 📥 Loading 2 character models...');
+    const characterModels = ['BowGirl.glb', 'OGirl.glb'];
     const characterPromises = [];
-    for (let i = 1; i <= 2; i++) {
+    for (let i = 0; i < characterModels.length; i++) {
       characterPromises.push(
-        managedLoader.loadAsync(`/models/player/characters/model${i}.glb`)
+        managedLoader.loadAsync(`/models/player/characters/${characterModels[i]}`)
           .then(gltf => {
-            console.log(`[loading] ✅ Character ${i}/2 loaded`);
-            updateProgress(35 + (i * 17.5), `Loading characters (${i}/2)...`);
+            console.log(`[loading] ✅ Character ${i + 1}/2 loaded (${characterModels[i]})`);
+            updateProgress(35 + ((i + 1) * 17.5), `Loading characters (${i + 1}/2)...`);
             return gltf;
           })
       );
