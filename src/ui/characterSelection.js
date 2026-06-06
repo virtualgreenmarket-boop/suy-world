@@ -14,7 +14,7 @@ let _selectionLight = null;
 let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
 
-const CHARACTER_COUNT = 6;
+const CHARACTER_COUNT = 2; // Changed from 6 to 2 (new models)
 const CHARACTER_SPACING = 4; // Distance between characters
 const CAMERA_Z = 13.0; // User-specified camera distance
 
