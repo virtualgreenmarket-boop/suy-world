@@ -12,15 +12,14 @@ let _currentRotation = 0;
 let _targetRotation = 0;
 let _selectedIndex = 0;
 let _isInitialized = false;
-let _selectedCharacterSpinTime = 0; // For 180° spin animation
+let _selectedCharacterSpinTime = 0;
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 3; // Fixed as specified by user
+const CIRCLE_RADIUS = 4.29;
 const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height
-const GROUND_Y = 0; // Ground plane at Y=0
+const CHARACTER_TARGET_HEIGHT = 2.5;
+const GROUND_Y = 0;
 
-// Debug log to screen
 function debugLog(msg) {
   console.log(msg);
   const logDiv = document.getElementById('debug-log');
@@ -195,15 +194,6 @@ export function initCharacterSelection(onSelect) {
         border: 2px solid #0f0;
         pointer-events: none;
       }
-
-      @media (max-width: 768px) {
-        .char-select-title { font-size: 36px; top: 20px; }
-        .char-select-controls { bottom: 100px; gap: 25px; }
-        .char-select-arrow { width: 55px; height: 55px; }
-        .char-select-arrow svg { width: 24px; height: 24px; }
-        .char-select-name { font-size: 24px; padding: 12px 35px; min-width: 200px; }
-        .char-select-enter { font-size: 20px; padding: 16px 60px; }
-      }
     </style>
 
     <img id="char-select-bg" src="/images/מסך בחירת דמות.png" alt="Background">
@@ -240,27 +230,16 @@ export function initCharacterSelection(onSelect) {
 
   document.body.appendChild(container);
 
-  // Setup 3D scene
   const canvas = document.getElementById('char-select-canvas');
   _scene = new THREE.Scene();
-  _scene.background = null; // Transparent
+  _scene.background = null;
 
   const canvasHeight = window.innerHeight;
 
-  // Camera setup - FIXED as specified by user
-  // Y = 3, Z = 8, looking down at angle toward center
-  console.log('═══════════════════════════════════════════');
-  console.log('🎥 CAROUSEL CAMERA SETUP');
-  console.log('═══════════════════════════════════════════');
-  console.log('Character Height:', CHARACTER_TARGET_HEIGHT, 'm');
-  console.log('Circle Radius:', CIRCLE_RADIUS, 'units');
-  console.log('Camera Position: (0, 3, 8)');
-  console.log('Camera LookAt: (0, 1, 0)');
-  console.log('═══════════════════════════════════════════');
-
+  // EXACT settings from when red boxes worked
   _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 3, 8); // Fixed as specified
-  _camera.lookAt(0, 1, 0); // Look at center of characters
+  _camera.position.set(0, 1, 10);
+  _camera.lookAt(0, 2, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, canvasHeight);
@@ -271,30 +250,6 @@ export function initCharacterSelection(onSelect) {
 
   debugLog('[char-select] 🎨 Renderer setup complete');
 
-  // Log scene dimensions and camera info
-  console.log('═══════════════════════════════════════════');
-  console.log('📐 CHARACTER SELECTION - SCENE INFO');
-  console.log('═══════════════════════════════════════════');
-  console.log('🎥 CAMERA:');
-  console.log(`   Position: (${_camera.position.x}, ${_camera.position.y}, ${_camera.position.z})`);
-  console.log(`   FOV: ${_camera.fov}°`);
-  console.log(`   Aspect: ${_camera.aspect.toFixed(3)}`);
-  console.log(`   Near/Far: ${_camera.near} / ${_camera.far}`);
-  console.log('');
-  console.log('🖥️ RENDERER:');
-  console.log(`   Size: ${window.innerWidth} x ${window.innerHeight}`);
-  console.log(`   Pixel Ratio: ${_renderer.getPixelRatio()}`);
-  console.log(`   Actual Pixels: ${_renderer.getSize(new THREE.Vector2()).x} x ${_renderer.getSize(new THREE.Vector2()).y}`);
-  console.log('');
-  console.log('🎪 CAROUSEL:');
-  console.log(`   Radius: ${CIRCLE_RADIUS} units`);
-  console.log(`   Diameter: ${(CIRCLE_RADIUS * 2).toFixed(2)} units`);
-  console.log(`   Character Count: ${CHARACTER_COUNT}`);
-  console.log(`   Character Height: ${CHARACTER_TARGET_HEIGHT}m`);
-  console.log(`   Ground Y: ${GROUND_Y}`);
-  console.log('═══════════════════════════════════════════');
-
-  // Lighting
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
   _scene.add(ambient);
 
@@ -313,39 +268,33 @@ export function initCharacterSelection(onSelect) {
   rimLight.position.set(0, 3, -3);
   _scene.add(rimLight);
 
-  // Ground plane at Y=0 - visible plaza floor
   const groundGeo = new THREE.CircleGeometry(CIRCLE_RADIUS + 2, 64);
   const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x555555, // Visible gray ground
+    color: 0x555555,
     roughness: 0.8,
     metalness: 0.2,
     transparent: true,
-    opacity: 0.7, // Semi-transparent to see background
+    opacity: 0.7,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2; // Horizontal plane (XZ)
-  ground.position.y = GROUND_Y; // Y=0
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = GROUND_Y;
   ground.receiveShadow = true;
   _scene.add(ground);
 
   debugLog('[char-select] ✅ Ground plane created at Y=0');
 
-  // UI event handlers (fixed: prev=+1, next=-1)
   document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(1));
   document.getElementById('char-next').addEventListener('click', () => rotateCarousel(-1));
   document.getElementById('char-enter').addEventListener('click', confirmSelection);
 
-  // Keyboard controls (fixed: left=+1, right=-1)
   window.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft') rotateCarousel(1);
     if (e.code === 'ArrowRight') rotateCarousel(-1);
     if (e.code === 'Enter') confirmSelection();
   });
 
-  // Load characters
   loadAllCharacters();
-
-  // Start animation loop
   debugLog('[char-select] 🎬 Starting animation loop...');
   animate();
 }
@@ -355,7 +304,6 @@ async function loadAllCharacters() {
 
   debugLog('[char-select] Starting to load characters...');
 
-  // Load idle animation first
   try {
     debugLog('[char-select] Loading idle animation...');
     const gltf = await new Promise((resolve, reject) =>
@@ -364,71 +312,51 @@ async function loadAllCharacters() {
     if (gltf.animations && gltf.animations.length > 0) {
       _idleClip = gltf.animations[0];
       debugLog('[char-select] ✅ Idle animation loaded successfully');
-    } else {
-      debugLog('[char-select] ⚠️ Idle animation loaded but no animations found');
     }
   } catch (err) {
-    debugLog('❌ [char-select] ❌ Failed to load idle animation:', err);
+    debugLog('❌ [char-select] Failed to load idle animation');
   }
 
-  // Load all 6 characters in a FLAT circle on the ground
   for (let i = 0; i < CHARACTER_COUNT; i++) {
     const modelPath = `/models/player/characters/model${i + 1}.glb`;
-
-    debugLog(`[char-select] Loading character ${i + 1} from ${modelPath}...`);
+    debugLog(`[char-select] Loading character ${i + 1}...`);
 
     try {
       const gltf = await new Promise((resolve, reject) =>
         loader.load(modelPath, resolve, undefined, reject)
       );
 
-      debugLog(`[char-select] ✅ Character ${i + 1} GLB loaded, cloning scene...`);
-
-      // Clone using SkeletonUtils
       const model = skeletonClone(gltf.scene);
 
-      // Get original bounding box
+      // Get original size
       const box = new THREE.Box3().setFromObject(model);
       const originalHeight = box.getSize(new THREE.Vector3()).y;
-      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m`);
 
-      // Calculate scale to match TARGET_HEIGHT (1.8m - same as game)
+      // Scale to target height (EXACTLY like red boxes were 2.5m tall)
       const scale = CHARACTER_TARGET_HEIGHT / originalHeight;
       model.scale.setScalar(scale);
-
-      debugLog(`[char-select] Applied scale: ${scale.toFixed(2)}x to reach ${CHARACTER_TARGET_HEIGHT}m`);
-
-      // AFTER scaling, recalculate bounding box
       model.updateMatrixWorld(true);
-      const box2 = new THREE.Box3().setFromObject(model);
 
-      // Position so bottom is at Y=0
+      // Position so bottom is at Y=0 (EXACTLY like red boxes)
+      const box2 = new THREE.Box3().setFromObject(model);
       const floorOffset = -box2.min.y;
       model.position.y = floorOffset;
-
-      const finalHeight = box2.getSize(new THREE.Vector3()).y;
-      debugLog(`[char-select] Final height: ${finalHeight.toFixed(3)}m, floor offset: ${floorOffset.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
 
-      // Create container at ground level (Y=0)
+      // Container (EXACTLY like red boxes)
       const container = new THREE.Group();
       container.add(model);
 
-      // Position in FLAT circle on XZ plane - EXACT SAME AS BOXES
-      // Selected character (index 0) is at FRONT (positive Z, closest to camera)
       const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
       container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = GROUND_Y; // Y=0 - ground plane
+      container.position.y = GROUND_Y;
       container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
-
-      // Face OUTWARD from center (toward camera) - EXACT SAME AS BOXES
       container.rotation.y = angle + Math.PI;
 
       _scene.add(container);
 
-      // Setup animation
       let mixer = null;
       if (_idleClip) {
         mixer = new THREE.AnimationMixer(model);
@@ -439,24 +367,20 @@ async function loadAllCharacters() {
 
       _characterModels.push({ container, model, mixer });
 
-      debugLog(`[char-select] ✅ Character ${i + 1} loaded at (${container.position.x.toFixed(2)}, ${container.position.y.toFixed(2)}, ${container.position.z.toFixed(2)})`);
+      debugLog(`[char-select] ✅ Character ${i + 1} loaded (scale: ${scale.toFixed(1)}x, height: ${CHARACTER_TARGET_HEIGHT}m)`);
 
     } catch (err) {
-      debugLog(`❌ [char-select] Failed to load model${i + 1}: ${err.message}`);
+      debugLog(`❌ [char-select] Failed to load model${i + 1}`);
     }
   }
 
-  debugLog(`[char-select] ✅ All characters loaded! Total: ${_characterModels.length}`);
+  debugLog(`[char-select] ✅ All ${_characterModels.length} characters loaded!`);
   updateCharacterName();
 }
 
 function rotateCarousel(direction) {
   _selectedIndex = (_selectedIndex - direction + CHARACTER_COUNT) % CHARACTER_COUNT;
-
-  // INFINITE CAROUSEL FIX: Don't reset rotation, just add/subtract
-  // This makes it loop smoothly without visible reset
   _targetRotation += direction * (Math.PI * 2 / CHARACTER_COUNT);
-
   updateCharacterName();
 }
 
@@ -507,7 +431,6 @@ export function getCharacterModelPath(charId) {
   return `/models/player/characters/model${charId}.glb`;
 }
 
-// Animation loop
 let lastTime = 0;
 function animate(time = 0) {
   if (!_scene) return;
@@ -517,14 +440,11 @@ function animate(time = 0) {
   const delta = (time - lastTime) / 1000;
   lastTime = time;
 
-  // Smooth rotation interpolation
   const rotDiff = _targetRotation - _currentRotation;
   _currentRotation += rotDiff * ROTATION_SPEED;
 
-  // Update spin time for selected character
   _selectedCharacterSpinTime += delta;
 
-  // Rotate all characters around Y axis (vertical)
   let frontCharIndex = -1;
   let maxZ = -Infinity;
 
@@ -532,50 +452,40 @@ function animate(time = 0) {
     const baseAngle = (index / CHARACTER_COUNT) * Math.PI * 2;
     const angle = baseAngle + _currentRotation;
 
-    // Position in flat circle on XZ plane at Y=0
     char.container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-    char.container.position.y = GROUND_Y; // Keep at ground level (Y=0)
+    char.container.position.y = GROUND_Y;
     char.container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
 
-    // Track which character is at front (highest Z = closest to camera)
     if (char.container.position.z > maxZ) {
       maxZ = char.container.position.z;
       frontCharIndex = index;
     }
 
-    // Face outward from center
     let faceRotation = angle + Math.PI;
-
     char.container.rotation.y = faceRotation;
 
-    // Lock X/Z rotation (keep standing upright)
     if (char.model) {
       char.model.rotation.x = 0;
       char.model.rotation.z = 0;
     }
 
-    // Update animation
     if (char.mixer) {
       char.mixer.update(delta);
     }
   });
 
-  // Now apply spin animation ONLY to the front character
   _characterModels.forEach((char, index) => {
     if (index === frontCharIndex) {
-      // Continuous 180° back-and-forth spin (3 seconds per cycle)
       const spinCycle = Math.sin(_selectedCharacterSpinTime * (Math.PI / 3)) * Math.PI;
       char.container.rotation.y += spinCycle;
     }
   });
 
-  // Render
   if (_renderer && _scene && _camera) {
     _renderer.render(_scene, _camera);
   }
 }
 
-// Handle window resize
 window.addEventListener('resize', () => {
   if (!_camera || !_renderer) return;
 
