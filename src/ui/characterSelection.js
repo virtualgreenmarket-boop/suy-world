@@ -17,7 +17,7 @@ let _selectedCharacterSpinTime = 0; // For 180° spin animation
 const CHARACTER_COUNT = 6;
 const CIRCLE_RADIUS = 4.29; // 30% larger (was 3.3)
 const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 2.5; // Taller for better visibility
+const CHARACTER_TARGET_HEIGHT = 1.8; // Normal human height (same as game)
 const GROUND_Y = 0; // Ground plane at Y=0
 
 // Debug log to screen
@@ -418,16 +418,16 @@ async function loadAllCharacters() {
       // Clone using SkeletonUtils
       const model = skeletonClone(gltf.scene);
 
-      // Get original bounding box for logging only
+      // Get original bounding box
       const box = new THREE.Box3().setFromObject(model);
       const originalHeight = box.getSize(new THREE.Vector3()).y;
       debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m`);
 
-      // FIXED SCALE - NO AUTO-CALCULATION
-      const FIXED_SCALE = 1.0; // Start with 1.0, maximum 1.5 if too small
-      model.scale.setScalar(FIXED_SCALE);
+      // Calculate scale to match TARGET_HEIGHT (1.8m - same as game)
+      const scale = CHARACTER_TARGET_HEIGHT / originalHeight;
+      model.scale.setScalar(scale);
 
-      debugLog(`[char-select] Applied FIXED scale: ${FIXED_SCALE}x (no auto-calculation)`);
+      debugLog(`[char-select] Applied scale: ${scale.toFixed(2)}x to reach ${CHARACTER_TARGET_HEIGHT}m`);
 
       // AFTER scaling, recalculate bounding box
       model.updateMatrixWorld(true);
@@ -438,7 +438,7 @@ async function loadAllCharacters() {
       model.position.y = floorOffset;
 
       const finalHeight = box2.getSize(new THREE.Vector3()).y;
-      debugLog(`[char-select] Final height after scale: ${finalHeight.toFixed(3)}m, floor offset: ${floorOffset.toFixed(3)}m`);
+      debugLog(`[char-select] Final height: ${finalHeight.toFixed(3)}m, floor offset: ${floorOffset.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
