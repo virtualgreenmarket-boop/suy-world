@@ -8,37 +8,26 @@ let _camera = null;
 let _renderer = null;
 let _characterModels = [];
 let _idleClip = null;
-let _currentRotation = 0;
-let _targetRotation = 0;
 let _selectedIndex = 0;
 let _isInitialized = false;
-let _selectedCharacterSpinTime = 0;
+let _cameraTargetX = 0;
+let _currentCameraX = 0;
 
 const CHARACTER_COUNT = 6;
-const CIRCLE_RADIUS = 4.29;
-const ROTATION_SPEED = 0.08;
-const CHARACTER_TARGET_HEIGHT = 2.5;
-const GROUND_Y = 0;
+const CHARACTER_SPACING = 3; // Distance between characters
+const CAMERA_SMOOTH = 0.1;
 
 function debugLog(msg) {
   console.log(msg);
-  const logDiv = document.getElementById('debug-log');
-  if (logDiv) {
-    const line = document.createElement('div');
-    line.textContent = msg;
-    line.style.marginBottom = '2px';
-    logDiv.appendChild(line);
-    logDiv.scrollTop = logDiv.scrollHeight;
-  }
 }
 
 export function initCharacterSelection(onSelect) {
   if (_isInitialized) {
-    debugLog('[char-select] ⚠️ Already initialized, ignoring duplicate call');
+    console.log('[char-select] Already initialized');
     return;
   }
   _isInitialized = true;
-  debugLog('[char-select] ✅ Starting initialization...');
+  console.log('[char-select] Starting...');
 
   _onSelectCallback = onSelect;
 
@@ -64,7 +53,6 @@ export function initCharacterSelection(onSelect) {
         height: 100%;
         object-fit: cover;
         z-index: 1;
-        opacity: 1;
       }
 
       #char-select-canvas {
@@ -92,10 +80,8 @@ export function initCharacterSelection(onSelect) {
         color: white;
         font-size: 64px;
         font-weight: bold;
-        text-shadow: 0 6px 20px rgba(0,0,0,0.9), 0 3px 8px rgba(0,0,0,0.7);
+        text-shadow: 0 6px 20px rgba(0,0,0,0.9);
         font-family: 'Segoe UI', Arial, sans-serif;
-        letter-spacing: 3px;
-        z-index: 10;
       }
 
       .char-select-controls {
@@ -106,7 +92,6 @@ export function initCharacterSelection(onSelect) {
         display: flex;
         align-items: center;
         gap: 50px;
-        z-index: 10;
       }
 
       .char-select-arrow {
@@ -128,14 +113,12 @@ export function initCharacterSelection(onSelect) {
         background: rgba(255,255,255,0.3);
         border-color: rgba(255,255,255,0.8);
         transform: scale(1.1);
-        box-shadow: 0 0 30px rgba(255,255,255,0.5);
       }
 
       .char-select-arrow svg {
         width: 32px;
         height: 32px;
         fill: white;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
       }
 
       .char-select-name {
@@ -147,7 +130,6 @@ export function initCharacterSelection(onSelect) {
         color: white;
         font-size: 32px;
         font-weight: bold;
-        text-shadow: 0 2px 6px rgba(0,0,0,0.8);
         min-width: 280px;
         text-align: center;
       }
@@ -170,29 +152,11 @@ export function initCharacterSelection(onSelect) {
         text-transform: uppercase;
         letter-spacing: 2.5px;
         pointer-events: auto;
-        z-index: 10;
       }
 
       .char-select-enter:hover {
         transform: translateX(-50%) translateY(-4px);
         box-shadow: 0 14px 40px rgba(76, 175, 80, 0.9);
-      }
-
-      #debug-log {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        width: 400px;
-        max-height: 90vh;
-        background: rgba(0,0,0,0.9);
-        color: #0f0;
-        font-family: monospace;
-        font-size: 12px;
-        padding: 10px;
-        overflow-y: auto;
-        z-index: 999999;
-        border: 2px solid #0f0;
-        pointer-events: none;
       }
     </style>
 
@@ -221,10 +185,6 @@ export function initCharacterSelection(onSelect) {
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
-
-      <div id="debug-log">
-        <div style="color: #fff; font-weight: bold; margin-bottom: 5px;">DEBUG LOG:</div>
-      </div>
     </div>
   `;
 
@@ -234,92 +194,81 @@ export function initCharacterSelection(onSelect) {
   _scene = new THREE.Scene();
   _scene.background = null;
 
-  const canvasHeight = window.innerHeight;
-
-  // EXACT settings from when red boxes worked
-  _camera = new THREE.PerspectiveCamera(60, window.innerWidth / canvasHeight, 0.1, 100);
-  _camera.position.set(0, 1, 10);
-  _camera.lookAt(0, 2, 0);
+  // Simple camera - straight view from front
+  _camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+  _camera.position.set(0, 1, 5); // Straight in front
+  _camera.lookAt(0, 1, 0);
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  _renderer.setSize(window.innerWidth, canvasHeight);
+  _renderer.setSize(window.innerWidth, window.innerHeight);
   _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   _renderer.shadowMap.enabled = true;
   _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   _renderer.setClearColor(0x000000, 0);
 
-  debugLog('[char-select] 🎨 Renderer setup complete');
+  console.log('[char-select] Renderer ready');
 
-  const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+  // Lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 1.5);
   _scene.add(ambient);
 
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
-  keyLight.position.set(3, 5, 3);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+  keyLight.position.set(2, 3, 5);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.width = 2048;
-  keyLight.shadow.mapSize.height = 2048;
   _scene.add(keyLight);
 
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  fillLight.position.set(-2, 3, -2);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  fillLight.position.set(-2, 2, 3);
   _scene.add(fillLight);
 
-  const rimLight = new THREE.DirectionalLight(0x88ccff, 0.6);
-  rimLight.position.set(0, 3, -3);
-  _scene.add(rimLight);
-
-  const groundGeo = new THREE.CircleGeometry(CIRCLE_RADIUS + 2, 64);
+  // Ground plane
+  const groundGeo = new THREE.PlaneGeometry(50, 10);
   const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x555555,
+    color: 0x444444,
     roughness: 0.8,
-    metalness: 0.2,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.5,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
-  ground.position.y = GROUND_Y;
+  ground.position.y = 0;
   ground.receiveShadow = true;
   _scene.add(ground);
 
-  debugLog('[char-select] ✅ Ground plane created at Y=0');
-
-  document.getElementById('char-prev').addEventListener('click', () => rotateCarousel(1));
-  document.getElementById('char-next').addEventListener('click', () => rotateCarousel(-1));
+  document.getElementById('char-prev').addEventListener('click', () => changeCharacter(-1));
+  document.getElementById('char-next').addEventListener('click', () => changeCharacter(1));
   document.getElementById('char-enter').addEventListener('click', confirmSelection);
 
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowLeft') rotateCarousel(1);
-    if (e.code === 'ArrowRight') rotateCarousel(-1);
+    if (e.code === 'ArrowLeft') changeCharacter(-1);
+    if (e.code === 'ArrowRight') changeCharacter(1);
     if (e.code === 'Enter') confirmSelection();
   });
 
   loadAllCharacters();
-  debugLog('[char-select] 🎬 Starting animation loop...');
   animate();
 }
 
 async function loadAllCharacters() {
   const loader = new GLTFLoader();
 
-  debugLog('[char-select] Starting to load characters...');
-
+  console.log('[char-select] Loading idle animation...');
   try {
-    debugLog('[char-select] Loading idle animation...');
     const gltf = await new Promise((resolve, reject) =>
       loader.load('/models/player/animations/idle.glb', resolve, undefined, reject)
     );
     if (gltf.animations && gltf.animations.length > 0) {
       _idleClip = gltf.animations[0];
-      debugLog('[char-select] ✅ Idle animation loaded successfully');
+      console.log('[char-select] Idle animation loaded');
     }
   } catch (err) {
-    debugLog('❌ [char-select] Failed to load idle animation');
+    console.log('[char-select] Failed to load idle animation');
   }
+
+  console.log('[char-select] Loading characters...');
 
   for (let i = 0; i < CHARACTER_COUNT; i++) {
     const modelPath = `/models/player/characters/model${i + 1}.glb`;
-    debugLog(`[char-select] Loading character ${i + 1}...`);
 
     try {
       const gltf = await new Promise((resolve, reject) =>
@@ -328,36 +277,25 @@ async function loadAllCharacters() {
 
       const model = skeletonClone(gltf.scene);
 
-      // Get original size for logging
-      const box = new THREE.Box3().setFromObject(model);
-      const originalHeight = box.getSize(new THREE.Vector3()).y;
-      debugLog(`[char-select] Model ${i + 1} original height: ${originalHeight.toFixed(6)}m`);
-
-      // FIXED SCALE - test small values
-      const FIXED_SCALE = 1.0;
-      model.scale.setScalar(FIXED_SCALE);
+      // Simple scale - test with 1.0
+      model.scale.setScalar(1.0);
       model.updateMatrixWorld(true);
 
-      // Position so bottom is at Y=0
-      const box2 = new THREE.Box3().setFromObject(model);
-      const floorOffset = -box2.min.y;
-      const finalHeight = box2.getSize(new THREE.Vector3()).y;
+      // Position on ground
+      const box = new THREE.Box3().setFromObject(model);
+      const floorOffset = -box.min.y;
       model.position.y = floorOffset;
-
-      debugLog(`[char-select] FIXED scale=${FIXED_SCALE}, final height=${finalHeight.toFixed(3)}m`);
 
       model.castShadow = true;
       model.receiveShadow = true;
 
-      // Container
+      // Position in a LINE (not circle)
+      // Character 0 at X=0, Character 1 at X=3, etc.
       const container = new THREE.Group();
       container.add(model);
-
-      const angle = (i / CHARACTER_COUNT) * Math.PI * 2;
-      container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-      container.position.y = GROUND_Y;
-      container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
-      container.rotation.y = angle + Math.PI;
+      container.position.x = i * CHARACTER_SPACING;
+      container.position.z = 0;
+      container.position.y = 0;
 
       _scene.add(container);
 
@@ -371,20 +309,20 @@ async function loadAllCharacters() {
 
       _characterModels.push({ container, model, mixer });
 
-      debugLog(`[char-select] ✅ Character ${i + 1} loaded`);
+      console.log(`[char-select] Character ${i + 1} loaded at X=${i * CHARACTER_SPACING}`);
 
     } catch (err) {
-      debugLog(`❌ [char-select] Failed to load model${i + 1}`);
+      console.log(`[char-select] Failed to load model${i + 1}`);
     }
   }
 
-  debugLog(`[char-select] ✅ All ${_characterModels.length} characters loaded!`);
+  console.log(`[char-select] ${_characterModels.length} characters ready`);
   updateCharacterName();
 }
 
-function rotateCarousel(direction) {
-  _selectedIndex = (_selectedIndex - direction + CHARACTER_COUNT) % CHARACTER_COUNT;
-  _targetRotation += direction * (Math.PI * 2 / CHARACTER_COUNT);
+function changeCharacter(direction) {
+  _selectedIndex = (_selectedIndex + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
+  _cameraTargetX = _selectedIndex * CHARACTER_SPACING;
   updateCharacterName();
 }
 
@@ -397,7 +335,7 @@ function updateCharacterName() {
 
 function confirmSelection() {
   const characterId = _selectedIndex + 1;
-  saveCharacterChoice(characterId);
+  localStorage.setItem('selected_character', characterId.toString());
   hideCharacterSelection();
   _onSelectCallback(characterId);
 }
@@ -416,10 +354,6 @@ function hideCharacterSelection() {
   _camera = null;
   _characterModels = [];
   _idleClip = null;
-}
-
-function saveCharacterChoice(charId) {
-  localStorage.setItem('selected_character', charId.toString());
 }
 
 export function getSavedCharacter() {
@@ -444,44 +378,14 @@ function animate(time = 0) {
   const delta = (time - lastTime) / 1000;
   lastTime = time;
 
-  const rotDiff = _targetRotation - _currentRotation;
-  _currentRotation += rotDiff * ROTATION_SPEED;
+  // Smooth camera movement
+  _currentCameraX += (_cameraTargetX - _currentCameraX) * CAMERA_SMOOTH;
+  _camera.position.x = _currentCameraX;
 
-  _selectedCharacterSpinTime += delta;
-
-  let frontCharIndex = -1;
-  let maxZ = -Infinity;
-
-  _characterModels.forEach((char, index) => {
-    const baseAngle = (index / CHARACTER_COUNT) * Math.PI * 2;
-    const angle = baseAngle + _currentRotation;
-
-    char.container.position.x = Math.sin(angle) * CIRCLE_RADIUS;
-    char.container.position.y = GROUND_Y;
-    char.container.position.z = Math.cos(angle) * CIRCLE_RADIUS;
-
-    if (char.container.position.z > maxZ) {
-      maxZ = char.container.position.z;
-      frontCharIndex = index;
-    }
-
-    let faceRotation = angle + Math.PI;
-    char.container.rotation.y = faceRotation;
-
-    if (char.model) {
-      char.model.rotation.x = 0;
-      char.model.rotation.z = 0;
-    }
-
+  // Update animations
+  _characterModels.forEach((char) => {
     if (char.mixer) {
       char.mixer.update(delta);
-    }
-  });
-
-  _characterModels.forEach((char, index) => {
-    if (index === frontCharIndex) {
-      const spinCycle = Math.sin(_selectedCharacterSpinTime * (Math.PI / 3)) * Math.PI;
-      char.container.rotation.y += spinCycle;
     }
   });
 
@@ -493,8 +397,7 @@ function animate(time = 0) {
 window.addEventListener('resize', () => {
   if (!_camera || !_renderer) return;
 
-  const canvasHeight = window.innerHeight;
-  _camera.aspect = window.innerWidth / canvasHeight;
+  _camera.aspect = window.innerWidth / window.innerHeight;
   _camera.updateProjectionMatrix();
-  _renderer.setSize(window.innerWidth, canvasHeight);
+  _renderer.setSize(window.innerWidth, window.innerHeight);
 });
