@@ -374,17 +374,18 @@ export function initCharacterSelection(onSelect) {
   _scene.add(_selectionLight);
   _scene.add(_selectionLight.target);
 
-  // Selection arrow (3D arrow pointing down)
-  const arrowShape = new THREE.ConeGeometry(0.3, 0.6, 8);
+  // Selection arrow (3D arrow pointing down) - HUGE & BRIGHT
+  const arrowShape = new THREE.ConeGeometry(0.8, 1.5, 8);
   const arrowMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffff00,
-    emissive: 0xffff00,
-    emissiveIntensity: 0.5,
+    color: 0xff0000, // RED - very visible!
+    emissive: 0xff0000,
+    emissiveIntensity: 2.0,
   });
   _selectionArrow = new THREE.Mesh(arrowShape, arrowMaterial);
   _selectionArrow.rotation.x = Math.PI; // Point down
   _selectionArrow.position.set(0, _arrowY, 0); // Use global _arrowY
   _scene.add(_selectionArrow);
+  console.log(`[char-select] 🔴 RED ARROW created at Y=${_arrowY}`);
 
   // Ground plane (wider to fit all characters)
   const groundGeo = new THREE.PlaneGeometry(30, 10);
@@ -643,9 +644,9 @@ function animate(time = 0) {
   const delta = (time - lastTime) / 1000;
   lastTime = time;
 
-  // Animate arrow (bob up and down)
+  // Animate arrow (bob up and down) - use _arrowY as base!
   if (_selectionArrow) {
-    _selectionArrow.position.y = 3 + Math.sin(time * 0.003) * 0.2;
+    _selectionArrow.position.y = _arrowY + Math.sin(time * 0.003) * 0.2;
   }
 
   // Update animations - FORCE update even if delta is 0
