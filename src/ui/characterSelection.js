@@ -411,26 +411,49 @@ export function initCharacterSelection(onSelect) {
   // Arrow height controls (move arrow Y up/down)
   let arrowY = 1.5; // User-finalized value
   const updateArrowInfo = () => {
-    document.getElementById('arrow-info').textContent = `Arrow Y: ${arrowY.toFixed(1)}`;
+    const infoEl = document.getElementById('arrow-info');
+    if (infoEl) {
+      infoEl.textContent = `Arrow Y: ${arrowY.toFixed(1)}`;
+    }
   };
 
-  document.getElementById('arrow-up').addEventListener('click', () => {
-    arrowY += 0.1;
-    if (_selectionArrow) {
-      _selectionArrow.position.y = arrowY;
-    }
-    updateArrowInfo();
-    console.log(`[char-select] Arrow Y: ${arrowY.toFixed(1)}`);
-  });
+  const arrowUpBtn = document.getElementById('arrow-up');
+  const arrowDownBtn = document.getElementById('arrow-down');
 
-  document.getElementById('arrow-down').addEventListener('click', () => {
-    arrowY -= 0.1;
-    if (_selectionArrow) {
-      _selectionArrow.position.y = arrowY;
-    }
-    updateArrowInfo();
-    console.log(`[char-select] Arrow Y: ${arrowY.toFixed(1)}`);
-  });
+  console.log('[char-select] Arrow buttons:', arrowUpBtn, arrowDownBtn);
+  console.log('[char-select] Arrow object:', _selectionArrow);
+
+  if (arrowUpBtn) {
+    arrowUpBtn.addEventListener('click', () => {
+      console.log('[char-select] ▲ CLICKED! Current arrowY:', arrowY);
+      arrowY += 0.1;
+      if (_selectionArrow) {
+        _selectionArrow.position.y = arrowY;
+        console.log(`[char-select] Arrow moved to Y: ${arrowY.toFixed(1)}`);
+      } else {
+        console.log('[char-select] ERROR: _selectionArrow is null!');
+      }
+      updateArrowInfo();
+    });
+  } else {
+    console.log('[char-select] ERROR: arrow-up button not found!');
+  }
+
+  if (arrowDownBtn) {
+    arrowDownBtn.addEventListener('click', () => {
+      console.log('[char-select] ▼ CLICKED! Current arrowY:', arrowY);
+      arrowY -= 0.1;
+      if (_selectionArrow) {
+        _selectionArrow.position.y = arrowY;
+        console.log(`[char-select] Arrow moved to Y: ${arrowY.toFixed(1)}`);
+      } else {
+        console.log('[char-select] ERROR: _selectionArrow is null!');
+      }
+      updateArrowInfo();
+    });
+  } else {
+    console.log('[char-select] ERROR: arrow-down button not found!');
+  }
 
   loadAllCharacters();
   animate();
