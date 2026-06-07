@@ -15,10 +15,10 @@ let _selectionArrow = null;
 let _arrowY = 4.8; // Global arrow Y position (user-finalized)
 let _characterScale = 0.35; // Global character scale (user-finalized: 0.35x)
 
-const CHARACTER_COUNT = 2; // Two characters
+const CHARACTER_COUNT = 1; // Single character
 const CHARACTER_SPACING = 4; // Distance between characters
 const CAMERA_Z = 13.0; // User-specified camera distance
-const CHARACTER_MODELS = ['Muscular.glb', 'cuteman.glb']; // Character model filenames
+const CHARACTER_MODELS = ['cuteman.glb']; // Character model filename
 
 function debugLog(msg) {
   console.log(msg);

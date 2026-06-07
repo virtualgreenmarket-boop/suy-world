@@ -184,26 +184,26 @@ async function startRealLoading() {
 
     await Promise.all(animationPromises);
     console.log('[loading] ✅ Player animations loaded (5 files)');
-    updateProgress(35, 'Loading characters (1/2)...');
+    updateProgress(35, 'Loading character...');
 
-    // Load 2 character models
-    console.log('[loading] 📥 Loading 2 character models...');
-    const characterModels = ['Muscular.glb', 'cuteman.glb'];
+    // Load 1 character model
+    console.log('[loading] 📥 Loading character model...');
+    const characterModels = ['cuteman.glb'];
     const characterPromises = [];
     for (let i = 0; i < characterModels.length; i++) {
       characterPromises.push(
         managedLoader.loadAsync(`/models/player/characters/${characterModels[i]}`)
           .then(gltf => {
-            console.log(`[loading] ✅ Character ${i + 1}/2 loaded (${characterModels[i]})`);
-            updateProgress(35 + ((i + 1) * 17.5), `Loading characters (${i + 1}/2)...`);
+            console.log(`[loading] ✅ Character loaded (${characterModels[i]})`);
+            updateProgress(52.5, `Loading character...`);
             return gltf;
           })
       );
     }
 
     await Promise.all(characterPromises);
-    console.log('[loading] ✅ All 2 character models loaded successfully!');
-    updateProgress(70, 'Characters ready! Loading world...');
+    console.log('[loading] ✅ Character model loaded successfully!');
+    updateProgress(70, 'Character ready! Loading world...');
 
     // Preload trees (if available)
     try {
