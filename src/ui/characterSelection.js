@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 let _onSelectCallback = null;
 let _scene = null;
@@ -12,13 +11,15 @@ let _selectedIndex = 0;
 let _isInitialized = false;
 let _selectionLight = null;
 let _selectionArrow = null;
-let _arrowY = 4.8; // Global arrow Y position (user-finalized)
-let _characterScale = 0.35; // Global character scale (user-finalized: 0.35x)
+let _arrowY = 5.0;
+let _characterScale = 10.0;
+let _characterPosY = 0.0;
+let _characterPosZ = 0.0;
+let _cameraZ = 1.5;
 
-const CHARACTER_COUNT = 1; // Single character
-const CHARACTER_SPACING = 4; // Distance between characters
-const CAMERA_Z = 13.0; // User-specified camera distance
-const CHARACTER_MODELS = ['cuteman.glb']; // Character model filename
+const CHARACTER_COUNT = 1;
+const CHARACTER_SPACING = 4;
+const CHARACTER_MODELS = ['cuteman.glb'];
 
 function debugLog(msg) {
   console.log(msg);
@@ -298,51 +299,64 @@ export function initCharacterSelection(onSelect) {
         pointer-events: none;
       }
 
-      .size-controls {
+      .controls-panel {
         position: absolute;
-        bottom: 20%;
+        bottom: 20px;
         right: 20px;
-        display: flex;
-        gap: 10px;
+        background: rgba(0,0,0,0.85);
+        backdrop-filter: blur(15px);
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 15px;
+        padding: 20px;
         z-index: 10000;
         pointer-events: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
       }
 
-      .size-btn {
-        width: 70px;
-        height: 50px;
-        background: rgba(33, 150, 243, 0.3);
-        border: 2px solid rgba(33, 150, 243, 0.6);
-        border-radius: 10px;
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .control-label {
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        min-width: 80px;
+      }
+
+      .control-btn {
+        width: 40px;
+        height: 40px;
+        background: rgba(33, 150, 243, 0.4);
+        border: 2px solid rgba(33, 150, 243, 0.7);
+        border-radius: 8px;
         color: white;
         font-size: 20px;
         font-weight: bold;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: all 0.2s;
         pointer-events: auto;
-        backdrop-filter: blur(10px);
         display: flex;
         align-items: center;
         justify-content: center;
       }
 
-      .size-btn:hover {
-        background: rgba(33, 150, 243, 0.5);
+      .control-btn:hover {
+        background: rgba(33, 150, 243, 0.7);
         transform: scale(1.1);
       }
 
-      .size-info {
-        position: absolute;
-        bottom: 20%;
-        right: 170px;
-        background: rgba(0,0,0,0.8);
-        color: #2196f3;
-        padding: 10px 20px;
-        border-radius: 10px;
+      .control-value {
+        color: #64B5F6;
         font-family: monospace;
         font-size: 14px;
-        z-index: 10001;
-        pointer-events: none;
+        font-weight: bold;
+        min-width: 60px;
+        text-align: center;
       }
 
     </style>
@@ -353,31 +367,10 @@ export function initCharacterSelection(onSelect) {
     <div class="char-select-ui">
       <div class="char-select-title">Choose Your Character</div>
 
-      <div class="char-select-controls">
-        <button class="char-select-arrow" id="char-prev">
-          <svg viewBox="0 0 24 24">
-            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-          </svg>
-        </button>
-
-        <div class="char-select-name" id="char-name">Character 1</div>
-
-        <button class="char-select-arrow" id="char-next">
-          <svg viewBox="0 0 24 24">
-            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-          </svg>
-        </button>
-      </div>
-
       <button class="char-select-enter" id="char-enter">
         Enter Game
       </button>
 
-      <div class="size-controls">
-        <button class="size-btn" id="size-down">−</button>
-        <button class="size-btn" id="size-up">+</button>
-      </div>
-      <div class="size-info" id="size-info">Size: 0.35x</div>
     </div>
   `;
 
@@ -387,11 +380,10 @@ export function initCharacterSelection(onSelect) {
   _scene = new THREE.Scene();
   _scene.background = null;
 
-  // Camera positioned to see all 6 characters
-  // Characters are at X: -10, -6, -2, 2, 6, 10 (total width ~20)
+  // Camera positioned to see character at ground level
   _camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-  _camera.position.set(0, 3.0, CAMERA_Z); // User-adjusted: Y=3.0
-  _camera.lookAt(0, 3.0, 0);
+  _camera.position.set(0, 0.5, _cameraZ); // Look at character height
+  _camera.lookAt(0, 0.3, 0); // Center of character
 
   _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   _renderer.setSize(window.innerWidth, window.innerHeight);
@@ -415,25 +407,7 @@ export function initCharacterSelection(onSelect) {
   fillLight.position.set(-2, 2, 3);
   _scene.add(fillLight);
 
-  // Selection spotlight (initially hidden)
-  _selectionLight = new THREE.SpotLight(0x00ff00, 5, 10, Math.PI / 6, 0.5, 1);
-  _selectionLight.position.set(0, 5, 0);
-  _selectionLight.target.position.set(0, 0, 0);
-  _scene.add(_selectionLight);
-  _scene.add(_selectionLight.target);
-
-  // Selection arrow (3D arrow pointing down)
-  const arrowShape = new THREE.ConeGeometry(0.3, 0.6, 8);
-  const arrowMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffff00,
-    emissive: 0xffff00,
-    emissiveIntensity: 0.5,
-  });
-  _selectionArrow = new THREE.Mesh(arrowShape, arrowMaterial);
-  _selectionArrow.rotation.x = Math.PI; // Point down
-  _selectionArrow.position.set(0, _arrowY, 0); // Use global _arrowY
-  _scene.add(_selectionArrow);
-  console.log(`[char-select] Arrow created at Y=${_arrowY}`);
+  // No arrow needed for single character
 
   // Ground plane (wider to fit all characters)
   const groundGeo = new THREE.PlaneGeometry(30, 10);
@@ -449,51 +423,40 @@ export function initCharacterSelection(onSelect) {
   ground.receiveShadow = true;
   _scene.add(ground);
 
-  document.getElementById('char-prev').addEventListener('click', () => changeCharacter(-1));
-  document.getElementById('char-next').addEventListener('click', () => changeCharacter(1));
   document.getElementById('char-enter').addEventListener('click', confirmSelection);
 
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowLeft') changeCharacter(-1);
-    if (e.code === 'ArrowRight') changeCharacter(1);
     if (e.code === 'Enter') confirmSelection();
   });
 
-  // Size controls (adjust uniform scale)
-  const updateSizeInfo = () => {
-    document.getElementById('size-info').textContent = `Size: ${_characterScale.toFixed(1)}x`;
-  };
-
-  document.getElementById('size-up').addEventListener('click', () => {
-    _characterScale += 0.1; // Small steps - models are already big
-    updateAllCharacterScales();
-    updateSizeInfo();
-    console.log(`[char-select] Size: ${_characterScale.toFixed(1)}x`);
-  });
-
-  document.getElementById('size-down').addEventListener('click', () => {
-    _characterScale = Math.max(0.1, _characterScale - 0.1); // Min 0.1, step 0.1
-    updateAllCharacterScales();
-    updateSizeInfo();
-    console.log(`[char-select] Size: ${_characterScale.toFixed(1)}x`);
-  });
+  // No controls needed - character will float automatically
 
   loadAllCharacters();
   animate();
 }
 
 function updateAllCharacterScales() {
-  _characterModels.forEach((char, i) => {
+  _characterModels.forEach((char) => {
     if (char.model) {
       char.model.scale.setScalar(_characterScale);
       char.model.updateMatrixWorld(true);
 
-      // Recalculate floor position
+      // Recalculate floor position with new scale
       const box = new THREE.Box3().setFromObject(char.model);
-      const floorOffset = -box.min.y;
-      char.model.position.y = floorOffset;
+      char.originalFloorOffset = -box.min.y;
+      char.model.position.y = char.originalFloorOffset + _characterPosY;
+    }
+  });
+}
 
-      console.log(`[char-select] Char ${i + 1} rescaled to ${_characterScale.toFixed(1)}x`);
+function updateAllCharacterPositions() {
+  console.log(`[UPDATE-POS] Called with Y=${_characterPosY}, models=${_characterModels.length}`);
+  _characterModels.forEach((char, i) => {
+    console.log(`[UPDATE-POS] Model ${i}: has model=${!!char.model}, has container=${!!char.container}, originalFloor=${char.originalFloorOffset}`);
+    if (char.model && char.container) {
+      const newY = char.originalFloorOffset + _characterPosY;
+      char.model.position.y = newY;
+      console.log(`[UPDATE-POS] Model ${i} moved to Y=${newY.toFixed(2)}`);
     }
   });
 }
@@ -511,7 +474,8 @@ async function loadAllCharacters() {
       console.log('[char-select] Idle animation loaded');
     }
   } catch (err) {
-    console.log('[char-select] Failed to load idle animation');
+    console.warn('[char-select] Idle animation not found - will display T-pose:', err.message);
+    _idleClip = null;
   }
 
   console.log('[char-select] Loading characters...');
@@ -524,35 +488,40 @@ async function loadAllCharacters() {
         loader.load(modelPath, resolve, undefined, reject)
       );
 
-      const model = skeletonClone(gltf.scene);
+      const model = gltf.scene.clone(true);
 
-      // Apply global scale
+      // Configure meshes
+      model.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+          n.frustumCulled = false;
+        }
+      });
+
+      // Apply scale
+      console.log(`[char-select] Applying scale: ${_characterScale}`);
       model.scale.setScalar(_characterScale);
       model.updateMatrixWorld(true);
+      console.log(`[char-select] Model scale applied: ${model.scale.x}`);
 
       // Position on ground
       const box = new THREE.Box3().setFromObject(model);
       const floorOffset = -box.min.y;
-      const size = box.getSize(new THREE.Vector3());
+      const finalSize = box.getSize(new THREE.Vector3());
       model.position.y = floorOffset;
 
-      console.log(`[char-select] Char ${i + 1} loaded: scale=${_characterScale.toFixed(1)}x, size=${size.x.toFixed(3)}×${size.y.toFixed(3)}×${size.z.toFixed(3)}m`);
+      console.log(`FINAL: height=${finalSize.y.toFixed(2)}m, position=(0,${floorOffset.toFixed(2)},0)`);
+      console.log(`CAMERA: position=(0,0.5,${_cameraZ}), lookAt=(0,0.3,0)`);
 
-      model.castShadow = true;
-      model.receiveShadow = true;
-
-      // Position characters in a LINE
-      // Center them: Character 0,1,2,3,4,5 → positions -10,-6,-2,2,6,10
+      // Add to scene
       const container = new THREE.Group();
       container.add(model);
-      const totalWidth = (CHARACTER_COUNT - 1) * CHARACTER_SPACING;
-      container.position.x = (i * CHARACTER_SPACING) - (totalWidth / 2);
-      container.position.z = 0;
-      container.position.y = 0;
-
+      container.position.set(0, 0, 0);
       _scene.add(container);
 
-      console.log(`[char-select] Character ${i + 1} at X=${container.position.x}`);
+      // Store floor offset for updates
+      const originalFloorOffset = floorOffset;
 
       let mixer = null;
       if (_idleClip) {
@@ -573,11 +542,11 @@ async function loadAllCharacters() {
         console.log(`[char-select] Char ${i + 1}: NO idle clip!`);
       }
 
-      _characterModels.push({ container, model, mixer });
+      _characterModels.push({ container, model, mixer, originalFloorOffset });
 
 
     } catch (err) {
-      console.log(`[char-select] Failed to load model${i + 1}`);
+      console.error(`[char-select] Failed to load character ${i + 1} from ${modelPath}:`, err);
     }
   }
 
@@ -599,11 +568,7 @@ setInterval(() => {
   }
 }, 2000);
 
-function changeCharacter(direction) {
-  _selectedIndex = (_selectedIndex + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
-  updateCharacterName();
-  updateSelection();
-}
+// Single character mode - no need for changeCharacter function
 
 function updateSelection() {
   if (!_characterModels[_selectedIndex]) return;
@@ -628,7 +593,7 @@ function updateSelection() {
 function updateCharacterName() {
   const nameEl = document.getElementById('char-name');
   if (nameEl) {
-    nameEl.textContent = `Character ${_selectedIndex + 1}`;
+    nameEl.textContent = 'Cuteman';
   }
 }
 
@@ -683,9 +648,20 @@ function animate(time = 0) {
   const delta = (time - lastTime) / 1000;
   lastTime = time;
 
-  // Animate arrow (bob up and down) - use _arrowY as base!
-  if (_selectionArrow) {
-    _selectionArrow.position.y = _arrowY + Math.sin(time * 0.003) * 0.2;
+  // Floating animation - smooth and natural
+  if (_characterModels.length > 0) {
+    _characterModels.forEach((char) => {
+      if (char.model) {
+        // Slow, smooth sine wave for natural floating
+        const cycle = Math.sin(time * 0.0008); // Very slow cycle ~1.5 min per cycle
+        // Apply easing for smoother motion at peaks
+        const eased = cycle * Math.abs(cycle); // Ease in/out effect
+        const floatAmount = eased * 0.25; // Visible 25cm movement
+
+        const baseY = char.originalFloorOffset || 0;
+        char.model.position.y = baseY + floatAmount;
+      }
+    });
   }
 
   // Update animations - FORCE update even if delta is 0

@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { getCharacterModelPath } from '../ui/characterSelection.js';
 
 const ANIMATIONS_BASE = '/models/player/animations/';
@@ -27,17 +26,17 @@ export async function preloadPlayerCharacter(characterId) {
   );
 
   _characterTemplate = gltf.scene;
+
+  // Configure meshes for proper rendering
   _characterTemplate.traverse(n => {
     if (n.isMesh) {
       n.castShadow = true;
-      n.receiveShadow = false;
+      n.receiveShadow = true;
+      n.frustumCulled = false;
     }
   });
 
-  const box = new THREE.Box3().setFromObject(_characterTemplate);
-  const originalHeight = box.getSize(new THREE.Vector3()).y;
-  console.log(`[player] Template height: ${originalHeight.toFixed(6)}m`);
-  console.log(`[player] ✅ Character ${characterId} loaded!`);
+  console.log(`[player] ✅ Character ${characterId} loaded`);
 
   await loadAnimations();
 }
@@ -75,21 +74,30 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
     parentGroup.userData._charModel = null;
   }
 
-  const clone = skeletonClone(_characterTemplate);
+  const clone = _characterTemplate.clone(true);
 
-  // Get original height
-  const box = new THREE.Box3().setFromObject(clone);
-  const originalHeight = box.getSize(new THREE.Vector3()).y;
+  // Configure cloned meshes
+  clone.traverse(n => {
+    if (n.isMesh) {
+      n.castShadow = true;
+      n.receiveShadow = true;
+      n.frustumCulled = false;
+    }
+  });
 
-  // Scale to match character selection (0.35 for Muscular model)
-  clone.scale.setScalar(0.35);
+  // Scale to 1.8 units tall
+  const TARGET_HEIGHT = 1.8;
+  const rawBox = new THREE.Box3().setFromObject(clone);
+  const rawHeight = rawBox.getSize(new THREE.Vector3()).y;
+  const scale = rawHeight > 0 ? TARGET_HEIGHT / rawHeight : 1.0;
+
+  clone.scale.setScalar(scale);
   clone.rotation.set(0, 0, 0);
   clone.updateMatrixWorld(true);
 
-  // Calculate floor
+  // Position on ground
   const box2 = new THREE.Box3().setFromObject(clone);
   const floorOffset = -box2.min.y;
-  const finalHeight = box2.getSize(new THREE.Vector3()).y;
 
   clone.position.set(0, floorOffset, 0);
   clone.updateMatrix();
@@ -97,8 +105,6 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
 
   parentGroup.add(clone);
   parentGroup.userData._charModel = clone;
-
-  console.log(`[player] 🎭 Spawned: height=${finalHeight.toFixed(3)}m, floor=${floorOffset.toFixed(3)}m`);
 
   const boneMap = new Map();
   clone.traverse(n => { if (n.isBone) boneMap.set(n.name, n); });
