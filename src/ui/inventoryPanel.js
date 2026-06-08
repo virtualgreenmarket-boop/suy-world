@@ -1,11 +1,4 @@
-// Character inventory panel — game-bag style UI
-import {
-  initCharacterPreview,
-  applyPreviewItem,
-  applyPreviewLoadout,
-  startPreviewRendering,
-  stopPreviewRendering,
-} from './characterPreview.js';
+// Inventory panel (character preview disabled)
 import { isChatOpen } from './chatUI.js';
 
 const STORAGE_KEY = 'suy_loadout_v8';
@@ -811,25 +804,17 @@ function _equip(cat, file) {
   _loadout[cat] = file;
   _saveCurrent();
   if (_onEquip) _onEquip(cat, file);
-  applyPreviewItem(cat, file).catch(() => {}); // sync preview (fire-and-forget)
 }
 
 export function showInventoryPanel() {
   if (isChatOpen()) return;
   document.getElementById('inv-overlay')?.classList.add('inv-open');
   _visible = true;
-
-  if (!_previewInited && _previewCanvas) {
-    _previewInited = true;
-    initCharacterPreview(_previewCanvas).then(() => applyPreviewLoadout(_loadout)).catch(() => {});
-  }
-  startPreviewRendering();
 }
 
 export function hideInventoryPanel() {
   document.getElementById('inv-overlay')?.classList.remove('inv-open');
   _visible = false;
-  stopPreviewRendering();
 }
 
 export function toggleInventoryPanel() {

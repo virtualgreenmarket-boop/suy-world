@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { resolveCollision } from '../systems/collision.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { getSettings } from '../ui/settingsPanel.js';
-import { spawnPlayerCharacter, setPlayerAnimState, updatePlayerCharacterMixer } from './playerCharacterLoader.js';
+// Player character removed - using capsule only
 import { toggleInventoryPanel } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
@@ -33,7 +33,7 @@ let isDragging = false, lastMouseX = 0, lastMouseY = 0;
 
 // ── Init ──────────────────────────────────────────────────────────────
 
-export function initLocalPlayer(scene, camera, name, characterId) {
+export function initLocalPlayer(scene, camera, name) {
   _scene  = scene;
   _camera = camera;
 
@@ -43,12 +43,7 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   scene.add(playerGroup);
   attachLabel(playerGroup, name || 'Player', 2.4, 'player');
 
-  console.log(`[local-player] 🎭 Spawning character ${characterId} for player`);
-
-  // Spawn player character (character already preloaded in main.js)
-  spawnPlayerCharacter(playerGroup, characterId).catch(err => {
-    console.error('[local-player] Failed to spawn character:', err);
-  });
+  console.log(`[local-player] Player initialized (no character model)`);
 
   window.addEventListener('keydown', e => {
     if (isChatOpen()) return;
@@ -88,7 +83,6 @@ function _onMouseMove(e) {
 function _triggerJump() {
   velocityY  = JUMP_FORCE;
   _isJumping = true;
-  setPlayerAnimState(playerGroup, 'jump');
 }
 
 // ── Update ────────────────────────────────────────────────────────────
@@ -116,14 +110,12 @@ export function updateLocalPlayer(delta) {
 
   // Sitting: locked to bench
   if (_isSitting) {
-    updatePlayerCharacterMixer(playerGroup, delta);
     syncCamera();
     return;
   }
 
   // Block movement while chat open
   if (isChatOpen()) {
-    updatePlayerCharacterMixer(playerGroup, delta);
     syncCamera();
     return;
   }
@@ -185,12 +177,6 @@ export function updateLocalPlayer(delta) {
     if (_isJumping) _isJumping = false;
   }
 
-  if (!_isJumping) {
-    const target = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
-    setPlayerAnimState(playerGroup, target);
-  }
-
-  updatePlayerCharacterMixer(playerGroup, delta);
   syncCamera();
 }
 
@@ -249,7 +235,6 @@ export function sitOnBench(x, y, z, facingY) {
   playerGroup.position.set(ox, y, oz);
   playerGroup.rotation.set(0, facingY, 0);
   playerGroup.scale.set(1.2, 1.2, 1.2);
-  setPlayerAnimState(playerGroup, 'sit');
 }
 
 export function standUp() {
@@ -257,5 +242,4 @@ export function standUp() {
   _isSitting = false;
   playerGroup.scale.set(1.0, 1.0, 1.0);
   playerGroup.rotation.set(0, playerGroup.rotation.y, 0);
-  setPlayerAnimState(playerGroup, 'idle');
 }
