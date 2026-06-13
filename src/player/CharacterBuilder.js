@@ -474,8 +474,8 @@ export function buildCharacter(type, options = {}) {
   charGroup.userData.type = type;
   charGroup.userData.config = config;
 
-  // Scale up character by 50%
-  charGroup.scale.setScalar(1.5);
+  // Scale up character by 100%
+  charGroup.scale.setScalar(2.0);
 
   return charGroup;
 }
