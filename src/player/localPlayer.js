@@ -227,10 +227,18 @@ export function updateLocalPlayer(delta) {
     if (_isJumping) _isJumping = false;
   }
 
-  // Update animation state based on movement (only if not playing special animation)
-  if (!_isJumping && !_isPlayingSpecialAnim) {
-    const targetState = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
-    setPlayerAnimState(playerGroup, targetState);
+  // Update animation state based on movement
+  if (!_isJumping) {
+    // Cancel dance/attack if player starts moving
+    if (isMoving && _isPlayingSpecialAnim) {
+      _isPlayingSpecialAnim = false;
+    }
+
+    // Set animation only if not playing special animation
+    if (!_isPlayingSpecialAnim) {
+      const targetState = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
+      setPlayerAnimState(playerGroup, targetState);
+    }
   }
 
   // Update character animations
