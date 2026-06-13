@@ -461,9 +461,21 @@ export function buildCharacter(type, options = {}) {
 
   charGroup.add(headGroup);
 
-  charGroup.userData.parts = parts;
+  // Store ALL parts including groups for animation
+  charGroup.userData.parts = {
+    headG: headGroup,
+    bodyG: bodyGroup,
+    lArmG: leftUpperArm,
+    rArmG: rightUpperArm,
+    lLegG: leftThigh,
+    rLegG: rightThigh,
+    ...parts
+  };
   charGroup.userData.type = type;
   charGroup.userData.config = config;
+
+  // Scale up character by 50%
+  charGroup.scale.setScalar(1.5);
 
   return charGroup;
 }
@@ -471,145 +483,114 @@ export function buildCharacter(type, options = {}) {
 export function animateCharacter(charGroup, animType, t, delta) {
   if (!charGroup || !charGroup.userData.parts) return;
 
-  const parts = charGroup.userData.parts;
+  const { headG, bodyG, lArmG, rArmG, lLegG, rLegG } = charGroup.userData.parts;
 
   // Reset all transforms to default before applying animation
-  parts.bodyGroup.position.y = 1.65;
-  parts.bodyGroup.rotation.x = 0;
-  parts.bodyGroup.rotation.y = 0;
-  parts.headGroup.position.y = 2.38;
-  parts.leftUpperArm.rotation.x = 0;
-  parts.rightUpperArm.rotation.x = 0;
-  parts.leftUpperArm.rotation.z = 0;
-  parts.rightUpperArm.rotation.z = 0;
-  parts.leftThigh.rotation.x = 0;
-  parts.rightThigh.rotation.x = 0;
-  parts.leftShin.rotation.x = 0;
-  parts.rightShin.rotation.x = 0;
+  charGroup.position.y = 0;
+  bodyG.position.y = 1.65;
+  bodyG.rotation.x = 0;
+  bodyG.rotation.y = 0;
+  bodyG.rotation.z = 0;
+  bodyG.scale.set(1, 1, 1);
+  headG.position.y = 2.38;
+  headG.rotation.z = 0;
+  lArmG.rotation.x = 0;
+  rArmG.rotation.x = 0;
+  lArmG.rotation.z = 0;
+  rArmG.rotation.z = 0;
+  lLegG.rotation.x = 0;
+  rLegG.rotation.x = 0;
 
   switch (animType) {
     case 'idle':
-      // Subtle body bob
-      parts.bodyGroup.position.y = 1.65 + Math.sin(t * 2) * 0.02;
-      parts.headGroup.position.y = 2.38 + Math.sin(t * 2) * 0.015;
-
-      // Slight arm sway
-      parts.leftUpperArm.rotation.x = Math.sin(t * 1.5) * 0.1;
-      parts.rightUpperArm.rotation.x = Math.sin(t * 1.5 + Math.PI) * 0.1;
+      // Gentle breathing
+      bodyG.scale.y = 1 + Math.sin(t * 1.5) * 0.03;
+      charGroup.position.y = Math.sin(t * 1.2) * 0.04;
+      lArmG.rotation.z = 0.15 + Math.sin(t * 1.2) * 0.05;
+      rArmG.rotation.z = -0.15 - Math.sin(t * 1.2) * 0.05;
       break;
 
     case 'walk':
-      const walkSpeed = t * 4;
-
-      // Body bob
-      parts.bodyGroup.position.y = 1.65 + Math.abs(Math.sin(walkSpeed)) * 0.05;
-      parts.headGroup.position.y = 2.38 + Math.abs(Math.sin(walkSpeed)) * 0.04;
-
-      // Arms swing opposite
-      parts.leftUpperArm.rotation.x = Math.sin(walkSpeed) * 0.5;
-      parts.rightUpperArm.rotation.x = Math.sin(walkSpeed + Math.PI) * 0.5;
-
-      // Legs swing
-      parts.leftThigh.rotation.x = Math.sin(walkSpeed) * 0.5;
-      parts.rightThigh.rotation.x = Math.sin(walkSpeed + Math.PI) * 0.5;
-      parts.leftShin.rotation.x = Math.max(0, Math.sin(walkSpeed) * 0.3);
-      parts.rightShin.rotation.x = Math.max(0, Math.sin(walkSpeed + Math.PI) * 0.3);
+      // Exaggerated steps
+      lArmG.rotation.x = Math.sin(t * 2.8) * 0.9;
+      rArmG.rotation.x = -Math.sin(t * 2.8) * 0.9;
+      lLegG.rotation.x = -Math.sin(t * 2.8) * 0.75;
+      rLegG.rotation.x = Math.sin(t * 2.8) * 0.75;
+      charGroup.position.y = Math.abs(Math.sin(t * 2.8)) * 0.18;
+      bodyG.rotation.z = Math.sin(t * 2.8) * 0.08;
       break;
 
     case 'run':
-      const runSpeed = t * 7;
-
-      // Body bob and lean
-      parts.bodyGroup.position.y = 1.65 + Math.abs(Math.sin(runSpeed)) * 0.08;
-      parts.bodyGroup.rotation.x = 0.2;
-      parts.headGroup.position.y = 2.38 + Math.abs(Math.sin(runSpeed)) * 0.06;
-
-      // Arms swing faster
-      parts.leftUpperArm.rotation.x = Math.sin(runSpeed) * 0.8;
-      parts.rightUpperArm.rotation.x = Math.sin(runSpeed + Math.PI) * 0.8;
-
-      // Legs swing faster
-      parts.leftThigh.rotation.x = Math.sin(runSpeed) * 0.7;
-      parts.rightThigh.rotation.x = Math.sin(runSpeed + Math.PI) * 0.7;
-      parts.leftShin.rotation.x = Math.max(0, Math.sin(runSpeed) * 0.6);
-      parts.rightShin.rotation.x = Math.max(0, Math.sin(runSpeed + Math.PI) * 0.6);
+      // Very fast and leaning
+      lArmG.rotation.x = Math.sin(t * 5) * 1.3;
+      rArmG.rotation.x = -Math.sin(t * 5) * 1.3;
+      lLegG.rotation.x = -Math.sin(t * 5) * 1.1;
+      rLegG.rotation.x = Math.sin(t * 5) * 1.1;
+      charGroup.position.y = Math.abs(Math.sin(t * 5)) * 0.25;
+      bodyG.rotation.x = -0.3;
       break;
 
     case 'jump':
-      const jumpPhase = Math.sin(t * 3);
-
-      // Body lifts
-      parts.bodyGroup.position.y = 1.65 + Math.max(0, jumpPhase) * 0.5;
-      parts.headGroup.position.y = 2.38 + Math.max(0, jumpPhase) * 0.5;
-
-      // Arms raise
-      parts.leftUpperArm.rotation.x = -Math.abs(jumpPhase) * 0.8;
-      parts.rightUpperArm.rotation.x = -Math.abs(jumpPhase) * 0.8;
-
-      // Legs tuck
-      parts.leftThigh.rotation.x = Math.abs(jumpPhase) * 1.2;
-      parts.rightThigh.rotation.x = Math.abs(jumpPhase) * 1.2;
-      parts.leftShin.rotation.x = Math.abs(jumpPhase) * 1.5;
-      parts.rightShin.rotation.x = Math.abs(jumpPhase) * 1.5;
+      // Clear tuck and land
+      const jt = (Math.sin(t * 2) + 1) / 2;
+      charGroup.position.y = jt * 1.4;
+      lLegG.rotation.x = -jt * 0.8;
+      rLegG.rotation.x = -jt * 0.8;
+      lArmG.rotation.x = -jt * 1.0;
+      rArmG.rotation.x = -jt * 1.0;
       break;
 
     case 'sit':
       // Legs rotate forward
-      parts.leftThigh.rotation.x = Math.PI / 2;
-      parts.rightThigh.rotation.x = Math.PI / 2;
-      parts.leftShin.rotation.x = -Math.PI / 3;
-      parts.rightShin.rotation.x = -Math.PI / 3;
+      lLegG.rotation.x = Math.PI / 2;
+      rLegG.rotation.x = Math.PI / 2;
 
       // Body lowers
-      parts.bodyGroup.position.y = 1.2;
-      parts.headGroup.position.y = 2.0;
+      bodyG.position.y = 1.2;
+      headG.position.y = 2.0;
 
       // Arms rest
-      parts.leftUpperArm.rotation.x = 0.2;
-      parts.rightUpperArm.rotation.x = 0.2;
+      lArmG.rotation.x = 0.2;
+      rArmG.rotation.x = 0.2;
       break;
 
     case 'dance':
-      const danceSpeed = t * 3;
-
-      // Body sways
-      parts.bodyGroup.rotation.y = Math.sin(danceSpeed) * 0.3;
-      parts.bodyGroup.position.y = 1.65 + Math.abs(Math.sin(danceSpeed * 2)) * 0.1;
-      parts.headGroup.position.y = 2.38 + Math.abs(Math.sin(danceSpeed * 2)) * 0.08;
-
-      // Arms swing widely
-      parts.leftUpperArm.rotation.x = Math.sin(danceSpeed) * 1.2;
-      parts.leftUpperArm.rotation.z = Math.sin(danceSpeed * 0.5) * 0.5;
-      parts.rightUpperArm.rotation.x = Math.sin(danceSpeed + Math.PI) * 1.2;
-      parts.rightUpperArm.rotation.z = -Math.sin(danceSpeed * 0.5) * 0.5;
-
-      // Alternating legs
-      parts.leftThigh.rotation.x = Math.max(0, Math.sin(danceSpeed) * 0.3);
-      parts.rightThigh.rotation.x = Math.max(0, Math.sin(danceSpeed + Math.PI) * 0.3);
+      // Very visible dance moves
+      const s = Math.sin(t * 3.5);
+      const s2 = Math.sin(t * 3.5 + Math.PI);
+      charGroup.position.y = Math.abs(Math.sin(t * 3.5)) * 0.3;
+      bodyG.rotation.z = s * 0.35;
+      bodyG.rotation.x = Math.sin(t * 7) * 0.15;
+      headG.rotation.z = -s * 0.2;
+      lArmG.rotation.x = Math.sin(t * 3.5) * 1.2;
+      rArmG.rotation.x = -Math.sin(t * 3.5) * 1.2;
+      lArmG.rotation.z = 0.4 + Math.sin(t * 3.5) * 0.6;
+      rArmG.rotation.z = -0.4 - Math.sin(t * 3.5) * 0.6;
+      lLegG.rotation.x = s * 0.5;
+      rLegG.rotation.x = s2 * 0.5;
       break;
 
     case 'attack':
-      const attackPhase = (t * 4) % (Math.PI * 2);
-
-      if (attackPhase < Math.PI / 2) {
-        // Wind-up
-        const windUp = attackPhase / (Math.PI / 2);
-        parts.rightUpperArm.rotation.x = -windUp * 1.5;
-        parts.rightUpperArm.rotation.z = windUp * 0.5;
-        parts.bodyGroup.rotation.y = -windUp * 0.3;
-      } else if (attackPhase < Math.PI) {
-        // Strike
-        const strike = (attackPhase - Math.PI / 2) / (Math.PI / 2);
-        parts.rightUpperArm.rotation.x = -1.5 + strike * 2.5;
-        parts.rightUpperArm.rotation.z = 0.5;
-        parts.bodyGroup.rotation.y = -0.3 + strike * 0.5;
+      // Fast and powerful sword swing
+      const phase = (t % 2.5);
+      if (phase < 0.4) {
+        // Wind up
+        rArmG.rotation.x = -1.8;
+        rArmG.rotation.z = -0.5;
+        bodyG.rotation.z = 0.25;
+      } else if (phase < 0.7) {
+        // Strike - fast
+        const p = (phase - 0.4) / 0.3;
+        rArmG.rotation.x = -1.8 + p * 3.2;
+        bodyG.rotation.z = 0.25 - p * 0.5;
+        charGroup.position.y = p * 0.15;
       } else {
         // Recover
-        const recover = (attackPhase - Math.PI) / Math.PI;
-        parts.rightUpperArm.rotation.x = 1.0 - recover * 1.0;
-        parts.rightUpperArm.rotation.z = 0.5 - recover * 0.5;
-        parts.bodyGroup.rotation.y = 0.2 - recover * 0.2;
+        rArmG.rotation.x = 0.9;
+        bodyG.rotation.z = -0.1;
+        charGroup.position.y = 0;
       }
+      lArmG.rotation.z = 0.3;
       break;
 
     default:
