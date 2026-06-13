@@ -7,6 +7,7 @@ import { toggleInventoryPanel } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
 import { attachLabel } from '../ui/labels.js';
+import { initActionButtons } from '../ui/actionButtons.js';
 
 const WALK_SPEED  = 6;
 const RUN_SPEED   = 14;
@@ -27,13 +28,14 @@ let _camDist    = 10;
 let velocityY   = 0;
 let _isJumping  = false;
 let _isSitting  = false;
+let _isPlayingSpecialAnim = false; // Prevents auto-overriding dance/attack
 
 const keys = {};
 let isDragging = false, lastMouseX = 0, lastMouseY = 0;
 
 // ── Init ──────────────────────────────────────────────────────────────
 
-export function initLocalPlayer(scene, camera, name) {
+export function initLocalPlayer(scene, camera, name, characterId) {
   _scene  = scene;
   _camera = camera;
 
@@ -43,7 +45,20 @@ export function initLocalPlayer(scene, camera, name) {
   scene.add(playerGroup);
   attachLabel(playerGroup, name || 'Player', 2.4, 'player');
 
-  console.log(`[local-player] Player initialized (no character model)`);
+  // DEBUG: Log parentGroup details
+  console.log('[debug] parentGroup position:', playerGroup.position);
+  console.log('[debug] parentGroup in scene:', scene.children.includes(playerGroup));
+  console.log('[debug] parentGroup visible:', playerGroup.visible);
+
+  // Spawn the character model
+  console.log(`[local-player] 🎭 Spawning character for player: ${name}`);
+  spawnPlayerCharacter(playerGroup, characterId).then(() => {
+    console.log('[debug] _charModel:', playerGroup.userData._charModel);
+    console.log('[debug] _charModel children:', playerGroup.userData._charModel?.children?.length);
+    console.log('[debug] _charModel visible:', playerGroup.userData._charModel?.visible);
+  }).catch(err => {
+    console.error('[local-player] Failed to spawn character:', err);
+  });
 
   window.addEventListener('keydown', e => {
     if (isChatOpen()) return;
@@ -54,6 +69,8 @@ export function initLocalPlayer(scene, camera, name) {
       if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
     }
     if (e.code === 'KeyI') toggleInventoryPanel();
+    if (e.code === 'KeyR') _triggerAttack();
+    if (e.code === 'KeyD') _triggerDance();
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -67,6 +84,9 @@ export function initLocalPlayer(scene, camera, name) {
     e.preventDefault();
     _camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, _camDist + e.deltaY * 0.01));
   }, { passive: false });
+
+  // Initialize action buttons (attack and dance)
+  initActionButtons(_triggerAttack, _triggerDance);
 
   syncCamera();
 }
@@ -83,7 +103,34 @@ function _onMouseMove(e) {
 function _triggerJump() {
   velocityY  = JUMP_FORCE;
   _isJumping = true;
+  _isPlayingSpecialAnim = false; // Cancel dance/attack on jump
   setPlayerAnimState(playerGroup, 'jump');
+}
+
+function _triggerAttack() {
+  if (_isSitting || _isJumping) return;
+  _isPlayingSpecialAnim = true;
+  setPlayerAnimState(playerGroup, 'attack');
+  // Return to idle after 1 second
+  setTimeout(() => {
+    _isPlayingSpecialAnim = false;
+    if (playerGroup.userData._animState === 'attack') {
+      setPlayerAnimState(playerGroup, 'idle');
+    }
+  }, 1000);
+}
+
+function _triggerDance() {
+  if (_isSitting || _isJumping) return;
+
+  // Toggle dance on/off
+  if (_isPlayingSpecialAnim && playerGroup.userData._animState === 'dance') {
+    _isPlayingSpecialAnim = false;
+    setPlayerAnimState(playerGroup, 'idle');
+  } else {
+    _isPlayingSpecialAnim = true;
+    setPlayerAnimState(playerGroup, 'dance');
+  }
 }
 
 // ── Update ────────────────────────────────────────────────────────────
@@ -180,8 +227,8 @@ export function updateLocalPlayer(delta) {
     if (_isJumping) _isJumping = false;
   }
 
-  // Update animation state based on movement
-  if (!_isJumping) {
+  // Update animation state based on movement (only if not playing special animation)
+  if (!_isJumping && !_isPlayingSpecialAnim) {
     const targetState = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
     setPlayerAnimState(playerGroup, targetState);
   }

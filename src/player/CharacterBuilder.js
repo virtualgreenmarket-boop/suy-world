@@ -473,6 +473,20 @@ export function animateCharacter(charGroup, animType, t, delta) {
 
   const parts = charGroup.userData.parts;
 
+  // Reset all transforms to default before applying animation
+  parts.bodyGroup.position.y = 1.65;
+  parts.bodyGroup.rotation.x = 0;
+  parts.bodyGroup.rotation.y = 0;
+  parts.headGroup.position.y = 2.38;
+  parts.leftUpperArm.rotation.x = 0;
+  parts.rightUpperArm.rotation.x = 0;
+  parts.leftUpperArm.rotation.z = 0;
+  parts.rightUpperArm.rotation.z = 0;
+  parts.leftThigh.rotation.x = 0;
+  parts.rightThigh.rotation.x = 0;
+  parts.leftShin.rotation.x = 0;
+  parts.rightShin.rotation.x = 0;
+
   switch (animType) {
     case 'idle':
       // Subtle body bob
@@ -599,18 +613,7 @@ export function animateCharacter(charGroup, animType, t, delta) {
       break;
 
     default:
-      // Reset to neutral pose
-      parts.bodyGroup.position.y = 1.65;
-      parts.bodyGroup.rotation.x = 0;
-      parts.bodyGroup.rotation.y = 0;
-      parts.headGroup.position.y = 2.38;
-      parts.leftUpperArm.rotation.x = 0;
-      parts.rightUpperArm.rotation.x = 0;
-      parts.leftUpperArm.rotation.z = 0;
-      parts.rightUpperArm.rotation.z = 0;
-      parts.leftThigh.rotation.x = 0;
-      parts.rightThigh.rotation.x = 0;
-      parts.leftShin.rotation.x = 0;
-      parts.rightShin.rotation.x = 0;
+      // Already reset at the start of function
+      break;
   }
 }
