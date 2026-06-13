@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { resolveCollision } from '../systems/collision.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { getSettings } from '../ui/settingsPanel.js';
-// Player character removed - using capsule only
+import { spawnPlayerCharacter, setPlayerAnimState, updatePlayerCharacterMixer } from './playerCharacterLoader.js';
 import { toggleInventoryPanel } from '../ui/inventoryPanel.js';
 import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunning } from '../ui/touchControls.js';
 import { isChatOpen } from '../ui/chatUI.js';
@@ -83,6 +83,7 @@ function _onMouseMove(e) {
 function _triggerJump() {
   velocityY  = JUMP_FORCE;
   _isJumping = true;
+  setPlayerAnimState(playerGroup, 'jump');
 }
 
 // ── Update ────────────────────────────────────────────────────────────
@@ -110,12 +111,14 @@ export function updateLocalPlayer(delta) {
 
   // Sitting: locked to bench
   if (_isSitting) {
+    updatePlayerCharacterMixer(playerGroup, delta);
     syncCamera();
     return;
   }
 
   // Block movement while chat open
   if (isChatOpen()) {
+    updatePlayerCharacterMixer(playerGroup, delta);
     syncCamera();
     return;
   }
@@ -176,6 +179,15 @@ export function updateLocalPlayer(delta) {
     if (velocityY < 0) velocityY = 0;
     if (_isJumping) _isJumping = false;
   }
+
+  // Update animation state based on movement
+  if (!_isJumping) {
+    const targetState = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
+    setPlayerAnimState(playerGroup, targetState);
+  }
+
+  // Update character animations
+  updatePlayerCharacterMixer(playerGroup, delta);
 
   syncCamera();
 }

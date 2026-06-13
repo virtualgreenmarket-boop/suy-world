@@ -171,39 +171,10 @@ async function startRealLoading() {
     updateProgress(5, 'Starting asset loading...');
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    updateProgress(10, 'Loading player animations...');
+    updateProgress(30, 'Loading world assets...');
 
-    // Load all player animations (5 files)
-    const animationPromises = [
-      managedLoader.loadAsync('/models/player/animations/idle.glb'),
-      managedLoader.loadAsync('/models/player/animations/walking.glb'),
-      managedLoader.loadAsync('/models/player/animations/running.glb'),
-      managedLoader.loadAsync('/models/player/animations/jump.glb'),
-      managedLoader.loadAsync('/models/player/animations/SittingIdle.glb'),
-    ];
-
-    await Promise.all(animationPromises);
-    console.log('[loading] ✅ Player animations loaded (5 files)');
-    updateProgress(35, 'Loading character...');
-
-    // Load 1 character model
-    console.log('[loading] 📥 Loading character model...');
-    const characterModels = ['cuteman.glb'];
-    const characterPromises = [];
-    for (let i = 0; i < characterModels.length; i++) {
-      characterPromises.push(
-        managedLoader.loadAsync(`/models/player/characters/${characterModels[i]}`)
-          .then(gltf => {
-            console.log(`[loading] ✅ Character loaded (${characterModels[i]})`);
-            updateProgress(52.5, `Loading character...`);
-            return gltf;
-          })
-      );
-    }
-
-    await Promise.all(characterPromises);
-    console.log('[loading] ✅ Character model loaded successfully!');
-    updateProgress(70, 'Character ready! Loading world...');
+    // No character GLB loading needed - characters are built from primitives
+    console.log('[loading] ✅ Character system ready (primitive-based)');
 
     // Preload trees (if available)
     try {

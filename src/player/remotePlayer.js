@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getSurfaceY } from '../systems/terrain.js';
+import { buildCharacter } from './CharacterBuilder.js';
 
 const LERP_POS = 0.18;
 const LERP_ROT = 0.22;
@@ -28,13 +29,35 @@ export function addRemotePlayer(id, data) {
     target: { x: data.x || 0, y: data.y || 0, z: data.z || 0, rotY: data.rotY || 0 },
   };
 
-  // Create a simple placeholder cube for remote players
-  const geometry = new THREE.BoxGeometry(0.6, 1.8, 0.6);
-  const material = new THREE.MeshStandardMaterial({ color: 0x4CAF50 });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.castShadow = true;
-  mesh.position.y = 0.9;
-  group.add(mesh);
+  // Build actual character instead of placeholder cube
+  const character = buildCharacter('boy');
+
+  // Scale to 1.8m tall (same as local player)
+  const bbox = new THREE.Box3().setFromObject(character);
+  const size = bbox.getSize(new THREE.Vector3());
+  const currentHeight = size.y;
+
+  if (currentHeight > 0) {
+    const scale = 1.8 / currentHeight;
+    character.scale.setScalar(scale);
+    character.updateMatrixWorld(true);
+  }
+
+  // Position at Y=0 (feet on ground)
+  const bbox2 = new THREE.Box3().setFromObject(character);
+  const offset = -bbox2.min.y;
+  character.position.y = offset;
+
+  // Ensure all materials are applied
+  character.traverse(n => {
+    if (n.isMesh) {
+      n.material.needsUpdate = true;
+      n.castShadow = true;
+      n.receiveShadow = true;
+    }
+  });
+
+  group.add(character);
 }
 
 export function updateRemotePlayerTarget(id, x, y, z, rotY) {

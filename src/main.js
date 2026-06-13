@@ -18,10 +18,13 @@ import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemote
 import { initMultiplayer, updateMultiplayer, sendChat, getSocket }
   from './systems/multiplayer.js';
 import { initEconomy }      from './systems/economy.js';
+import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision }    from './systems/collision.js';
+import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
 import { initLoadingScreen } from './ui/loadingScreen.js';
+import { initInventoryButton } from './ui/inventoryButton.js';
 
 import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
@@ -54,8 +57,12 @@ function startApp() {
     // After loading complete, show login screen
     initLoginScreen((username) => {
       console.log('[main] User logged in:', username);
-      // Start game directly (no character selection)
-      startGame();
+      // After login, show character selection
+      initCharacterSelection((characterId) => {
+        console.log('[main] Character selected:', characterId);
+        // Start game with selected character
+        startGame(characterId);
+      });
     });
   });
 }
@@ -70,9 +77,9 @@ if (document.readyState === 'loading') {
 
 // ── Game Initialization ──────────────────────────────────────────────
 
-function startGame() {
+function startGame(selectedCharacterId) {
 
-console.log(`[main] 🎮 Starting game`);
+console.log(`[main] 🎮 Starting game with character ${selectedCharacterId}`);
 
 // ── Scene ──────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -206,15 +213,35 @@ setMuteAllCallback(b => setMuteAll(b));
 preloadTrees().catch(err => console.error('[trees] failed:', err));
 preloadAllNpcs().catch(err => console.error('[npc-glb] failed:', err));
 
-// Initialize multiplayer and player directly (no character selection)
-initRemotePlayers(scene);
+// Preload selected character (no GLB loading, just store the type)
+console.log('[main] 📥 Loading character...');
+preloadPlayerCharacter(selectedCharacterId)
+  .then(() => {
+    console.log('[main] ✅ Character loaded!');
 
-initMultiplayer(({ name, coins }) => {
-  const username = getUsername();
-  console.log(`[main] 🎮 Initializing local player`);
-  initLocalPlayer(scene, camera, username || name);
-  initEconomy(getSocket(), coins, updateCoinDisplay);
-});
+    initRemotePlayers(scene);
+
+    initMultiplayer(({ name, coins }) => {
+      const username = getUsername();
+      console.log(`[main] 🎮 Initializing local player with character ${selectedCharacterId}`);
+      initLocalPlayer(scene, camera, username || name, selectedCharacterId);
+      initEconomy(getSocket(), coins, updateCoinDisplay);
+
+      // Initialize inventory button after player is ready
+      initInventoryButton();
+    });
+  })
+  .catch(err => {
+    console.error('[main] ❌ Failed to load character:', err);
+    // Initialize anyway
+    initRemotePlayers(scene);
+    initMultiplayer(({ name, coins }) => {
+      const username = getUsername();
+      initLocalPlayer(scene, camera, username || name, selectedCharacterId);
+      initEconomy(getSocket(), coins, updateCoinDisplay);
+      initInventoryButton();
+    });
+  });
 
 // ── Resize ─────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
@@ -307,5 +334,12 @@ function animate() {
 }
 
 animate();
+
+// ── Global function for inventory to update player appearance ────────
+window.updatePlayerAppearance = function(changes) {
+  console.log('[main] updatePlayerAppearance called:', changes);
+  // TODO: Implement character rebuilding with new colors/equipment
+  // This would rebuild the character model with the new options
+};
 
 } // End of startGame function
