@@ -43,7 +43,7 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   const _savedSpawn = _loadSpawn();
   playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
   scene.add(playerGroup);
-  attachLabel(playerGroup, name || 'Player', 2.4, 'player');
+  attachLabel(playerGroup, name || 'Player', 3.0, 'player');
 
   // DEBUG: Log parentGroup details
   console.log('[debug] parentGroup position:', playerGroup.position);

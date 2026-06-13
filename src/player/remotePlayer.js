@@ -32,13 +32,13 @@ export function addRemotePlayer(id, data) {
   // Build actual character instead of placeholder cube
   const character = buildCharacter('boy');
 
-  // Scale to 1.8m tall (same as local player)
+  // Scale to 2.5m tall (same as NPC and local player)
   const bbox = new THREE.Box3().setFromObject(character);
   const size = bbox.getSize(new THREE.Vector3());
   const currentHeight = size.y;
 
   if (currentHeight > 0) {
-    const scale = 1.8 / currentHeight;
+    const scale = 2.5 / currentHeight;
     character.scale.setScalar(scale);
     character.updateMatrixWorld(true);
   }
@@ -123,6 +123,6 @@ function createNameTag(name) {
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(2.6, 0.65, 1);
-  sprite.position.y = 2.1; // just above 1.82 m model head
+  sprite.position.y = 2.9; // just above 2.5m model head
   return sprite;
 }

@@ -44,7 +44,7 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   console.log(`[player] 🎨 Applied materials to ${meshCount} meshes`);
   console.log(`[player] Character spawned with ${charGroup.children.length} children`);
 
-  // Measure height and scale to 1.8 units
+  // Measure height and scale to 2.5 units (same as NPC height)
   const bbox = new THREE.Box3().setFromObject(charGroup);
   const size = bbox.getSize(new THREE.Vector3());
   const currentHeight = size.y;
@@ -52,10 +52,10 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   console.log(`[player] 📏 Original height: ${currentHeight.toFixed(2)}m`);
 
   if (currentHeight > 0) {
-    const scale = 1.8 / currentHeight;
+    const scale = 2.5 / currentHeight;
     charGroup.scale.setScalar(scale);
     charGroup.updateMatrixWorld(true);
-    console.log(`[player] 📏 Scaled to 1.8m (scale factor: ${scale.toFixed(2)})`);
+    console.log(`[player] 📏 Scaled to 2.5m (scale factor: ${scale.toFixed(2)})`);
   }
 
   // Position at Y=0 (feet on ground)
