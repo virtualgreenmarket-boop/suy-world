@@ -69,7 +69,6 @@ export function initLocalPlayer(scene, camera, name, characterId) {
       if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
     }
     if (e.code === 'KeyI') toggleInventoryPanel();
-    if (e.code === 'KeyR') _triggerAttack();
     if (e.code === 'KeyD') _triggerDance();
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -85,8 +84,8 @@ export function initLocalPlayer(scene, camera, name, characterId) {
     _camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, _camDist + e.deltaY * 0.01));
   }, { passive: false });
 
-  // Initialize action buttons (attack and dance)
-  initActionButtons(_triggerAttack, _triggerDance);
+  // Initialize action buttons (dance only)
+  initActionButtons(null, _triggerDance);
 
   syncCamera();
 }
@@ -103,21 +102,8 @@ function _onMouseMove(e) {
 function _triggerJump() {
   velocityY  = JUMP_FORCE;
   _isJumping = true;
-  _isPlayingSpecialAnim = false; // Cancel dance/attack on jump
+  _isPlayingSpecialAnim = false; // Cancel dance on jump
   setPlayerAnimState(playerGroup, 'jump');
-}
-
-function _triggerAttack() {
-  if (_isSitting || _isJumping) return;
-  _isPlayingSpecialAnim = true;
-  setPlayerAnimState(playerGroup, 'attack');
-  // Return to idle after 1 second
-  setTimeout(() => {
-    _isPlayingSpecialAnim = false;
-    if (playerGroup.userData._animState === 'attack') {
-      setPlayerAnimState(playerGroup, 'idle');
-    }
-  }, 1000);
 }
 
 function _triggerDance() {

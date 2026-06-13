@@ -569,28 +569,6 @@ export function animateCharacter(charGroup, animType, t, delta) {
       rLegG.rotation.x = s2 * 0.5;
       break;
 
-    case 'attack':
-      // Fast and powerful sword swing - body twists
-      const phase = (t % 2.5);
-      if (phase < 0.4) {
-        // Wind up
-        rArmG.rotation.x = -1.8;
-        rArmG.rotation.z = -0.5;
-        bodyG.rotation.z = 0.25;
-      } else if (phase < 0.7) {
-        // Strike - fast with body movement
-        const p = (phase - 0.4) / 0.3;
-        rArmG.rotation.x = -1.8 + p * 3.2;
-        bodyG.rotation.z = 0.25 - p * 0.5;
-        bodyG.position.y = 1.65 + p * 0.15;
-      } else {
-        // Recover
-        rArmG.rotation.x = 0.9;
-        bodyG.rotation.z = -0.1;
-      }
-      lArmG.rotation.z = 0.3;
-      break;
-
     default:
       // Already reset at the start of function
       break;
