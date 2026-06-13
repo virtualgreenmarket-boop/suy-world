@@ -474,9 +474,7 @@ export function buildCharacter(type, options = {}) {
   charGroup.userData.type = type;
   charGroup.userData.config = config;
 
-  // Scale up character by 100%
-  charGroup.scale.setScalar(2.0);
-
+  // No initial scaling - playerCharacterLoader will scale to final height
   return charGroup;
 }
 
@@ -486,7 +484,7 @@ export function animateCharacter(charGroup, animType, t, delta) {
   const { headG, bodyG, lArmG, rArmG, lLegG, rLegG } = charGroup.userData.parts;
 
   // Reset all transforms to default before applying animation
-  charGroup.position.y = 0;
+  // DO NOT touch charGroup.position - that's controlled by physics!
   bodyG.position.y = 1.65;
   bodyG.rotation.x = 0;
   bodyG.rotation.y = 0;
@@ -503,41 +501,42 @@ export function animateCharacter(charGroup, animType, t, delta) {
 
   switch (animType) {
     case 'idle':
-      // Gentle breathing
+      // Gentle breathing - only move body up/down, not whole character
       bodyG.scale.y = 1 + Math.sin(t * 1.5) * 0.03;
-      charGroup.position.y = Math.sin(t * 1.2) * 0.04;
+      bodyG.position.y = 1.65 + Math.sin(t * 1.2) * 0.04;
       lArmG.rotation.z = 0.15 + Math.sin(t * 1.2) * 0.05;
       rArmG.rotation.z = -0.15 - Math.sin(t * 1.2) * 0.05;
       break;
 
     case 'walk':
-      // Exaggerated steps
+      // Exaggerated steps - body bobs up/down
       lArmG.rotation.x = Math.sin(t * 2.8) * 0.9;
       rArmG.rotation.x = -Math.sin(t * 2.8) * 0.9;
       lLegG.rotation.x = -Math.sin(t * 2.8) * 0.75;
       rLegG.rotation.x = Math.sin(t * 2.8) * 0.75;
-      charGroup.position.y = Math.abs(Math.sin(t * 2.8)) * 0.18;
+      bodyG.position.y = 1.65 + Math.abs(Math.sin(t * 2.8)) * 0.18;
       bodyG.rotation.z = Math.sin(t * 2.8) * 0.08;
       break;
 
     case 'run':
-      // Very fast and leaning
+      // Very fast and leaning - body bobs and leans forward
       lArmG.rotation.x = Math.sin(t * 5) * 1.3;
       rArmG.rotation.x = -Math.sin(t * 5) * 1.3;
       lLegG.rotation.x = -Math.sin(t * 5) * 1.1;
       rLegG.rotation.x = Math.sin(t * 5) * 1.1;
-      charGroup.position.y = Math.abs(Math.sin(t * 5)) * 0.25;
+      bodyG.position.y = 1.65 + Math.abs(Math.sin(t * 5)) * 0.25;
       bodyG.rotation.x = -0.3;
       break;
 
     case 'jump':
-      // Clear tuck and land
+      // Clear tuck and land - just animate limbs, physics handles Y position
       const jt = (Math.sin(t * 2) + 1) / 2;
-      charGroup.position.y = jt * 1.4;
       lLegG.rotation.x = -jt * 0.8;
       rLegG.rotation.x = -jt * 0.8;
       lArmG.rotation.x = -jt * 1.0;
       rArmG.rotation.x = -jt * 1.0;
+      // Tuck body slightly
+      bodyG.position.y = 1.65 - jt * 0.2;
       break;
 
     case 'sit':
@@ -555,10 +554,10 @@ export function animateCharacter(charGroup, animType, t, delta) {
       break;
 
     case 'dance':
-      // Very visible dance moves
+      // Very visible dance moves - body bounces
       const s = Math.sin(t * 3.5);
       const s2 = Math.sin(t * 3.5 + Math.PI);
-      charGroup.position.y = Math.abs(Math.sin(t * 3.5)) * 0.3;
+      bodyG.position.y = 1.65 + Math.abs(Math.sin(t * 3.5)) * 0.3;
       bodyG.rotation.z = s * 0.35;
       bodyG.rotation.x = Math.sin(t * 7) * 0.15;
       headG.rotation.z = -s * 0.2;
@@ -571,7 +570,7 @@ export function animateCharacter(charGroup, animType, t, delta) {
       break;
 
     case 'attack':
-      // Fast and powerful sword swing
+      // Fast and powerful sword swing - body twists
       const phase = (t % 2.5);
       if (phase < 0.4) {
         // Wind up
@@ -579,16 +578,15 @@ export function animateCharacter(charGroup, animType, t, delta) {
         rArmG.rotation.z = -0.5;
         bodyG.rotation.z = 0.25;
       } else if (phase < 0.7) {
-        // Strike - fast
+        // Strike - fast with body movement
         const p = (phase - 0.4) / 0.3;
         rArmG.rotation.x = -1.8 + p * 3.2;
         bodyG.rotation.z = 0.25 - p * 0.5;
-        charGroup.position.y = p * 0.15;
+        bodyG.position.y = 1.65 + p * 0.15;
       } else {
         // Recover
         rArmG.rotation.x = 0.9;
         bodyG.rotation.z = -0.1;
-        charGroup.position.y = 0;
       }
       lArmG.rotation.z = 0.3;
       break;
