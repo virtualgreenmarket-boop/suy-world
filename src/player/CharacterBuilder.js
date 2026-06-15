@@ -463,13 +463,13 @@ export function buildCharacter(type, options = {}) {
 
   // Store ALL parts including groups for animation
   charGroup.userData.parts = {
+    ...parts,
     headG: headGroup,
     bodyG: bodyGroup,
     lArmG: leftUpperArm,
     rArmG: rightUpperArm,
     lLegG: leftThigh,
-    rLegG: rightThigh,
-    ...parts
+    rLegG: rightThigh
   };
   charGroup.userData.type = type;
   charGroup.userData.config = config;
@@ -479,7 +479,13 @@ export function buildCharacter(type, options = {}) {
 }
 
 export function animateCharacter(charGroup, animType, t, delta) {
-  if (!charGroup || !charGroup.userData.parts) return;
+  if (!charGroup || !charGroup.userData.parts) {
+    console.warn('[CharacterBuilder] animateCharacter: missing charGroup or parts', {
+      hasCharGroup: !!charGroup,
+      hasParts: !!charGroup?.userData?.parts
+    });
+    return;
+  }
 
   const { headG, bodyG, lArmG, rArmG, lLegG, rLegG } = charGroup.userData.parts;
 
