@@ -195,9 +195,9 @@ export function animateCharacter(group, animType, t, delta) {
     p.lArmG.rotation.z = jt*0.5; p.rArmG.rotation.z = -jt*0.5;
   }
   else if(animType === 'sit') {
-    // Lower body and move forward
-    p.bodyG.position.set(0, 1.0, 0.15);
-    p.headG.position.set(0, 1.8, 0.05);
+    // Lower body slightly and move forward
+    p.bodyG.position.set(0, 1.45, 0.15);
+    p.headG.position.set(0, 2.25, 0.05);
 
     // Bend legs forward for sitting
     p.lLegG.rotation.x = 1.4; // Forward, not backward!
