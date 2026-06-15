@@ -167,7 +167,7 @@ export function animateCharacter(group, animType, t, delta) {
     p.headG.rotation.z = Math.sin(t*0.7)*0.04;
   }
   else if(animType === 'walk') {
-    const s = Math.sin(t*2.8);
+    const s = Math.sin(t*4.2); // 50% faster (2.8 * 1.5 = 4.2)
     p.lArmG.rotation.x = s*0.7; p.rArmG.rotation.x = -s*0.7;
     p.lElbowG.rotation.x = Math.max(0,-s)*0.5; p.rElbowG.rotation.x = Math.max(0,s)*0.5;
     p.lLegG.rotation.x = -s*0.65; p.rLegG.rotation.x = s*0.65;
@@ -176,7 +176,7 @@ export function animateCharacter(group, animType, t, delta) {
     p.bodyG.rotation.z = s*0.05;
   }
   else if(animType === 'run') {
-    const s = Math.sin(t*4.5);
+    const s = Math.sin(t*6.75); // 50% faster (4.5 * 1.5 = 6.75)
     p.lArmG.rotation.x = s*1.1; p.rArmG.rotation.x = -s*1.1;
     p.lArmG.rotation.z = 0.2; p.rArmG.rotation.z = -0.2;
     p.lElbowG.rotation.x = -0.8+Math.max(0,-s)*0.6;
@@ -195,12 +195,24 @@ export function animateCharacter(group, animType, t, delta) {
     p.lArmG.rotation.z = jt*0.5; p.rArmG.rotation.z = -jt*0.5;
   }
   else if(animType === 'sit') {
-    p.lLegG.rotation.x = -1.5; p.rLegG.rotation.x = -1.5;
-    p.lKneeG.rotation.x = 1.35; p.rKneeG.rotation.x = 1.35;
-    p.lLegG.position.set(-0.22,0.7,0.5); p.rLegG.position.set(0.22,0.7,0.5);
-    p.bodyG.position.set(0,1.35,0); p.headG.position.set(0,2.15,0);
-    p.lArmG.rotation.set(0.2,0,0.25); p.rArmG.rotation.set(0.2,0,-0.25);
-    p.lElbowG.rotation.x = 0.3; p.rElbowG.rotation.x = 0.3;
+    // Lower body and move forward
+    p.bodyG.position.set(0, 1.0, 0.15);
+    p.headG.position.set(0, 1.8, 0.05);
+
+    // Bend legs forward for sitting
+    p.lLegG.rotation.x = 1.4; // Forward, not backward!
+    p.rLegG.rotation.x = 1.4;
+    p.lKneeG.rotation.x = -1.3; // Bend knees
+    p.rKneeG.rotation.x = -1.3;
+
+    // Rest arms on legs
+    p.lArmG.rotation.set(0.8, 0, 0.15);
+    p.rArmG.rotation.set(0.8, 0, -0.15);
+    p.lElbowG.rotation.x = -0.6;
+    p.rElbowG.rotation.x = -0.6;
+
+    // Slight body lean back
+    p.bodyG.rotation.x = -0.15;
   }
   else if(animType === 'dance') {
     const s = Math.sin(t*3.5);

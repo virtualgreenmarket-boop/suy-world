@@ -146,6 +146,7 @@ export function updateLocalPlayer(delta) {
 
   // Sitting: locked to bench
   if (_isSitting) {
+    setPlayerAnimState(playerGroup, 'sit');
     updatePlayerCharacterMixer(playerGroup, delta);
     syncCamera();
     return;
