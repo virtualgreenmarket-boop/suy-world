@@ -141,30 +141,7 @@ export function initLoadingScreen(onComplete) {
 }
 
 async function startRealLoading() {
-  const loader = new GLTFLoader();
   const loadingManager = new THREE.LoadingManager();
-
-  let totalItems = 0;
-  let loadedItems = 0;
-
-  // Track loading progress
-  loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
-    totalItems = itemsTotal;
-    loadedItems = itemsLoaded;
-    const percent = Math.round((itemsLoaded / itemsTotal) * 100);
-    updateProgress(percent, `Loading ${itemsLoaded}/${itemsTotal} assets...`);
-  };
-
-  loadingManager.onLoad = () => {
-    console.log('[loading] LoadingManager.onLoad called - ignoring, using manual flow');
-    // Don't do anything here - we handle completion manually below
-  };
-
-  loadingManager.onError = (url) => {
-    console.error('[loading] Failed to load:', url);
-  };
-
-  // Use the loading manager for GLTFLoader
   const managedLoader = new GLTFLoader(loadingManager);
 
   try {
@@ -175,6 +152,8 @@ async function startRealLoading() {
 
     // No character GLB loading needed - characters are built from primitives
     console.log('[loading] ✅ Character system ready (primitive-based)');
+
+    updateProgress(60, 'Loading environment...');
 
     // Preload trees (if available)
     try {

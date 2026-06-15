@@ -10,7 +10,8 @@ function getTypeFromId(characterId) {
 
 export async function preloadPlayerCharacter(characterId) {
   _characterType = getTypeFromId(characterId);
-  console.log(`[player] 🎭 Preloaded character type: ${_characterType}`);
+  console.log(`[player] 🎭 Character type ready: ${_characterType}`);
+  return Promise.resolve();
 }
 
 export async function spawnPlayerCharacter(parentGroup, characterId) {
@@ -28,9 +29,9 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   console.log(`[player] 🎯 Building character type: ${type}`);
 
   const charGroup = buildCharacter(type);
-  console.log(`[player] ✅ Character group created, children: ${charGroup.children.length}`);
+  console.log(`[player] ✅ Character group created`);
 
-  // Ensure all materials are applied correctly and meshes are visible
+  // Ensure all meshes have proper settings
   let meshCount = 0;
   charGroup.traverse(n => {
     if (n.isMesh) {
@@ -41,8 +42,7 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
       n.receiveShadow = true;
     }
   });
-  console.log(`[player] 🎨 Applied materials to ${meshCount} meshes`);
-  console.log(`[player] Character spawned with ${charGroup.children.length} children`);
+  console.log(`[player] 🎨 Applied settings to ${meshCount} meshes`);
 
   // Measure height and scale to 2.5 units (same as NPC height)
   const bbox = new THREE.Box3().setFromObject(charGroup);
@@ -76,9 +76,6 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   console.log(`[player] ✅ CHARACTER SPAWNED SUCCESSFULLY!`);
   console.log(`[player]    Name: ${CHARACTERS[type].name}`);
   console.log(`[player]    Type: ${type}`);
-  console.log(`[player]    Parent children count: ${parentGroup.children.length}`);
-  console.log(`[player]    Character visible: ${charGroup.visible}`);
-  console.log(`[player]    Character position: (${charGroup.position.x.toFixed(2)}, ${charGroup.position.y.toFixed(2)}, ${charGroup.position.z.toFixed(2)})`);
   console.log('═══════════════════════════════════════════');
 }
 

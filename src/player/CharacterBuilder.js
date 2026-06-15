@@ -1,582 +1,216 @@
 import * as THREE from 'three';
 
+const M = (c, r=0.7, m=0.05) => new THREE.MeshStandardMaterial({color:c, roughness:r, metalness:m});
+
+function B(w,h,d,mat) { const x=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); x.castShadow=true; return x; }
+function S(r,mat) { const x=new THREE.Mesh(new THREE.SphereGeometry(r,10,10),mat); x.castShadow=true; return x; }
+function CY(rt,rb,h,mat) { const x=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,10),mat); x.castShadow=true; return x; }
+function P(mesh,x,y,z) { mesh.position.set(x,y,z); return mesh; }
+
 export const CHARACTERS = {
-  boy: {
-    name: 'Alex',
-    hebrew: 'בחור רציני, מהיר וחזק. אוהב הרפתקאות ותמיד מוכן לפעולה.',
-    height: '1.75m',
-    personality: 'נועז',
-    skin: '#FFCC99',
-    shirt: '#2196F3',
-    pants: '#333',
-    shoes: '#5D4037',
-    hair: '#5D4037',
-    hairStyle: 'normal',
-    eyeColor: '#1a1a1a'
-  },
-  girl: {
-    name: 'Maya',
-    hebrew: 'חכמה ויצירתית. מומחית באסטרטגיה ותמיד צעד אחד קדימה.',
-    height: '1.68m',
-    personality: 'חכמה',
-    skin: '#FFCC99',
-    shirt: '#E91E63',
-    pants: '#9C27B0',
-    shoes: '#E91E63',
-    hair: '#FFD700',
-    hairStyle: 'long',
-    eyeColor: '#1a1a1a'
-  },
-  zombie: {
-    name: 'Zed',
-    hebrew: 'מסתורי ומפחיד. כוחו עצום אך שולט בו לטובה.',
-    height: '1.80m',
-    personality: 'מסתורי',
-    skin: '#7CB87C',
-    shirt: '#666',
-    pants: '#444',
-    shoes: '#333',
-    hair: '#333',
-    hairStyle: 'messy',
-    eyeColor: '#ff0000'
-  },
-  demon: {
-    name: 'Kael',
-    hebrew: 'שד אש עתיק. מהיר כברק ועוצמתי מכולם.',
-    height: '1.85m',
-    personality: 'עצמתי',
-    skin: '#CC0000',
-    shirt: '#8B0000',
-    pants: '#4a0000',
-    shoes: '#222',
-    hair: '#000',
-    hairStyle: 'horns',
-    eyeColor: '#ff6600'
-  },
-  robot: {
-    name: 'R-7',
-    hebrew: 'רובוט מהדור הבא. מדויק, חכם ובלתי ניתן לעצירה.',
-    height: '1.90m',
-    personality: 'מדויק',
-    skin: '#90A4AE',
-    shirt: '#455A64',
-    pants: '#37474F',
-    shoes: '#263238',
-    hair: '#78909C',
-    hairStyle: 'antenna',
-    eyeColor: '#00E5FF'
-  }
+  boy:   { name:'Alex',  hebrew:'בחור רציני, מהיר וחזק. אוהב הרפתקאות ותמיד מוכן לפעולה.', height:'1.75m', personality:'נועז',   skin:'#FFCC99', shirt:'#2196F3', pants:'#333',    shoes:'#5D4037', hair:'#5D4037', hairStyle:'normal',   eyeColor:'#1a1a1a' },
+  girl:  { name:'Maya',  hebrew:'חכמה ויצירתית. מומחית באסטרטגיה ותמיד צעד אחד קדימה.',    height:'1.68m', personality:'חכמה',   skin:'#FFCC99', shirt:'#E91E63', pants:'#9C27B0', shoes:'#E91E63', hair:'#FFD700', hairStyle:'long',     eyeColor:'#1a1a1a' },
+  zombie:{ name:'Zed',   hebrew:'מסתורי ומפחיד. כוחו עצום אך שולט בו לטובה.',             height:'1.80m', personality:'מסתורי', skin:'#7CB87C', shirt:'#666',    pants:'#444',    shoes:'#333',    hair:'#333',    hairStyle:'messy',    eyeColor:'#ff0000' },
+  demon: { name:'Kael',  hebrew:'שד אש עתיק. מהיר כברק ועוצמתי מכולם.',                   height:'1.85m', personality:'עצמתי',  skin:'#CC0000', shirt:'#8B0000', pants:'#4a0000', shoes:'#222',    hair:'#000',    hairStyle:'horns',    eyeColor:'#ff6600' },
+  robot: { name:'R-7',   hebrew:'רובוט מהדור הבא. מדויק, חכם ובלתי ניתן לעצירה.',          height:'1.90m', personality:'מדויק',  skin:'#90A4AE', shirt:'#455A64', pants:'#37474F', shoes:'#263238', hair:'#78909C', hairStyle:'antenna',  eyeColor:'#00E5FF' },
 };
 
-export function buildCharacter(type, options = {}) {
-  const config = { ...CHARACTERS[type], ...options };
-  const charGroup = new THREE.Group();
-  charGroup.name = `character_${type}`;
+export function buildCharacter(type, overrideColors = {}) {
+  const ch = CHARACTERS[type] || CHARACTERS.boy;
+  const c = {...ch, ...overrideColors};
 
+  const skin=M(c.skin), shirt=M(c.shirt), pants=M(c.pants),
+        shoes=M(c.shoes,0.9,0), hairM=M(c.hair), eyeM=M(c.eyeColor), white=M('#fff');
+
+  const group = new THREE.Group();
   const parts = {};
 
-  // ROBLOX-STYLE PROPORTIONS
-  // Origin at feet (Y=0)
-  // Total height ~3.13m (will be scaled to 1.8m in playerCharacterLoader)
+  // HEAD
+  parts.headG = new THREE.Group();
+  parts.headG.position.set(0, 2.42, 0);
+  parts.headG.add(B(0.78,0.78,0.78,skin));
 
-  // ══════════════════════════════════════════════════════════════════════
-  // LEGS - Left leg at X=-0.22, Right leg at X=0.22
-  // ══════════════════════════════════════════════════════════════════════
-
-  const pantsMat = new THREE.MeshStandardMaterial({ color: config.pants });
-  const shoeMat = new THREE.MeshStandardMaterial({ color: config.shoes });
-
-  // Shoes (Y = 0.1, height 0.2)
-  const shoeGeo = new THREE.BoxGeometry(0.18, 0.2, 0.24);
-
-  const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
-  leftShoe.position.set(-0.22, 0.1, 0.03);
-  leftShoe.castShadow = true;
-  leftShoe.receiveShadow = true;
-  charGroup.add(leftShoe);
-
-  const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
-  rightShoe.position.set(0.22, 0.1, 0.03);
-  rightShoe.castShadow = true;
-  rightShoe.receiveShadow = true;
-  charGroup.add(rightShoe);
-
-  // Shins (Y = 0.35, height 0.5)
-  const shinGeo = new THREE.BoxGeometry(0.16, 0.5, 0.16);
-
-  const leftShin = new THREE.Mesh(shinGeo, pantsMat);
-  leftShin.position.set(-0.22, 0.35, 0);
-  leftShin.castShadow = true;
-  leftShin.receiveShadow = true;
-  parts.leftShin = leftShin;
-  charGroup.add(leftShin);
-
-  const rightShin = new THREE.Mesh(shinGeo, pantsMat);
-  rightShin.position.set(0.22, 0.35, 0);
-  rightShin.castShadow = true;
-  rightShin.receiveShadow = true;
-  parts.rightShin = rightShin;
-  charGroup.add(rightShin);
-
-  // Knees (Y = 0.62, radius 0.18)
-  const kneeGeo = new THREE.SphereGeometry(0.18, 12, 12);
-
-  const leftKnee = new THREE.Mesh(kneeGeo, pantsMat);
-  leftKnee.position.set(-0.22, 0.62, 0);
-  leftKnee.castShadow = true;
-  leftKnee.receiveShadow = true;
-  charGroup.add(leftKnee);
-
-  const rightKnee = new THREE.Mesh(kneeGeo, pantsMat);
-  rightKnee.position.set(0.22, 0.62, 0);
-  rightKnee.castShadow = true;
-  rightKnee.receiveShadow = true;
-  charGroup.add(rightKnee);
-
-  // Thighs (Y = 0.85, height 0.5)
-  const thighGeo = new THREE.BoxGeometry(0.18, 0.5, 0.18);
-
-  const leftThigh = new THREE.Mesh(thighGeo, pantsMat);
-  leftThigh.position.set(-0.22, 0.85, 0);
-  leftThigh.castShadow = true;
-  leftThigh.receiveShadow = true;
-  parts.leftThigh = leftThigh;
-  charGroup.add(leftThigh);
-
-  const rightThigh = new THREE.Mesh(thighGeo, pantsMat);
-  rightThigh.position.set(0.22, 0.85, 0);
-  rightThigh.castShadow = true;
-  rightThigh.receiveShadow = true;
-  parts.rightThigh = rightThigh;
-  charGroup.add(rightThigh);
-
-  // ══════════════════════════════════════════════════════════════════════
-  // TORSO GROUP (positioned at torso center Y=1.65)
-  // ══════════════════════════════════════════════════════════════════════
-
-  const bodyGroup = new THREE.Group();
-  bodyGroup.position.y = 1.65;
-  parts.bodyGroup = bodyGroup;
-
-  // Hips (small connector, Y offset from torso center)
-  const hipsGeo = new THREE.BoxGeometry(0.5, 0.22, 0.28);
-  const pantsMat2 = new THREE.MeshStandardMaterial({ color: config.pants });
-  const hips = new THREE.Mesh(hipsGeo, pantsMat2);
-  hips.position.y = -0.47; // 1.65 - 0.47 = 1.18 (world Y)
-  hips.castShadow = true;
-  hips.receiveShadow = true;
-  bodyGroup.add(hips);
-
-  // Torso (Y = 0 relative to bodyGroup, which is at 1.65)
-  const torsoGeo = new THREE.BoxGeometry(0.55, 0.85, 0.3);
-  const torsoMat = new THREE.MeshStandardMaterial({ color: config.shirt });
-  const torso = new THREE.Mesh(torsoGeo, torsoMat);
-  torso.castShadow = true;
-  torso.receiveShadow = true;
-  parts.torso = torso;
-  bodyGroup.add(torso);
-
-  // Robot chest panel
-  if (type === 'robot') {
-    const panelGeo = new THREE.BoxGeometry(0.35, 0.5, 0.02);
-    const panelMat = new THREE.MeshStandardMaterial({
-      color: '#263238',
-      metalness: 0.8,
-      roughness: 0.2
-    });
-    const panel = new THREE.Mesh(panelGeo, panelMat);
-    panel.position.z = 0.16;
-    panel.castShadow = true;
-    bodyGroup.add(panel);
-
-    // LEDs
-    const ledGeo = new THREE.SphereGeometry(0.04, 8, 8);
-    const ledMat = new THREE.MeshStandardMaterial({
-      color: config.eyeColor,
-      emissive: config.eyeColor,
-      emissiveIntensity: 0.7
-    });
-
-    const led1 = new THREE.Mesh(ledGeo, ledMat);
-    led1.position.set(-0.08, 0.15, 0.18);
-    led1.castShadow = true;
-    bodyGroup.add(led1);
-
-    const led2 = new THREE.Mesh(ledGeo, ledMat);
-    led2.position.set(0.08, 0.15, 0.18);
-    led2.castShadow = true;
-    bodyGroup.add(led2);
+  // Hair
+  if(c.hairStyle === 'normal') {
+    parts.headG.add(P(B(0.8,0.22,0.8,hairM), 0,0.46,0));
+    parts.headG.add(P(B(0.8,0.3,0.14,hairM), 0,0.38,0.36));
+  } else if(c.hairStyle === 'long') {
+    parts.headG.add(P(B(0.8,0.22,0.8,hairM), 0,0.46,0));
+    parts.headG.add(P(B(0.2,0.9,0.15,hairM), -0.38,-0.2,-0.1));
+    parts.headG.add(P(B(0.2,0.9,0.15,hairM), 0.38,-0.2,-0.1));
+    parts.headG.add(P(B(0.6,0.85,0.15,hairM), 0,-0.2,-0.42));
+  } else if(c.hairStyle === 'messy') {
+    parts.headG.add(P(B(0.9,0.25,0.9,hairM), 0,0.44,0));
+    const s1=B(0.18,0.25,0.18,hairM); s1.position.set(-0.25,0.62,0.1); s1.rotation.z=0.3; parts.headG.add(s1);
+    const s2=B(0.18,0.22,0.18,hairM); s2.position.set(0.2,0.65,-0.05); s2.rotation.z=-0.2; parts.headG.add(s2);
+  } else if(c.hairStyle === 'horns') {
+    const h1=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.55,8),M('#8B0000')); h1.castShadow=true;
+    h1.position.set(-0.28,0.7,0); h1.rotation.z=0.25; parts.headG.add(h1);
+    const h2=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.55,8),M('#8B0000')); h2.castShadow=true;
+    h2.position.set(0.28,0.7,0); h2.rotation.z=-0.25; parts.headG.add(h2);
+  } else if(c.hairStyle === 'antenna') {
+    parts.headG.add(P(B(0.84,0.15,0.84,hairM), 0,0.44,0));
+    parts.headG.add(P(CY(0.03,0.03,0.5,hairM), 0,0.7,0));
+    const ball=S(0.09,M('#00E5FF',0.3,0.8)); ball.position.set(0,0.97,0); parts.headG.add(ball);
   }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // ARMS - pivot from shoulder level (Y=2.05 in world = +0.4 from bodyGroup)
-  // ══════════════════════════════════════════════════════════════════════
-
-  const armMat = new THREE.MeshStandardMaterial({ color: config.shirt });
-  const skinMat = new THREE.MeshStandardMaterial({ color: config.skin });
-
-  // Shoulders (Y offset +0.4 from bodyGroup center)
-  const shoulderY = 0.4;
-
-  // Upper arms (shorter and chunkier for Roblox style)
-  const upperArmGeo = new THREE.BoxGeometry(0.15, 0.4, 0.15);
-
-  const leftUpperArm = new THREE.Mesh(upperArmGeo, armMat);
-  leftUpperArm.position.set(-0.35, shoulderY - 0.2, 0);
-  leftUpperArm.castShadow = true;
-  leftUpperArm.receiveShadow = true;
-  parts.leftUpperArm = leftUpperArm;
-  bodyGroup.add(leftUpperArm);
-
-  const rightUpperArm = new THREE.Mesh(upperArmGeo, armMat);
-  rightUpperArm.position.set(0.35, shoulderY - 0.2, 0);
-  rightUpperArm.castShadow = true;
-  rightUpperArm.receiveShadow = true;
-  parts.rightUpperArm = rightUpperArm;
-  bodyGroup.add(rightUpperArm);
-
-  // Elbows
-  const elbowGeo = new THREE.SphereGeometry(0.09, 10, 10);
-
-  const leftElbow = new THREE.Mesh(elbowGeo, skinMat);
-  leftElbow.position.set(-0.35, shoulderY - 0.42, 0);
-  leftElbow.castShadow = true;
-  leftElbow.receiveShadow = true;
-  bodyGroup.add(leftElbow);
-
-  const rightElbow = new THREE.Mesh(elbowGeo, skinMat);
-  rightElbow.position.set(0.35, shoulderY - 0.42, 0);
-  rightElbow.castShadow = true;
-  rightElbow.receiveShadow = true;
-  bodyGroup.add(rightElbow);
-
-  // Forearms
-  const forearmGeo = new THREE.BoxGeometry(0.13, 0.35, 0.13);
-
-  const leftForearm = new THREE.Mesh(forearmGeo, skinMat);
-  leftForearm.position.set(-0.35, shoulderY - 0.6, 0);
-  leftForearm.castShadow = true;
-  leftForearm.receiveShadow = true;
-  parts.leftForearm = leftForearm;
-  bodyGroup.add(leftForearm);
-
-  const rightForearm = new THREE.Mesh(forearmGeo, skinMat);
-  rightForearm.position.set(0.35, shoulderY - 0.6, 0);
-  rightForearm.castShadow = true;
-  rightForearm.receiveShadow = true;
-  parts.rightForearm = rightForearm;
-  bodyGroup.add(rightForearm);
-
-  // Hands
-  const handGeo = new THREE.BoxGeometry(0.11, 0.11, 0.11);
-
-  const leftHand = new THREE.Mesh(handGeo, skinMat);
-  leftHand.position.set(-0.35, shoulderY - 0.82, 0);
-  leftHand.castShadow = true;
-  leftHand.receiveShadow = true;
-  parts.leftHand = leftHand;
-  bodyGroup.add(leftHand);
-
-  const rightHand = new THREE.Mesh(handGeo, skinMat);
-  rightHand.position.set(0.35, shoulderY - 0.82, 0);
-  rightHand.castShadow = true;
-  rightHand.receiveShadow = true;
-  parts.rightHand = rightHand;
-  bodyGroup.add(rightHand);
-
-  charGroup.add(bodyGroup);
-
-  // ══════════════════════════════════════════════════════════════════════
-  // HEAD GROUP (Y = 2.38)
-  // ══════════════════════════════════════════════════════════════════════
-
-  const headGroup = new THREE.Group();
-  headGroup.position.y = 2.38;
-  parts.headGroup = headGroup;
-
-  // Neck (Y = 2.1, small cylinder connecting body to head)
-  const neckGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.15, 12);
-  const neckMat = new THREE.MeshStandardMaterial({ color: config.skin });
-  const neck = new THREE.Mesh(neckGeo, neckMat);
-  neck.position.y = -0.28; // 2.38 - 0.28 = 2.1
-  neck.castShadow = true;
-  neck.receiveShadow = true;
-  headGroup.add(neck);
-
-  // Head (slightly large - Roblox style)
-  const headGeo = new THREE.BoxGeometry(0.78, 0.75, 0.78);
-  const headMat = new THREE.MeshStandardMaterial({ color: config.skin });
-  const head = new THREE.Mesh(headGeo, headMat);
-  head.castShadow = true;
-  head.receiveShadow = true;
-  parts.head = head;
-  headGroup.add(head);
 
   // Eyes
-  const eyeGeo = new THREE.SphereGeometry(0.06, 10, 10);
-  const eyeMat = new THREE.MeshStandardMaterial({ color: config.eyeColor });
-
-  const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-  leftEye.position.set(-0.18, 0.08, 0.39);
-  leftEye.castShadow = true;
-  headGroup.add(leftEye);
-
-  const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-  rightEye.position.set(0.18, 0.08, 0.39);
-  rightEye.castShadow = true;
-  headGroup.add(rightEye);
-
-  // Mouth
-  const mouthGeo = new THREE.BoxGeometry(0.22, 0.04, 0.02);
-  const mouthMat = new THREE.MeshStandardMaterial({ color: '#000000' });
-  const mouth = new THREE.Mesh(mouthGeo, mouthMat);
-  mouth.position.set(0, -0.15, 0.39);
-  mouth.castShadow = true;
-  headGroup.add(mouth);
+  [[-0.17],[0.17]].forEach(([x]) => {
+    parts.headG.add(P(B(0.17,0.17,0.04,white), x,0.05,0.39));
+    parts.headG.add(P(B(0.09,0.09,0.06,eyeM), x,0.05,0.42));
+  });
+  parts.headG.add(P(B(0.26,0.07,0.04,M(type==='zombie'?'#228B22':type==='demon'?'#FF6600':'#8B4513')), 0,-0.2,0.41));
+  if(type==='zombie') parts.headG.add(P(B(0.07,0.1,0.05,white), 0.06,-0.19,0.43));
+  parts.headG.add(P(CY(0.13,0.15,0.16,skin), 0,-0.47,0));
 
   // Ears
-  const earGeo = new THREE.SphereGeometry(0.08, 10, 10);
-  const earMat = new THREE.MeshStandardMaterial({ color: config.skin });
+  parts.headG.add(P(B(0.1,0.25,0.2,skin), -0.46,0,0));
+  parts.headG.add(P(B(0.1,0.25,0.2,skin),  0.46,0,0));
+  if(type==='demon') {
+    const eL=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.25,6),M('#CC0000')); eL.castShadow=true;
+    eL.position.set(-0.48,0.22,0); eL.rotation.z=0.4; parts.headG.add(eL);
+    const eR=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.25,6),M('#CC0000')); eR.castShadow=true;
+    eR.position.set(0.48,0.22,0); eR.rotation.z=-0.4; parts.headG.add(eR);
+  }
+  group.add(parts.headG);
 
-  const leftEar = new THREE.Mesh(earGeo, earMat);
-  leftEar.position.set(-0.42, 0, 0);
-  leftEar.scale.z = 0.5;
-  leftEar.castShadow = true;
-  headGroup.add(leftEar);
-
-  const rightEar = new THREE.Mesh(earGeo, earMat);
-  rightEar.position.set(0.42, 0, 0);
-  rightEar.scale.z = 0.5;
-  rightEar.castShadow = true;
-  headGroup.add(rightEar);
-
-  // Hair styles (sits directly on top of head)
-  if (config.hairStyle === 'normal') {
-    const hairGeo = new THREE.BoxGeometry(0.8, 0.18, 0.8);
-    const hairMat = new THREE.MeshStandardMaterial({ color: config.hair });
-    const hair = new THREE.Mesh(hairGeo, hairMat);
-    hair.position.y = 0.465; // Sits on top of head
-    hair.castShadow = true;
-    headGroup.add(hair);
-  } else if (config.hairStyle === 'long') {
-    const hairMat = new THREE.MeshStandardMaterial({ color: config.hair });
-
-    // Top
-    const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.18, 0.8), hairMat);
-    hairTop.position.y = 0.465;
-    hairTop.castShadow = true;
-    headGroup.add(hairTop);
-
-    // Sides
-    const leftHair = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.55, 0.6), hairMat);
-    leftHair.position.set(-0.43, 0, 0);
-    leftHair.castShadow = true;
-    headGroup.add(leftHair);
-
-    const rightHair = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.55, 0.6), hairMat);
-    rightHair.position.set(0.43, 0, 0);
-    rightHair.castShadow = true;
-    headGroup.add(rightHair);
-
-    // Back
-    const backHair = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.08), hairMat);
-    backHair.position.set(0, 0, -0.43);
-    backHair.castShadow = true;
-    headGroup.add(backHair);
-  } else if (config.hairStyle === 'messy') {
-    const hairMat = new THREE.MeshStandardMaterial({ color: config.hair });
-    for (let i = 0; i < 6; i++) {
-      const chunk = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), hairMat);
-      chunk.position.set(
-        (Math.random() - 0.5) * 0.6,
-        0.4 + Math.random() * 0.2,
-        (Math.random() - 0.5) * 0.6
-      );
-      chunk.rotation.set(Math.random(), Math.random(), Math.random());
-      chunk.castShadow = true;
-      headGroup.add(chunk);
-    }
-  } else if (config.hairStyle === 'horns') {
-    const hornGeo = new THREE.ConeGeometry(0.12, 0.35, 10);
-    const hornMat = new THREE.MeshStandardMaterial({ color: '#8B0000' });
-
-    const leftHorn = new THREE.Mesh(hornGeo, hornMat);
-    leftHorn.position.set(-0.25, 0.5, 0);
-    leftHorn.rotation.z = -0.3;
-    leftHorn.castShadow = true;
-    headGroup.add(leftHorn);
-
-    const rightHorn = new THREE.Mesh(hornGeo, hornMat);
-    rightHorn.position.set(0.25, 0.5, 0);
-    rightHorn.rotation.z = 0.3;
-    rightHorn.castShadow = true;
-    headGroup.add(rightHorn);
-  } else if (config.hairStyle === 'antenna') {
-    const antennaGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8);
-    const antennaMat = new THREE.MeshStandardMaterial({ color: config.hair });
-    const antenna = new THREE.Mesh(antennaGeo, antennaMat);
-    antenna.position.y = 0.6;
-    antenna.castShadow = true;
-    headGroup.add(antenna);
-
-    const lightGeo = new THREE.SphereGeometry(0.06, 10, 10);
-    const lightMat = new THREE.MeshStandardMaterial({
-      color: config.eyeColor,
-      emissive: config.eyeColor,
-      emissiveIntensity: 0.6
-    });
-    const light = new THREE.Mesh(lightGeo, lightMat);
-    light.position.y = 0.82;
-    light.castShadow = true;
-    headGroup.add(light);
+  // BODY
+  parts.bodyG = new THREE.Group();
+  parts.bodyG.position.set(0, 1.62, 0);
+  parts.bodyG.add(B(0.9,0.9,0.5,shirt));
+  parts.bodyG.add(P(B(0.88,0.22,0.48,pants), 0,-0.56,0));
+  if(type==='robot') {
+    parts.bodyG.add(P(B(0.35,0.3,0.1,M('#546E7A')), 0,0.1,0.28));
+    const led1=S(0.06,M('#00E5FF',0.3,0.9)); led1.position.set(-0.1,0.1,0.34); parts.bodyG.add(led1);
+    const led2=S(0.06,M('#00E5FF',0.3,0.9)); led2.position.set(0.1,0.1,0.34); parts.bodyG.add(led2);
   }
 
-  // Special zombie feature
-  if (type === 'zombie') {
-    const toothGeo = new THREE.BoxGeometry(0.05, 0.1, 0.03);
-    const toothMat = new THREE.MeshStandardMaterial({ color: '#FFFFFF' });
-    const tooth = new THREE.Mesh(toothGeo, toothMat);
-    tooth.position.set(0.06, -0.22, 0.39);
-    tooth.castShadow = true;
-    headGroup.add(tooth);
-  }
+  // LEFT ARM
+  parts.lArmG = new THREE.Group();
+  parts.lArmG.position.set(-0.55, 0.42, 0);
+  parts.lArmG.add(S(0.2, shirt));
+  parts.lArmG.add(P(B(0.28,0.46,0.28,shirt), 0,-0.28,0));
+  parts.lElbowG = new THREE.Group();
+  parts.lElbowG.position.set(0,-0.52,0);
+  parts.lElbowG.add(S(0.155,skin));
+  parts.lElbowG.add(P(B(0.24,0.42,0.24,skin), 0,-0.26,0));
+  parts.lElbowG.add(P(B(0.28,0.19,0.22,skin), 0,-0.62,0));
+  parts.lArmG.add(parts.lElbowG);
+  parts.bodyG.add(parts.lArmG);
 
-  // Special demon ears
-  if (type === 'demon') {
-    const demonEarGeo = new THREE.ConeGeometry(0.1, 0.25, 10);
-    const demonEarMat = new THREE.MeshStandardMaterial({ color: config.skin });
+  // RIGHT ARM
+  parts.rArmG = new THREE.Group();
+  parts.rArmG.position.set(0.55, 0.42, 0);
+  parts.rArmG.add(S(0.2, shirt));
+  parts.rArmG.add(P(B(0.28,0.46,0.28,shirt), 0,-0.28,0));
+  parts.rElbowG = new THREE.Group();
+  parts.rElbowG.position.set(0,-0.52,0);
+  parts.rElbowG.add(S(0.155,skin));
+  parts.rElbowG.add(P(B(0.24,0.42,0.24,skin), 0,-0.26,0));
+  parts.rElbowG.add(P(B(0.28,0.19,0.22,skin), 0,-0.62,0));
+  parts.rArmG.add(parts.rElbowG);
+  parts.bodyG.add(parts.rArmG);
+  group.add(parts.bodyG);
 
-    const leftDemonEar = new THREE.Mesh(demonEarGeo, demonEarMat);
-    leftDemonEar.position.set(-0.42, 0.1, 0);
-    leftDemonEar.rotation.z = -Math.PI / 2;
-    leftDemonEar.castShadow = true;
-    headGroup.add(leftDemonEar);
+  // LEFT LEG
+  parts.lLegG = new THREE.Group();
+  parts.lLegG.position.set(-0.22, 1.05, 0);
+  parts.lLegG.add(S(0.19,pants));
+  parts.lLegG.add(P(B(0.33,0.46,0.33,pants), 0,-0.28,0));
+  parts.lKneeG = new THREE.Group();
+  parts.lKneeG.position.set(0,-0.52,0);
+  parts.lKneeG.add(S(0.17,pants));
+  parts.lKneeG.add(P(B(0.29,0.42,0.29,pants), 0,-0.26,0));
+  parts.lKneeG.add(P(B(0.35,0.16,0.5,shoes), 0,-0.6,0.05));
+  parts.lLegG.add(parts.lKneeG);
+  group.add(parts.lLegG);
 
-    const rightDemonEar = new THREE.Mesh(demonEarGeo, demonEarMat);
-    rightDemonEar.position.set(0.42, 0.1, 0);
-    rightDemonEar.rotation.z = Math.PI / 2;
-    rightDemonEar.castShadow = true;
-    headGroup.add(rightDemonEar);
-  }
+  // RIGHT LEG
+  parts.rLegG = new THREE.Group();
+  parts.rLegG.position.set(0.22, 1.05, 0);
+  parts.rLegG.add(S(0.19,pants));
+  parts.rLegG.add(P(B(0.33,0.46,0.33,pants), 0,-0.28,0));
+  parts.rKneeG = new THREE.Group();
+  parts.rKneeG.position.set(0,-0.52,0);
+  parts.rKneeG.add(S(0.17,pants));
+  parts.rKneeG.add(P(B(0.29,0.42,0.29,pants), 0,-0.26,0));
+  parts.rKneeG.add(P(B(0.35,0.16,0.5,shoes), 0,-0.6,0.05));
+  parts.rLegG.add(parts.rKneeG);
+  group.add(parts.rLegG);
 
-  charGroup.add(headGroup);
-
-  // Store ALL parts including groups for animation
-  charGroup.userData.parts = {
-    ...parts,
-    headG: headGroup,
-    bodyG: bodyGroup,
-    lArmG: leftUpperArm,
-    rArmG: rightUpperArm,
-    lLegG: leftThigh,
-    rLegG: rightThigh
-  };
-  charGroup.userData.type = type;
-  charGroup.userData.config = config;
-
-  // No initial scaling - playerCharacterLoader will scale to final height
-  return charGroup;
+  group.userData.parts = parts;
+  return group;
 }
 
-export function animateCharacter(charGroup, animType, t, delta) {
-  if (!charGroup || !charGroup.userData.parts) {
-    console.warn('[CharacterBuilder] animateCharacter: missing charGroup or parts', {
-      hasCharGroup: !!charGroup,
-      hasParts: !!charGroup?.userData?.parts
-    });
-    return;
+export function resetPose(group) {
+  const P = group.userData.parts;
+  if(!P) return;
+  P.lArmG.rotation.set(0,0,0.12); P.rArmG.rotation.set(0,0,-0.12);
+  P.lElbowG.rotation.set(0,0,0); P.rElbowG.rotation.set(0,0,0);
+  P.lLegG.rotation.set(0,0,0); P.rLegG.rotation.set(0,0,0);
+  P.lKneeG.rotation.set(0,0,0); P.rKneeG.rotation.set(0,0,0);
+  P.bodyG.rotation.set(0,0,0); P.headG.rotation.set(0,0,0);
+  group.position.y = 0;
+  P.lLegG.position.set(-0.22,1.05,0); P.rLegG.position.set(0.22,1.05,0);
+  P.bodyG.position.set(0,1.62,0); P.headG.position.set(0,2.42,0);
+}
+
+export function animateCharacter(group, animType, t, delta) {
+  resetPose(group);
+  const p = group.userData.parts;
+  if(!p) return;
+
+  if(animType === 'idle') {
+    group.position.y = Math.sin(t*1.1)*0.04;
+    p.lArmG.rotation.x = Math.sin(t*0.9)*0.06;
+    p.rArmG.rotation.x = -Math.sin(t*0.9)*0.06;
+    p.headG.rotation.z = Math.sin(t*0.7)*0.04;
   }
-
-  const { headG, bodyG, lArmG, rArmG, lLegG, rLegG } = charGroup.userData.parts;
-
-  // Reset all transforms to default before applying animation
-  // DO NOT touch charGroup.position - that's controlled by physics!
-  bodyG.position.y = 1.65;
-  bodyG.rotation.x = 0;
-  bodyG.rotation.y = 0;
-  bodyG.rotation.z = 0;
-  bodyG.scale.set(1, 1, 1);
-  headG.position.y = 2.38;
-  headG.rotation.z = 0;
-  lArmG.rotation.x = 0;
-  rArmG.rotation.x = 0;
-  lArmG.rotation.z = 0;
-  rArmG.rotation.z = 0;
-  lLegG.rotation.x = 0;
-  rLegG.rotation.x = 0;
-
-  switch (animType) {
-    case 'idle':
-      // Gentle breathing - only move body up/down, not whole character
-      bodyG.scale.y = 1 + Math.sin(t * 1.5) * 0.03;
-      bodyG.position.y = 1.65 + Math.sin(t * 1.2) * 0.04;
-      lArmG.rotation.z = 0.15 + Math.sin(t * 1.2) * 0.05;
-      rArmG.rotation.z = -0.15 - Math.sin(t * 1.2) * 0.05;
-      break;
-
-    case 'walk':
-      // Exaggerated steps - body bobs up/down
-      lArmG.rotation.x = Math.sin(t * 2.8) * 0.9;
-      rArmG.rotation.x = -Math.sin(t * 2.8) * 0.9;
-      lLegG.rotation.x = -Math.sin(t * 2.8) * 0.75;
-      rLegG.rotation.x = Math.sin(t * 2.8) * 0.75;
-      bodyG.position.y = 1.65 + Math.abs(Math.sin(t * 2.8)) * 0.18;
-      bodyG.rotation.z = Math.sin(t * 2.8) * 0.08;
-      break;
-
-    case 'run':
-      // Very fast and leaning - body bobs and leans forward
-      lArmG.rotation.x = Math.sin(t * 5) * 1.3;
-      rArmG.rotation.x = -Math.sin(t * 5) * 1.3;
-      lLegG.rotation.x = -Math.sin(t * 5) * 1.1;
-      rLegG.rotation.x = Math.sin(t * 5) * 1.1;
-      bodyG.position.y = 1.65 + Math.abs(Math.sin(t * 5)) * 0.25;
-      bodyG.rotation.x = -0.3;
-      break;
-
-    case 'jump':
-      // Clear tuck and land - just animate limbs, physics handles Y position
-      const jt = (Math.sin(t * 2) + 1) / 2;
-      lLegG.rotation.x = -jt * 0.8;
-      rLegG.rotation.x = -jt * 0.8;
-      lArmG.rotation.x = -jt * 1.0;
-      rArmG.rotation.x = -jt * 1.0;
-      // Tuck body slightly
-      bodyG.position.y = 1.65 - jt * 0.2;
-      break;
-
-    case 'sit':
-      // Legs rotate forward
-      lLegG.rotation.x = Math.PI / 2;
-      rLegG.rotation.x = Math.PI / 2;
-
-      // Body lowers
-      bodyG.position.y = 1.2;
-      headG.position.y = 2.0;
-
-      // Arms rest
-      lArmG.rotation.x = 0.2;
-      rArmG.rotation.x = 0.2;
-      break;
-
-    case 'dance':
-      // Very visible dance moves - body bounces
-      const s = Math.sin(t * 3.5);
-      const s2 = Math.sin(t * 3.5 + Math.PI);
-      bodyG.position.y = 1.65 + Math.abs(Math.sin(t * 3.5)) * 0.3;
-      bodyG.rotation.z = s * 0.35;
-      bodyG.rotation.x = Math.sin(t * 7) * 0.15;
-      headG.rotation.z = -s * 0.2;
-      lArmG.rotation.x = Math.sin(t * 3.5) * 1.2;
-      rArmG.rotation.x = -Math.sin(t * 3.5) * 1.2;
-      lArmG.rotation.z = 0.4 + Math.sin(t * 3.5) * 0.6;
-      rArmG.rotation.z = -0.4 - Math.sin(t * 3.5) * 0.6;
-      lLegG.rotation.x = s * 0.5;
-      rLegG.rotation.x = s2 * 0.5;
-      break;
-
-    default:
-      // Already reset at the start of function
-      break;
+  else if(animType === 'walk') {
+    const s = Math.sin(t*2.8);
+    p.lArmG.rotation.x = s*0.7; p.rArmG.rotation.x = -s*0.7;
+    p.lElbowG.rotation.x = Math.max(0,-s)*0.5; p.rElbowG.rotation.x = Math.max(0,s)*0.5;
+    p.lLegG.rotation.x = -s*0.65; p.rLegG.rotation.x = s*0.65;
+    p.lKneeG.rotation.x = Math.max(0,s)*0.55; p.rKneeG.rotation.x = Math.max(0,-s)*0.55;
+    group.position.y = Math.abs(s)*0.1-0.02;
+    p.bodyG.rotation.z = s*0.05;
+  }
+  else if(animType === 'run') {
+    const s = Math.sin(t*4.5);
+    p.lArmG.rotation.x = s*1.1; p.rArmG.rotation.x = -s*1.1;
+    p.lArmG.rotation.z = 0.2; p.rArmG.rotation.z = -0.2;
+    p.lElbowG.rotation.x = -0.8+Math.max(0,-s)*0.6;
+    p.rElbowG.rotation.x = -0.8+Math.max(0,s)*0.6;
+    p.lLegG.rotation.x = -s*1.0; p.rLegG.rotation.x = s*1.0;
+    p.lKneeG.rotation.x = Math.max(0,s)*0.9; p.rKneeG.rotation.x = Math.max(0,-s)*0.9;
+    group.position.y = Math.abs(s)*0.18-0.04;
+    p.bodyG.rotation.x = -0.22; p.headG.rotation.x = 0.12;
+  }
+  else if(animType === 'jump') {
+    const jt = (Math.sin(t*1.8)+1)/2;
+    group.position.y = jt*1.1;
+    p.lLegG.rotation.x = -jt*0.7; p.rLegG.rotation.x = -jt*0.7;
+    p.lKneeG.rotation.x = jt*1.1; p.rKneeG.rotation.x = jt*1.1;
+    p.lArmG.rotation.x = -jt*1.0; p.rArmG.rotation.x = -jt*1.0;
+    p.lArmG.rotation.z = jt*0.5; p.rArmG.rotation.z = -jt*0.5;
+  }
+  else if(animType === 'sit') {
+    p.lLegG.rotation.x = -1.5; p.rLegG.rotation.x = -1.5;
+    p.lKneeG.rotation.x = 1.35; p.rKneeG.rotation.x = 1.35;
+    p.lLegG.position.set(-0.22,0.7,0.5); p.rLegG.position.set(0.22,0.7,0.5);
+    p.bodyG.position.set(0,1.35,0); p.headG.position.set(0,2.15,0);
+    p.lArmG.rotation.set(0.2,0,0.25); p.rArmG.rotation.set(0.2,0,-0.25);
+    p.lElbowG.rotation.x = 0.3; p.rElbowG.rotation.x = 0.3;
+  }
+  else if(animType === 'dance') {
+    const s = Math.sin(t*3.5);
+    group.position.y = Math.abs(s)*0.18;
+    p.bodyG.rotation.z = s*0.28; p.headG.rotation.z = -s*0.18;
+    p.lArmG.rotation.x = Math.sin(t*3.5+Math.PI)*1.2; p.rArmG.rotation.x = s*1.2;
+    p.lArmG.rotation.z = 0.3+s*0.5; p.rArmG.rotation.z = -0.3-s*0.5;
+    p.lElbowG.rotation.x = Math.abs(s)*0.8; p.rElbowG.rotation.x = Math.abs(s)*0.8;
+    p.lLegG.rotation.x = s*0.45; p.rLegG.rotation.x = -s*0.45;
+    p.lKneeG.rotation.x = Math.abs(s)*0.4; p.rKneeG.rotation.x = Math.abs(s)*0.4;
+    p.bodyG.rotation.x = Math.sin(t*1.8)*0.15;
   }
 }
