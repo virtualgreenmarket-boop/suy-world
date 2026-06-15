@@ -199,11 +199,11 @@ export function animateCharacter(group, animType, t, delta) {
     p.bodyG.position.set(0, 1.45, 0.15);
     p.headG.position.set(0, 2.25, 0.05);
 
-    // Bend legs forward for sitting
-    p.lLegG.rotation.x = 1.4; // Forward, not backward!
-    p.rLegG.rotation.x = 1.4;
-    p.lKneeG.rotation.x = -1.3; // Bend knees
-    p.rKneeG.rotation.x = -1.3;
+    // Bend legs - rotated 180 degrees
+    p.lLegG.rotation.x = -1.4; // 180° rotation
+    p.rLegG.rotation.x = -1.4;
+    p.lKneeG.rotation.x = 1.3; // Bend knees opposite direction
+    p.rKneeG.rotation.x = 1.3;
 
     // Rest arms on legs
     p.lArmG.rotation.set(0.8, 0, 0.15);
