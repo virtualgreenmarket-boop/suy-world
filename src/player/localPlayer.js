@@ -28,7 +28,8 @@ let _camDist    = 10;
 let velocityY   = 0;
 let _isJumping  = false;
 let _isSitting  = false;
-let _isPlayingSpecialAnim = false; // Prevents auto-overriding dance/attack
+let _isPlayingSpecialAnim = false; // Prevents auto-overriding dance
+let _isMoving   = false; // Track if player is currently moving
 
 const keys = {};
 let isDragging = false, lastMouseX = 0, lastMouseY = 0;
@@ -107,7 +108,8 @@ function _triggerJump() {
 }
 
 function _triggerDance() {
-  if (_isSitting || _isJumping) return;
+  // Don't allow dance during sitting, jumping, walking, or running
+  if (_isSitting || _isJumping || _isMoving) return;
 
   // Toggle dance on/off
   if (_isPlayingSpecialAnim && playerGroup.userData._animState === 'dance') {
@@ -174,6 +176,7 @@ export function updateLocalPlayer(delta) {
                    keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
   const sprint   = (kbMoving && (keys['ShiftLeft'] || keys['ShiftRight'])) || isRunning();
   const isMoving = move.lengthSq() > 0;
+  _isMoving = isMoving; // Update global movement state
 
   if (isMoving) {
     let speed;
