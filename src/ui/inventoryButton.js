@@ -1,3 +1,12 @@
+import * as THREE from 'three';
+import { buildCharacter } from '../player/CharacterBuilder.js';
+
+let _previewScene = null;
+let _previewCamera = null;
+let _previewRenderer = null;
+let _previewCharacter = null;
+let _animationFrame = null;
+
 export function initInventoryButton() {
   console.log('[inventory] Initializing inventory button...');
 
@@ -103,7 +112,23 @@ export function initInventoryButton() {
       }
 
       .inventory-content {
-        min-height: 200px;
+        display: flex;
+        gap: 20px;
+        min-height: 300px;
+      }
+
+      #character-preview {
+        width: 200px;
+        height: 300px;
+        background: rgba(0,0,0,0.3);
+        border: 2px solid rgba(255,255,255,0.2);
+        border-radius: 12px;
+        flex-shrink: 0;
+      }
+
+      .inventory-options {
+        flex: 1;
+        min-width: 0;
       }
 
       .inventory-section {
@@ -184,6 +209,15 @@ export function initInventoryButton() {
           font-size: 22px;
         }
 
+        .inventory-content {
+          flex-direction: column;
+        }
+
+        #character-preview {
+          width: 100%;
+          height: 200px;
+        }
+
         .item-grid {
           grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
         }
@@ -207,6 +241,11 @@ export function initInventoryButton() {
       </div>
 
       <div class="inventory-content">
+        <!-- Character preview canvas -->
+        <canvas id="character-preview"></canvas>
+
+        <!-- Options area -->
+        <div class="inventory-options">
         <!-- Clothes tab -->
         <div class="inventory-section active" data-section="clothes">
           <div class="color-picker-row">
@@ -278,6 +317,8 @@ export function initInventoryButton() {
             </button>
           </div>
         </div>
+        </div>
+        <!-- End of inventory-options -->
       </div>
     </div>
   `;
@@ -307,13 +348,24 @@ export function initInventoryButton() {
   const panel = document.getElementById('inventory-panel');
   const closeBtn = panel.querySelector('.inventory-close');
 
+  // Initialize 3D preview
+  initCharacterPreview();
+
   // Toggle panel
   btn.addEventListener('click', () => {
+    const isOpening = !panel.classList.contains('open');
     panel.classList.toggle('open');
+
+    if (isOpening) {
+      startPreviewAnimation();
+    } else {
+      stopPreviewAnimation();
+    }
   });
 
   closeBtn.addEventListener('click', () => {
     panel.classList.remove('open');
+    stopPreviewAnimation();
   });
 
   // Close on ESC
@@ -390,7 +442,97 @@ export function initInventoryButton() {
   console.log('[inventory] Inventory button initialized');
 }
 
+function initCharacterPreview() {
+  const canvas = document.getElementById('character-preview');
+  if (!canvas) return;
+
+  // Setup Three.js scene
+  _previewScene = new THREE.Scene();
+  _previewScene.background = new THREE.Color(0x1a1a1a);
+
+  _previewCamera = new THREE.PerspectiveCamera(45, 200 / 300, 0.1, 100);
+  _previewCamera.position.set(0, 1.2, 3.5);
+  _previewCamera.lookAt(0, 1.2, 0);
+
+  _previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  _previewRenderer.setSize(200, 300);
+  _previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  _previewRenderer.shadowMap.enabled = true;
+
+  // Lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+  _previewScene.add(ambient);
+
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  keyLight.position.set(2, 3, 2);
+  keyLight.castShadow = true;
+  _previewScene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  fillLight.position.set(-2, 2, -1);
+  _previewScene.add(fillLight);
+
+  // Create character (default 'boy')
+  _previewCharacter = buildCharacter('boy');
+
+  // Scale to fit in preview (smaller than game size)
+  const bbox = new THREE.Box3().setFromObject(_previewCharacter);
+  const size = bbox.getSize(new THREE.Vector3());
+  const scale = 2.2 / size.y;
+  _previewCharacter.scale.setScalar(scale);
+
+  // Position at ground
+  _previewCharacter.updateMatrixWorld(true);
+  const bbox2 = new THREE.Box3().setFromObject(_previewCharacter);
+  _previewCharacter.position.y = -bbox2.min.y;
+
+  _previewScene.add(_previewCharacter);
+
+  console.log('[inventory] Character preview initialized');
+}
+
+function startPreviewAnimation() {
+  let t = 0;
+
+  function animate() {
+    if (!_previewRenderer || !_previewScene) return;
+
+    _animationFrame = requestAnimationFrame(animate);
+
+    t += 0.016;
+
+    // Rotate character slowly
+    if (_previewCharacter) {
+      _previewCharacter.rotation.y = t * 0.5;
+    }
+
+    _previewRenderer.render(_previewScene, _previewCamera);
+  }
+
+  animate();
+}
+
+function stopPreviewAnimation() {
+  if (_animationFrame) {
+    cancelAnimationFrame(_animationFrame);
+    _animationFrame = null;
+  }
+}
+
 function updatePlayerAppearance(changes) {
+  // Update preview character colors
+  if (_previewCharacter && changes) {
+    _previewCharacter.traverse(child => {
+      if (child.isMesh && child.material) {
+        // Update colors based on changes
+        if (changes.skin) {
+          // Update skin color for head, hands, etc.
+          // This is a simplified version - you'd need to track which meshes are which
+        }
+      }
+    });
+  }
+
   if (window.updatePlayerAppearance) {
     window.updatePlayerAppearance(changes);
   } else {
