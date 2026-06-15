@@ -33,7 +33,7 @@ export function initActionButtons(onAttack, onDance) {
     cursor: 'pointer',
   });
   danceBtnEl.textContent = '💃';
-  danceBtnEl.title = 'Dance (D)';
+  danceBtnEl.title = 'Dance (R)';
   document.body.appendChild(danceBtnEl);
 
   // Touch events

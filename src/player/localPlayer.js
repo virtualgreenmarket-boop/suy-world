@@ -70,7 +70,7 @@ export function initLocalPlayer(scene, camera, name, characterId) {
       if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
     }
     if (e.code === 'KeyI') toggleInventoryPanel();
-    if (e.code === 'KeyD') _triggerDance();
+    if (e.code === 'KeyR') _triggerDance();
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
 
