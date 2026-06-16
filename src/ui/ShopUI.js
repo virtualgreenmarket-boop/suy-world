@@ -1,4 +1,5 @@
 import { attachHat, attachHandItem, HATS, HAND_ITEMS } from '../player/CharacterBuilder.js';
+import { spawnPet, removePet } from '../world/PetSystem.js';
 
 // Shop items data - all 5 categories with 20 items each, sorted by price
 const SHOP_ITEMS = {
@@ -562,12 +563,10 @@ function _applyItem(item, category) {
       break;
 
     case 'pets':
-      if (window.spawnPlayerPet) {
-        window.spawnPlayerPet({
-          type: item.type,
-          colorIndex: item.colorIndex
-        });
-      }
+      spawnPet({
+        type: item.type,
+        colorIndex: item.colorIndex
+      }, window._localPlayerGroup);
       break;
 
     case 'shoes':

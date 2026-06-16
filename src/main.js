@@ -30,8 +30,13 @@ import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
 import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
+import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
+import { initHerdSystem, updateHerdSystem } from './world/HerdSystem.js';
+import { initMainShop, updateMainShop } from './world/MainShop.js';
+import { initPetSystem, updatePet } from './world/PetSystem.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
+import { initShopUI } from './ui/ShopUI.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
 import { initInteractionUI, updateInteractions }         from './ui/interactionUI.js';
@@ -189,9 +194,12 @@ initDecor(scene);
 initBeach(scene);
 initCollision();
 spawnPlazaTree(scene);
+initHerdSystem(scene);
+initPetSystem(scene);
 
 // ── UI (initialize early, before character loads) ─────────────────────
 initHud();
+initShopUI();
 initChatUI();
 bindSendChat(sendChat);
 initTouchControls();
@@ -209,9 +217,8 @@ setMuteAll(_s.muteAll);
 setMusicVolumeCallback(v => setMusicVolume(v));
 setMuteAllCallback(b => setMuteAll(b));
 
-// Preload trees and NPCs in background
-preloadTrees().catch(err => console.error('[trees] failed:', err));
-preloadAllNpcs().catch(err => console.error('[npc-glb] failed:', err));
+// Trees and NPCs already preloaded in loading screen
+console.log('[main] Assets already preloaded during loading screen');
 
 // Preload selected character (no GLB loading, just store the type)
 console.log('[main] 📥 Loading character...');
@@ -229,6 +236,19 @@ preloadPlayerCharacter(selectedCharacterId)
 
       // Initialize inventory button after player is ready
       initInventoryButton();
+
+      // Initialize animal system (needs to be after player initialization to get playerGroup)
+      // Wait a bit for player to spawn
+      setTimeout(() => {
+        const playerGroup = scene.children.find(c => c.userData._charModel);
+        if (playerGroup) {
+          initAnimalSystem(scene, playerGroup);
+          // Initialize main shop NPC
+          initMainShop(scene, camera, playerGroup);
+          // Expose player group globally for shop system
+          window._localPlayerGroup = playerGroup;
+        }
+      }, 1000);
     });
   })
   .catch(err => {
@@ -240,6 +260,18 @@ preloadPlayerCharacter(selectedCharacterId)
       initLocalPlayer(scene, camera, username || name, selectedCharacterId);
       initEconomy(getSocket(), coins, updateCoinDisplay);
       initInventoryButton();
+
+      // Initialize animal system (needs to be after player initialization)
+      setTimeout(() => {
+        const playerGroup = scene.children.find(c => c.userData._charModel);
+        if (playerGroup) {
+          initAnimalSystem(scene, playerGroup);
+          // Initialize main shop NPC
+          initMainShop(scene, camera, playerGroup);
+          // Expose player group globally for shop system
+          window._localPlayerGroup = playerGroup;
+        }
+      }, 1000);
     });
   });
 
@@ -288,6 +320,12 @@ function animate() {
   updatePlaza(delta, npcTime);
   updateHangars(delta);
   updateMarina(delta);
+  updateAnimalSystem(delta);
+  updateHerdSystem(delta);
+  updateMainShop(delta);
+  if (window._localPlayerGroup) {
+    updatePet(delta, window._localPlayerGroup);
+  }
 
   // Procedural NPC animations (wave / spin / dance)
   for (let i = 0; i < npcs.length; i++) {

@@ -5,6 +5,9 @@ import { toggleSettingsPanel }  from './settingsPanel.js';
 let countEl, slotEl, coinEl;
 
 export function initHud() {
+  // Initialize player coins from localStorage
+  window.playerCoins = parseInt(localStorage.getItem('player_coins') || '500');
+
   _injectStyles();
 
   // ── Top-right: online count ───────────────────────────────────────────
@@ -21,6 +24,13 @@ export function initHud() {
   topLeft.appendChild(coinEl);
   _init3DCoin(coinEl.querySelector('.hud-coin-icon'));
 
+  // Emoji button
+  const emojiBtn = el('button', { id: 'hud-emoji' });
+  emojiBtn.title = 'Emotions';
+  emojiBtn.innerHTML = '😊';
+  emojiBtn.addEventListener('click', toggleEmojiPicker);
+  topLeft.appendChild(emojiBtn);
+
   const gearBtn = el('button', { id: 'hud-gear' });
   gearBtn.title = 'Settings';
   gearBtn.innerHTML = '⚙';
@@ -29,10 +39,56 @@ export function initHud() {
 
   document.body.appendChild(topLeft);
 
+  // Emoji picker (hidden by default)
+  const emojiPicker = el('div', { id: 'hud-emoji-picker' });
+  emojiPicker.style.display = 'none';
+  const emotions = [
+    { emoji: '😐', key: 'neutral' },
+    { emoji: '😊', key: 'happy' },
+    { emoji: '😠', key: 'angry' },
+    { emoji: '😍', key: 'love' },
+    { emoji: '😢', key: 'sad' },
+    { emoji: '😂', key: 'laugh' }
+  ];
+  emotions.forEach(({ emoji, key }) => {
+    const btn = el('button', { class: 'emoji-option' });
+    btn.textContent = emoji;
+    btn.addEventListener('click', () => selectEmotion(key));
+    emojiPicker.appendChild(btn);
+  });
+  document.body.appendChild(emojiPicker);
+
   // ── Centre: slot label ────────────────────────────────────────────────
   slotEl = el('div', { id: 'hud-slot' });
   slotEl.style.display = 'none';
   document.body.appendChild(slotEl);
+}
+
+function toggleEmojiPicker() {
+  const picker = document.getElementById('hud-emoji-picker');
+  if (picker.style.display === 'none') {
+    picker.style.display = 'flex';
+    picker.style.opacity = '0';
+    setTimeout(() => { picker.style.opacity = '1'; }, 10);
+  } else {
+    picker.style.opacity = '0';
+    setTimeout(() => { picker.style.display = 'none'; }, 200);
+  }
+}
+
+function selectEmotion(emotionKey) {
+  const picker = document.getElementById('hud-emoji-picker');
+  picker.style.opacity = '0';
+  setTimeout(() => { picker.style.display = 'none'; }, 200);
+
+  if (window.setPlayerEmotion) {
+    window.setPlayerEmotion(emotionKey);
+    setTimeout(() => {
+      if (window.clearPlayerEmotion) {
+        window.clearPlayerEmotion();
+      }
+    }, 5000);
+  }
 }
 
 function _injectStyles() {
@@ -49,7 +105,7 @@ function _injectStyles() {
       position: fixed; top: 16px; left: 16px;
       display: flex; gap: 8px; z-index: 100;
     }
-    #hud-gear {
+    #hud-emoji, #hud-gear {
       background: rgba(0,0,0,0.50);
       border: 1px solid rgba(255,255,255,0.18);
       color: #fff; border-radius: 20px;
@@ -58,8 +114,41 @@ function _injectStyles() {
       transition: background 0.15s;
       font-family: system-ui;
     }
-    #hud-gear:hover {
+    #hud-emoji:hover, #hud-gear:hover {
       background: rgba(255,255,255,0.18);
+    }
+    #hud-emoji-picker {
+      position: fixed;
+      top: 60px;
+      left: 16px;
+      display: flex;
+      gap: 6px;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+      padding: 8px 12px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 100;
+    }
+    .emoji-option {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      font-size: 24px;
+      cursor: pointer;
+      transition: all 0.15s;
+      pointer-events: all;
+    }
+    .emoji-option:hover {
+      background: rgba(255,255,255,0.25);
+      transform: scale(1.1);
+    }
+    .emoji-option:active {
+      transform: scale(0.95);
     }
     #hud-coin {
       background: rgba(10,8,22,0.88);
@@ -141,8 +230,13 @@ function _init3DCoin(iconEl) {
 }
 
 export function updateCoinDisplay(n) {
+  // Update window.playerCoins if value provided
+  if (n != null) {
+    window.playerCoins = n;
+  }
+
   const v = coinEl?.querySelector('.hud-coin-val');
-  if (v) v.textContent = n != null ? n.toLocaleString() : '–';
+  if (v) v.textContent = (window.playerCoins || 0).toLocaleString();
 }
 
 export function updateOnlineCount(total) {
