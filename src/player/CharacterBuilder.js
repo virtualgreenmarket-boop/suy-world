@@ -205,11 +205,11 @@ export function animateCharacter(group, animType, t, delta) {
     p.lKneeG.rotation.x = 1.3; // Bend knees opposite direction
     p.rKneeG.rotation.x = 1.3;
 
-    // Rest arms on legs
-    p.lArmG.rotation.set(0.8, 0, 0.15);
-    p.rArmG.rotation.set(0.8, 0, -0.15);
-    p.lElbowG.rotation.x = -0.6;
-    p.rElbowG.rotation.x = -0.6;
+    // Arms forward, resting on legs
+    p.lArmG.rotation.set(-0.8, 0, 0.15); // Forward (negative for forward)
+    p.rArmG.rotation.set(-0.8, 0, -0.15);
+    p.lElbowG.rotation.x = 0.6; // Bend elbows forward
+    p.rElbowG.rotation.x = 0.6;
 
     // Slight body lean back
     p.bodyG.rotation.x = -0.15;
