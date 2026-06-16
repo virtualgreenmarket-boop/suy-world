@@ -169,7 +169,7 @@ export function animateCharacter(group, animType, t, delta) {
   else if(animType === 'walk') {
     const s = Math.sin(t*4.2); // 50% faster (2.8 * 1.5 = 4.2)
     p.lArmG.rotation.x = s*0.7; p.rArmG.rotation.x = -s*0.7;
-    p.lElbowG.rotation.x = Math.max(0,-s)*0.5; p.rElbowG.rotation.x = Math.max(0,s)*0.5;
+    p.lElbowG.rotation.x = -Math.max(0,-s)*0.5; p.rElbowG.rotation.x = -Math.max(0,s)*0.5;
     p.lLegG.rotation.x = -s*0.65; p.rLegG.rotation.x = s*0.65;
     p.lKneeG.rotation.x = Math.max(0,s)*0.55; p.rKneeG.rotation.x = Math.max(0,-s)*0.55;
     group.position.y = Math.abs(s)*0.1-0.02;
@@ -179,8 +179,8 @@ export function animateCharacter(group, animType, t, delta) {
     const s = Math.sin(t*6.75); // 50% faster (4.5 * 1.5 = 6.75)
     p.lArmG.rotation.x = s*1.1; p.rArmG.rotation.x = -s*1.1;
     p.lArmG.rotation.z = 0.2; p.rArmG.rotation.z = -0.2;
-    p.lElbowG.rotation.x = -0.8+Math.max(0,-s)*0.6;
-    p.rElbowG.rotation.x = -0.8+Math.max(0,s)*0.6;
+    p.lElbowG.rotation.x = 0.8-Math.max(0,-s)*0.6;
+    p.rElbowG.rotation.x = 0.8-Math.max(0,s)*0.6;
     p.lLegG.rotation.x = -s*1.0; p.rLegG.rotation.x = s*1.0;
     p.lKneeG.rotation.x = Math.max(0,s)*0.9; p.rKneeG.rotation.x = Math.max(0,-s)*0.9;
     group.position.y = Math.abs(s)*0.18-0.04;
@@ -208,8 +208,8 @@ export function animateCharacter(group, animType, t, delta) {
     // Arms forward, resting on legs
     p.lArmG.rotation.set(-0.8, 0, 0.15); // Forward (negative for forward)
     p.rArmG.rotation.set(-0.8, 0, -0.15);
-    p.lElbowG.rotation.x = 0.6; // Bend elbows forward
-    p.rElbowG.rotation.x = 0.6;
+    p.lElbowG.rotation.x = -0.6; // Bend elbows natural direction
+    p.rElbowG.rotation.x = -0.6;
 
     // Slight body lean back
     p.bodyG.rotation.x = -0.15;
@@ -220,7 +220,7 @@ export function animateCharacter(group, animType, t, delta) {
     p.bodyG.rotation.z = s*0.28; p.headG.rotation.z = -s*0.18;
     p.lArmG.rotation.x = Math.sin(t*3.5+Math.PI)*1.2; p.rArmG.rotation.x = s*1.2;
     p.lArmG.rotation.z = 0.3+s*0.5; p.rArmG.rotation.z = -0.3-s*0.5;
-    p.lElbowG.rotation.x = Math.abs(s)*0.8; p.rElbowG.rotation.x = Math.abs(s)*0.8;
+    p.lElbowG.rotation.x = -Math.abs(s)*0.8; p.rElbowG.rotation.x = -Math.abs(s)*0.8;
     p.lLegG.rotation.x = s*0.45; p.rLegG.rotation.x = -s*0.45;
     p.lKneeG.rotation.x = Math.abs(s)*0.4; p.rKneeG.rotation.x = Math.abs(s)*0.4;
     p.bodyG.rotation.x = Math.sin(t*1.8)*0.15;
