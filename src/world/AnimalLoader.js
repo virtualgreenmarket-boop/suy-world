@@ -34,7 +34,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ----------------------------------------------------------------
-// Animal pack filenames -> .gltf on disk. Edit this map if your
+// Animal pack filenames -> .glb on disk. Edit this map if your
 // folder uses different casing/names than listed here.
 // ----------------------------------------------------------------
 export const ANIMAL_FILES = {
@@ -82,7 +82,7 @@ function findClipByKeywords(clips, keywords) {
  * (e.g. 3 cows) animate fully independently.
  */
 class AnimalInstance {
-  constructor(id, species, root, gltfAnimations) {
+  constructor(id, species, root, gltfAnimations, opts = {}) {
     this.id = id;
     this.species = species;
     this.root = root; // THREE.Group, add this to your scene
@@ -90,6 +90,20 @@ class AnimalInstance {
     this.clips = gltfAnimations;
     this.actions = {}; // keyed by our normalized name: idle/walk/run/...
     this.currentAction = null;
+
+    // ---- movement / wander state ----
+    // colliderRadius: half-width used for both (a) blocking the
+    // player from walking through this animal and (b) keeping this
+    // animal from walking through OTHER animals/obstacles.
+    this.colliderRadius = opts.colliderRadius != null ? opts.colliderRadius : 0.6;
+    this.moveSpeed = { idle: 0, walk: opts.walkSpeed || 0.8, run: opts.runSpeed || 2.6 };
+    this.wanderCenter = opts.wanderCenter
+      ? new THREE.Vector3(opts.wanderCenter.x, 0, opts.wanderCenter.z)
+      : new THREE.Vector3(root.position.x, 0, root.position.z);
+    this.wanderRadius = opts.wanderRadius != null ? opts.wanderRadius : 6;
+    this.wanderTarget = null;
+    this._wanderPauseT = 0; // seconds remaining in a pause before picking a new target
+    this._stateName = 'idle';
 
     this._buildActionMap();
   }
@@ -141,11 +155,116 @@ class AnimalInstance {
     next.reset().fadeIn(fadeSeconds).play();
     if (this.currentAction) this.currentAction.fadeOut(fadeSeconds);
     this.currentAction = next;
+    this._stateName = name in this.moveSpeed ? name : this._stateName;
     return true;
   }
 
-  update(dt) {
+  /**
+   * Picks a new random point inside the wander circle and walks
+   * toward it. Call this once after spawn to start wandering; the
+   * manager's update loop re-picks automatically on arrival.
+   */
+  pickNewWanderTarget() {
+    let attempts = 0;
+    let x, z;
+
+    // Try to find a valid position (not in forbidden zones)
+    do {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * this.wanderRadius;
+      x = this.wanderCenter.x + Math.cos(angle) * r;
+      z = this.wanderCenter.z + Math.sin(angle) * r;
+      attempts++;
+    } while (!isPositionValid(x, z) && attempts < 20);
+
+    // If we couldn't find a valid position, stay near current position
+    if (attempts >= 20) {
+      const nearAngle = Math.random() * Math.PI * 2;
+      const nearRadius = 2 + Math.random() * 4;
+      x = this.root.position.x + Math.cos(nearAngle) * nearRadius;
+      z = this.root.position.z + Math.sin(nearAngle) * nearRadius;
+    }
+
+    this.wanderTarget = new THREE.Vector3(x, 0, z);
+  }
+
+  /**
+   * Advances movement toward the current wander target at the speed
+   * implied by the current animation state ('idle' speed is 0, so
+   * an idling animal naturally stands still even with a target set).
+   * otherAnimals: array of other AnimalInstance to avoid walking into.
+   */
+  _updateMovement(dt, otherAnimals) {
+    const speed = this.moveSpeed[this._stateName] || 0;
+
+    if (speed === 0) return; // idle / eat / sit-equivalent — no translation
+
+    if (this._wanderPauseT > 0) {
+      this._wanderPauseT -= dt;
+      return;
+    }
+    if (!this.wanderTarget) {
+      this.pickNewWanderTarget();
+      return;
+    }
+
+    const pos = this.root.position;
+    const dx = this.wanderTarget.x - pos.x;
+    const dz = this.wanderTarget.z - pos.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < 0.15) {
+      // arrived — pause briefly, then pick a new target next tick
+      this._wanderPauseT = 1 + Math.random() * 2;
+      this.wanderTarget = null;
+      return;
+    }
+
+    const stepLen = Math.min(speed * dt, dist);
+    let moveX = (dx / dist) * stepLen;
+    let moveZ = (dz / dist) * stepLen;
+
+    // ---- collision avoidance against other animals ----
+    // Predict next position; if it would land inside another
+    // animal's collider, cancel this frame's move (simple stop,
+    // not a full steering/avoidance system — sufficient to stop
+    // visible clipping between animals).
+    const nextX = pos.x + moveX;
+    const nextZ = pos.z + moveZ;
+    for (const other of otherAnimals) {
+      if (other === this) continue;
+      const odx = nextX - other.root.position.x;
+      const odz = nextZ - other.root.position.z;
+      const minDist = this.colliderRadius + other.colliderRadius;
+      if (odx * odx + odz * odz < minDist * minDist) {
+        moveX = 0;
+        moveZ = 0;
+        this._wanderPauseT = 0.4; // brief pause then re-route via a new target
+        this.wanderTarget = null;
+        break;
+      }
+    }
+
+    if (moveX !== 0 || moveZ !== 0) {
+      // Check if new position is valid (not in forbidden zone)
+      if (isPositionValid(nextX, nextZ)) {
+        pos.x += moveX;
+        pos.z += moveZ;
+
+        // face the direction of travel, smoothly
+        const targetAngle = Math.atan2(moveX, moveZ);
+        this.root.rotation.y = lerpAngle(this.root.rotation.y, targetAngle, 0.12);
+      } else {
+        // Hit forbidden zone, pick new target
+        this._wanderPauseT = 0.3;
+        this.wanderTarget = null;
+      }
+    }
+  }
+
+  update(dt, otherAnimals) {
     this.mixer.update(dt);
+    this._updateMovement(dt, otherAnimals || []);
   }
 
   dispose() {
@@ -165,10 +284,58 @@ class AnimalInstance {
   }
 }
 
+/** Shortest-path angle interpolation (350deg -> 10deg takes the short way, not the long way around). */
+function lerpAngle(current, target, t) {
+  let diff = target - current;
+  diff = ((diff + Math.PI) % (Math.PI * 2)) - Math.PI;
+  if (diff < -Math.PI) diff += Math.PI * 2;
+  return current + diff * t;
+}
+
+// ----------------------------------------------------------------
+// Forbidden zones — animals avoid these areas (plaza, hangars, etc.)
+// ----------------------------------------------------------------
+const FORBIDDEN_ZONES = [
+  // Plaza area (central circle)
+  { x: 0, z: 0, radius: 65 },
+
+  // Hangars (4 cardinal directions)
+  { x: 0, z: -162.6, radius: 95 },    // North hangar
+  { x: 162.6, z: 0, radius: 95 },     // East hangar
+  { x: 0, z: 162.6, radius: 95 },     // South hangar
+  { x: -162.6, z: 0, radius: 95 },    // West hangar (Marina)
+
+  // Paths (expanded to keep animals off roads)
+  { x: 0, z: -100, radius: 15 },  // North path
+  { x: 0, z: 100, radius: 15 },   // South path
+  { x: 100, z: 0, radius: 15 },   // East path
+  { x: -100, z: 0, radius: 15 },  // West path
+];
+
+/**
+ * Check if a position is valid for animal spawn/movement
+ * (not in forbidden zones, not too close to island edge)
+ */
+function isPositionValid(x, z) {
+  // Must be within island radius but not near beach edge
+  const distFromCenter = Math.sqrt(x * x + z * z);
+  if (distFromCenter < 70 || distFromCenter > 200) return false;
+
+  // Must not be in any forbidden zone
+  for (const zone of FORBIDDEN_ZONES) {
+    const dx = x - zone.x;
+    const dz = z - zone.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < zone.radius) return false;
+  }
+
+  return true;
+}
+
 export class AnimalManager {
   /**
    * @param {Object} opts
-   * @param {string} opts.basePath folder containing the .gltf files,
+   * @param {string} opts.basePath folder containing the .glb files,
    *   trailing slash required, e.g.
    *   '/models/nature/animals/Ultimate Animated Animals - July 2021/glTF/'
    * @param {THREE.Scene} [opts.scene] if provided, spawn() auto-adds
@@ -215,6 +382,12 @@ export class AnimalManager {
    * @param {number} [options.rotationY=0] radians
    * @param {string} [options.startAnimation='idle']
    * @param {boolean} [options.castShadow=true]
+   * @param {number} [options.colliderRadius=0.6] half-width used to
+   *   block both the player and other animals from walking through it
+   * @param {number} [options.walkSpeed=0.8] world units/second while in 'walk'
+   * @param {number} [options.runSpeed=2.6] world units/second while in 'run'
+   * @param {{x:number,z:number}} [options.wanderCenter] defaults to spawn position
+   * @param {number} [options.wanderRadius=6] how far from wanderCenter it roams
    * @returns {Promise<AnimalInstance>}
    */
   async spawn(species, position, options = {}) {
@@ -241,10 +414,20 @@ export class AnimalManager {
     });
 
     const id = `${species}_${this._nextId++}`;
-    const instance = new AnimalInstance(id, species, root, gltf.animations);
+    const instance = new AnimalInstance(id, species, root, gltf.animations, {
+      colliderRadius: options.colliderRadius,
+      walkSpeed: options.walkSpeed,
+      runSpeed: options.runSpeed,
+      wanderCenter: options.wanderCenter || position,
+      wanderRadius: options.wanderRadius
+    });
     this.instances.set(id, instance);
 
-    instance.play(options.startAnimation || 'idle');
+    const startAnim = options.startAnimation || 'idle';
+    instance.play(startAnim);
+    if (startAnim === 'walk' || startAnim === 'run') {
+      instance.pickNewWanderTarget();
+    }
 
     if (this.scene) this.scene.add(root);
 
@@ -264,8 +447,13 @@ export class AnimalManager {
    * @param {{x:number,y:number,z:number}} [opts.center] default {0,0,0}
    * @param {number} [opts.minScale=0.9]
    * @param {number} [opts.maxScale=1.15]
-   * @param {string[]} [opts.animations] pool of animation names to
+   * @param {string[]} opts.animations pool of animation names to
    *   randomly assign per instance, default ['idle','walk']
+   * @param {number} [opts.colliderRadius] passed through to spawn()
+   * @param {number} [opts.walkSpeed] passed through to spawn()
+   * @param {number} [opts.runSpeed] passed through to spawn()
+   * @param {number} [opts.wanderRadius] passed through to spawn() —
+   *   how far each animal roams from ITS OWN spawn point
    */
   async spawnScattered(speciesList, opts = {}) {
     const count = opts.count || 10;
@@ -279,22 +467,39 @@ export class AnimalManager {
     for (let i = 0; i < count; i++) {
       const species = speciesList[Math.floor(Math.random() * speciesList.length)];
 
-      // even-ish spread: random angle + random radius (sqrt for
-      // uniform area density instead of clustering at center)
-      const angle = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * radius;
-      const pos = {
-        x: center.x + Math.cos(angle) * r,
-        y: center.y,
-        z: center.z + Math.sin(angle) * r
-      };
+      // Find valid spawn position (avoid forbidden zones)
+      let validPos = false;
+      let attempts = 0;
+      let x, z;
+      while (!validPos && attempts < 30) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(Math.random()) * radius;
+        x = center.x + Math.cos(angle) * r;
+        z = center.z + Math.sin(angle) * r;
+        validPos = isPositionValid(x, z);
+        attempts++;
+      }
 
+      if (!validPos) {
+        console.warn(`[AnimalLoader] Could not find valid spawn position for ${species} after ${attempts} attempts, skipping`);
+        continue;
+      }
+
+      const pos = { x, y: center.y, z };
       const scale = minScale + Math.random() * (maxScale - minScale);
       const rotationY = Math.random() * Math.PI * 2;
       const startAnimation = animPool[Math.floor(Math.random() * animPool.length)];
 
       try {
-        const instance = await this.spawn(species, pos, { scale, rotationY, startAnimation });
+        const instance = await this.spawn(species, pos, {
+          scale,
+          rotationY,
+          startAnimation,
+          colliderRadius: opts.colliderRadius,
+          walkSpeed: opts.walkSpeed,
+          runSpeed: opts.runSpeed,
+          wanderRadius: opts.wanderRadius
+        });
         spawned.push(instance);
       } catch (err) {
         console.error(err);
@@ -327,9 +532,35 @@ export class AnimalManager {
     Array.from(this.instances.keys()).forEach((id) => this.remove(id));
   }
 
-  /** Call once per frame with deltaSeconds to advance all animations. */
+  /** Call once per frame with deltaSeconds to advance all animations and movement. */
   update(dt) {
-    this.instances.forEach((instance) => instance.update(dt));
+    const all = Array.from(this.instances.values());
+    all.forEach((instance) => instance.update(dt, all));
+  }
+
+  /**
+   * Checks whether a proposed player position would overlap any
+   * animal's collider. Call this from your player movement code
+   * BEFORE committing a position update, e.g.:
+   *
+   *   const next = { x: player.x + moveX, z: player.z + moveZ };
+   *   if (!animalManager.wouldCollide(next, PLAYER_RADIUS)) {
+   *     player.position.x = next.x;
+   *     player.position.z = next.z;
+   *   }
+   *
+   * @param {{x:number,z:number}} position proposed next position
+   * @param {number} [otherRadius=0.4] the moving entity's own radius
+   * @returns {boolean} true if it would overlap an animal
+   */
+  wouldCollide(position, otherRadius = 0.4) {
+    for (const instance of this.instances.values()) {
+      const dx = position.x - instance.root.position.x;
+      const dz = position.z - instance.root.position.z;
+      const minDist = instance.colliderRadius + otherRadius;
+      if (dx * dx + dz * dz < minDist * minDist) return true;
+    }
+    return false;
   }
 }
 

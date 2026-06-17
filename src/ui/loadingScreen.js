@@ -191,6 +191,33 @@ async function startRealLoading() {
       console.log('[loading] Furniture not found (optional)');
     }
 
+    updateProgress(80, 'Loading animals...');
+    // Preload GLB animals
+    const animalModels = [
+      'Alpaca.gltf',
+      'Bull.gltf',
+      'Deer.gltf',
+      'Donkey.gltf',
+      'Fox.gltf',
+      'Husky.gltf',
+      'ShibaInu.gltf',
+      'Stag.gltf',
+      'Wolf.gltf'
+    ];
+    try {
+      const basePath = '/models/nature/animals/Ultimate Animated Animals - July 2021/glTF/';
+      const animalPromises = animalModels.map(file =>
+        managedLoader.loadAsync(basePath + file).catch(err => {
+          console.log(`[loading] ${file} failed (optional):`, err.message);
+          return null;
+        })
+      );
+      await Promise.all(animalPromises);
+      console.log('[loading] ✅ Animals loaded');
+    } catch (err) {
+      console.log('[loading] Animals failed (optional):', err.message);
+    }
+
     updateProgress(90, 'Preparing world...');
 
     // Small delay to show 90%

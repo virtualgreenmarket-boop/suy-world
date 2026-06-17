@@ -10,7 +10,7 @@ import { initPaths }                 from './world/paths.js';
 import { initHangars, updateHangars } from './world/hangars.js';
 import { initMarina, updateMarina }  from './world/marina.js';
 
-import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem, savePlayerPosition }
+import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
 import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemotePlayerPosition }
   from './player/remotePlayer.js';
@@ -224,6 +224,9 @@ const animalManager = new AnimalManager({
   scene: scene
 });
 
+// Pass animalManager to localPlayer for collision detection
+setGLBAnimalManager(animalManager);
+
 // Spawn scattered GLB animals on grass areas (avoid plaza center and paths)
 console.log('[main] 🦌 Spawning GLB animals...');
 animalManager.spawnScattered(
@@ -232,7 +235,7 @@ animalManager.spawnScattered(
     count: 18,
     radius: 120,
     center: { x: 0, y: 0, z: 0 },
-    animations: ['idle', 'walk']
+    animations: ['idle', 'walk', 'walk'] // More walk than idle for visible movement
   }
 ).then(() => {
   console.log('[main] ✅ GLB animals spawned successfully');

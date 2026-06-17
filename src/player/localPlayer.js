@@ -10,6 +10,11 @@ import { attachLabel } from '../ui/labels.js';
 import { initActionButtons } from '../ui/actionButtons.js';
 import { getAnimals } from '../world/AnimalSystem.js';
 
+let _glbAnimalManager = null;
+export function setGLBAnimalManager(manager) {
+  _glbAnimalManager = manager;
+}
+
 const WALK_SPEED  = 6;
 const RUN_SPEED   = 14;
 const KB_SPEED    = 10;
@@ -191,7 +196,7 @@ export function updateLocalPlayer(delta) {
     const nz = playerGroup.position.z + move.z;
     const [rx, rz] = resolveCollision(nx, nz, playerGroup.position.x, playerGroup.position.z);
 
-    // Check collision with animals (dogs, cats)
+    // Check collision with primitive animals (dogs, cats from AnimalSystem)
     let blockedByAnimal = false;
     const animals = getAnimals();
     const allAnimals = animals || [];
@@ -208,6 +213,12 @@ export function updateLocalPlayer(delta) {
           }
         }
       }
+    }
+
+    // Check collision with GLB animals (horses, cows, deer, etc. from AnimalLoader)
+    const PLAYER_RADIUS = 0.4;
+    if (!blockedByAnimal && _glbAnimalManager && _glbAnimalManager.wouldCollide({ x: rx, z: rz }, PLAYER_RADIUS)) {
+      blockedByAnimal = true;
     }
 
     if (!blockedByAnimal && rx * rx + rz * rz < ISLAND_R * ISLAND_R) {
