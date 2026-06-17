@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { buildCharacter, animateCharacter, CHARACTERS } from './CharacterBuilder.js';
+import { buildCharacter, animateCharacter, CHARACTERS, setCharacterEmotion, clearCharacterEmotion, attachHat, attachHandItem } from './CharacterBuilder.js';
 
 let _characterType = 'boy';
+let _localPlayerGroup = null;
 
 function getTypeFromId(characterId) {
   const types = ['boy', 'girl', 'zombie', 'demon', 'robot'];
@@ -72,6 +73,9 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   parentGroup.userData._animState = 'idle';
   parentGroup.userData._animT = 0;
 
+  // Store reference for emotion system
+  _localPlayerGroup = parentGroup;
+
   console.log('═══════════════════════════════════════════');
   console.log(`[player] ✅ CHARACTER SPAWNED SUCCESSFULLY!`);
   console.log(`[player]    Name: ${CHARACTERS[type].name}`);
@@ -100,3 +104,77 @@ export function updatePlayerCharacterMixer(group, delta) {
 export function getCharacterModelPath(charId) {
   return null; // No GLB needed
 }
+
+// Global emotion functions
+window.setPlayerEmotion = (emotion) => {
+  if (_localPlayerGroup && _localPlayerGroup.userData._charModel) {
+    setCharacterEmotion(_localPlayerGroup.userData._charModel, emotion);
+  }
+};
+
+window.clearPlayerEmotion = () => {
+  if (_localPlayerGroup && _localPlayerGroup.userData._charModel) {
+    clearCharacterEmotion(_localPlayerGroup.userData._charModel);
+  }
+};
+
+// Global appearance update function
+window.updatePlayerAppearance = (changes) => {
+  const group = _localPlayerGroup;
+  if (!group) return;
+
+  // Rebuild the character with new colors
+  const currentType = group.userData._charType || 'boy';
+  const newModel = buildCharacter(currentType, changes);
+
+  // Ensure all meshes have proper settings
+  newModel.traverse(n => {
+    if (n.isMesh) {
+      n.visible = true;
+      n.material.needsUpdate = true;
+      n.castShadow = true;
+      n.receiveShadow = true;
+    }
+  });
+
+  // Scale to match existing character size
+  const bbox = new THREE.Box3().setFromObject(newModel);
+  const size = bbox.getSize(new THREE.Vector3());
+  const currentHeight = size.y;
+
+  if (currentHeight > 0) {
+    const scale = 2.5 / currentHeight;
+    newModel.scale.setScalar(scale);
+    newModel.updateMatrixWorld(true);
+  }
+
+  // Position at Y=0 (feet on ground)
+  const bbox2 = new THREE.Box3().setFromObject(newModel);
+  const offset = -bbox2.min.y;
+  newModel.position.y = offset;
+
+  // Remove old model, add new one
+  if (group.userData._charModel) {
+    group.remove(group.userData._charModel);
+  }
+  group.add(newModel);
+  group.userData._charModel = newModel;
+
+  console.log('[player] 🎨 Appearance updated with changes:', changes);
+};
+
+// Global hat attachment function
+window.applyPlayerHat = (hatKey) => {
+  const model = _localPlayerGroup?.userData?._charModel;
+  if(!model || !model.userData.parts) return;
+  attachHat(model.userData.parts.headG, hatKey);
+  console.log('[player] 🎩 Hat applied:', hatKey);
+};
+
+// Global hand item attachment function
+window.applyPlayerHandItem = (itemKey) => {
+  const model = _localPlayerGroup?.userData?._charModel;
+  if(!model || !model.userData.parts) return;
+  attachHandItem(model.userData.parts.rArmG, itemKey);
+  console.log('[player] 🔧 Hand item applied:', itemKey);
+};

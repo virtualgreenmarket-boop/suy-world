@@ -8,6 +8,8 @@ import { joystick, consumeJump, consumeCameraMovement, consumeCameraZoom, isRunn
 import { isChatOpen } from '../ui/chatUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { initActionButtons } from '../ui/actionButtons.js';
+import { getAnimals } from '../world/AnimalSystem.js';
+import { getHerdAnimals } from '../world/HerdSystem.js';
 
 const WALK_SPEED  = 6;
 const RUN_SPEED   = 14;
@@ -190,7 +192,27 @@ export function updateLocalPlayer(delta) {
     const nz = playerGroup.position.z + move.z;
     const [rx, rz] = resolveCollision(nx, nz, playerGroup.position.x, playerGroup.position.z);
 
-    if (rx * rx + rz * rz < ISLAND_R * ISLAND_R) {
+    // Check collision with animals (dogs, cats, cows, horses)
+    let blockedByAnimal = false;
+    const animals = getAnimals();
+    const herdAnimals = getHerdAnimals();
+    const allAnimals = [...(animals || []), ...(herdAnimals || [])];
+
+    if (allAnimals.length > 0) {
+      for (const animal of allAnimals) {
+        if (animal.userData.collider) {
+          const dx = rx - animal.position.x;
+          const dz = rz - animal.position.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist < 0.8) {
+            blockedByAnimal = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!blockedByAnimal && rx * rx + rz * rz < ISLAND_R * ISLAND_R) {
       const destGroundY = getSurfaceY(rx, rz);
       const stepDelta   = destGroundY - playerGroup.position.y;
       if (!_isJumping && stepDelta > 0 && stepDelta <= MAX_STEP) {

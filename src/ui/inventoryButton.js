@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCharacter } from '../player/CharacterBuilder.js';
+import { buildCharacter, attachHat, attachHandItem, HATS, HAND_ITEMS } from '../player/CharacterBuilder.js';
 
 let _previewScene = null;
 let _previewCamera = null;
@@ -236,7 +236,7 @@ export function initInventoryButton() {
 
       <div class="inventory-tabs">
         <button class="inventory-tab active" data-tab="clothes">בגדים</button>
-        <button class="inventory-tab" data-tab="equipment">ציוד</button>
+        <button class="inventory-tab" data-tab="hand-items">פריטי יד</button>
         <button class="inventory-tab" data-tab="hats">כובעים</button>
       </div>
 
@@ -266,56 +266,14 @@ export function initInventoryButton() {
           </div>
         </div>
 
-        <!-- Equipment tab -->
-        <div class="inventory-section" data-section="equipment">
-          <div class="item-grid">
-            <button class="item-btn" data-equipment="none">
-              <div>❌</div>
-              <div class="item-btn-label">ללא</div>
-            </button>
-            <button class="item-btn" data-equipment="sword">
-              <div>⚔️</div>
-              <div class="item-btn-label">חרב</div>
-            </button>
-            <button class="item-btn" data-equipment="wand">
-              <div>✨</div>
-              <div class="item-btn-label">שרביט</div>
-            </button>
-            <button class="item-btn" data-equipment="shield">
-              <div>🛡️</div>
-              <div class="item-btn-label">מגן</div>
-            </button>
-            <button class="item-btn" data-equipment="staff">
-              <div>🔮</div>
-              <div class="item-btn-label">מטה</div>
-            </button>
-          </div>
+        <!-- Hand Items tab -->
+        <div class="inventory-section" data-section="hand-items">
+          <div class="item-grid" id="hand-items-grid"></div>
         </div>
 
         <!-- Hats tab -->
         <div class="inventory-section" data-section="hats">
-          <div class="item-grid">
-            <button class="item-btn" data-hat="none">
-              <div>❌</div>
-              <div class="item-btn-label">ללא</div>
-            </button>
-            <button class="item-btn" data-hat="crown">
-              <div>👑</div>
-              <div class="item-btn-label">כתר</div>
-            </button>
-            <button class="item-btn" data-hat="tophat">
-              <div>🎩</div>
-              <div class="item-btn-label">כובע</div>
-            </button>
-            <button class="item-btn" data-hat="cap">
-              <div>🧢</div>
-              <div class="item-btn-label">כומתה</div>
-            </button>
-            <button class="item-btn" data-hat="halo">
-              <div>😇</div>
-              <div class="item-btn-label">הילה</div>
-            </button>
-          </div>
+          <div class="item-grid" id="hats-grid"></div>
         </div>
         </div>
         <!-- End of inventory-options -->
@@ -405,39 +363,77 @@ export function initInventoryButton() {
     });
   });
 
-  // Equipment buttons
-  let currentEquipment = 'none';
-  panel.querySelectorAll('[data-equipment]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const equipment = btn.dataset.equipment;
+  // Populate Hand Items grid
+  const handItemsGrid = document.getElementById('hand-items-grid');
+  Object.entries(HAND_ITEMS).forEach(([key, item]) => {
+    const btn = document.createElement('button');
+    btn.className = 'item-btn';
+    btn.dataset.handItem = key;
+    btn.innerHTML = `<div>${key === 'none' ? '❌' : item.name.split(' ')[1] || '🔧'}</div><div class="item-btn-label">${item.name.split(' ')[0]}</div>`;
+    handItemsGrid.appendChild(btn);
+  });
 
-      panel.querySelectorAll('[data-equipment]').forEach(b => b.classList.remove('equipped'));
+  // Hand Item buttons
+  let currentHandItem = 'none';
+  handItemsGrid.querySelectorAll('[data-hand-item]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const itemKey = btn.dataset.handItem;
+
+      handItemsGrid.querySelectorAll('[data-hand-item]').forEach(b => b.classList.remove('equipped'));
       btn.classList.add('equipped');
 
-      currentEquipment = equipment;
-      updatePlayerAppearance({ equipment });
+      currentHandItem = itemKey;
+
+      // Update preview
+      if (_previewCharacter && _previewCharacter.userData.parts) {
+        attachHandItem(_previewCharacter.userData.parts.rArmG, itemKey);
+      }
+
+      // Update player
+      if (window.applyPlayerHandItem) {
+        window.applyPlayerHandItem(itemKey);
+      }
     });
   });
 
-  // Set default equipped
-  panel.querySelector('[data-equipment="none"]').classList.add('equipped');
+  // Set default hand item
+  handItemsGrid.querySelector('[data-hand-item="none"]').classList.add('equipped');
+
+  // Populate Hats grid
+  const hatsGrid = document.getElementById('hats-grid');
+  Object.entries(HATS).forEach(([key, item]) => {
+    const btn = document.createElement('button');
+    btn.className = 'item-btn';
+    btn.dataset.hat = key;
+    btn.innerHTML = `<div>${key === 'none' ? '❌' : item.name.split(' ')[1] || '🎩'}</div><div class="item-btn-label">${item.name.split(' ')[0]}</div>`;
+    hatsGrid.appendChild(btn);
+  });
 
   // Hat buttons
   let currentHat = 'none';
-  panel.querySelectorAll('[data-hat]').forEach(btn => {
+  hatsGrid.querySelectorAll('[data-hat]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const hat = btn.dataset.hat;
+      const hatKey = btn.dataset.hat;
 
-      panel.querySelectorAll('[data-hat]').forEach(b => b.classList.remove('equipped'));
+      hatsGrid.querySelectorAll('[data-hat]').forEach(b => b.classList.remove('equipped'));
       btn.classList.add('equipped');
 
-      currentHat = hat;
-      updatePlayerAppearance({ hat });
+      currentHat = hatKey;
+
+      // Update preview
+      if (_previewCharacter && _previewCharacter.userData.parts) {
+        attachHat(_previewCharacter.userData.parts.headG, hatKey);
+      }
+
+      // Update player
+      if (window.applyPlayerHat) {
+        window.applyPlayerHat(hatKey);
+      }
     });
   });
 
-  // Set default equipped
-  panel.querySelector('[data-hat="none"]').classList.add('equipped');
+  // Set default hat
+  hatsGrid.querySelector('[data-hat="none"]').classList.add('equipped');
 
   console.log('[inventory] Inventory button initialized');
 }
@@ -519,20 +515,44 @@ function stopPreviewAnimation() {
   }
 }
 
+// Track current customization
+let _currentCustomization = {};
+
 function updatePlayerAppearance(changes) {
-  // Update preview character colors
-  if (_previewCharacter && changes) {
-    _previewCharacter.traverse(child => {
-      if (child.isMesh && child.material) {
-        // Update colors based on changes
-        if (changes.skin) {
-          // Update skin color for head, hands, etc.
-          // This is a simplified version - you'd need to track which meshes are which
-        }
-      }
-    });
+  // Merge changes into current customization
+  _currentCustomization = { ..._currentCustomization, ...changes };
+
+  // Rebuild preview character with new colors
+  if (_previewScene && _previewCharacter) {
+    // Remove old preview character
+    _previewScene.remove(_previewCharacter);
+
+    // Build new character with updated colors
+    _previewCharacter = buildCharacter('boy', _currentCustomization);
+
+    // Scale to fit in preview
+    const bbox = new THREE.Box3().setFromObject(_previewCharacter);
+    const size = bbox.getSize(new THREE.Vector3());
+    const scale = 2.2 / size.y;
+    _previewCharacter.scale.setScalar(scale);
+
+    // Position at ground
+    _previewCharacter.updateMatrixWorld(true);
+    const bbox2 = new THREE.Box3().setFromObject(_previewCharacter);
+    _previewCharacter.position.y = -bbox2.min.y;
+
+    // Add to scene
+    _previewScene.add(_previewCharacter);
+
+    // Re-render immediately
+    if (_previewRenderer && _animationFrame) {
+      _previewRenderer.render(_previewScene, _previewCamera);
+    }
+
+    console.log('[inventory] Preview character updated with:', _currentCustomization);
   }
 
+  // Update actual player in game
   if (window.updatePlayerAppearance) {
     window.updatePlayerAppearance(changes);
   } else {

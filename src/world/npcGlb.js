@@ -103,6 +103,31 @@ const PLAZA_POSITIONS = [
 const _plazaNpcs    = [];
 let _sitBenches     = [];
 let _npcLabelCount  = 0;
+let _walkingNpcBrightness = 0.6; // Default brightness for walking NPCs
+
+// Global function to adjust walking NPC brightness
+window.setNpcBrightness = function(value) {
+  _walkingNpcBrightness = value;
+  console.log('[NPC] Setting brightness to:', value);
+
+  // Update all walking NPCs (index 0 and 1)
+  for (let i = 0; i < Math.min(2, _plazaNpcs.length); i++) {
+    const npc = _plazaNpcs[i];
+    if (npc && npc.group) {
+      npc.group.traverse(n => {
+        if (n.isMesh && n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach(m => {
+            if (m.isMeshStandardMaterial) {
+              m.emissiveIntensity = value;
+              m.needsUpdate = true;
+            }
+          });
+        }
+      });
+    }
+  }
+};
 
 export function registerSitBenches(benches) {
   _sitBenches = benches;
@@ -267,10 +292,36 @@ export async function spawnAllPlazaNpcs(scene) {
       }
       npc.straightSpeed = animSpeed;
 
-      // Set position at floor level (no offset - feet on ground)
+      // Set position at floor level + 70% height offset to prevent clipping
       const surfaceY = getSurfaceY(npc.group.position.x, npc.group.position.z);
-      npc.group.position.y = surfaceY;
-      npc.baseY = surfaceY;
+      const yOffset = surfaceY + (TARGET_HEIGHT * 0.7);
+      npc.group.position.y = yOffset;
+      npc.baseY = yOffset;
+
+      // Scale up by 100% (2x size)
+      npc.group.scale.setScalar(2.0);
+
+      // Remove all shadow effects and add significant brightness
+      npc.group.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = false;
+          n.receiveShadow = false;
+
+          // Add very strong brightness via emissive
+          if (n.material) {
+            const mats = Array.isArray(n.material) ? n.material : [n.material];
+            mats.forEach(m => {
+              if (m.isMeshStandardMaterial) {
+                m.emissive.setHex(0xFFFFFF); // Maximum white emissive
+                m.emissiveIntensity = _walkingNpcBrightness; // Adjustable brightness
+                m.roughness = Math.max(m.roughness * 0.5, 0.2); // More reflective
+                m.metalness = 0; // No metallic look
+                m.needsUpdate = true;
+              }
+            });
+          }
+        }
+      });
 
       // Improve material quality: brightness, sharpness, anisotropic filtering
       npc.group.traverse(n => {

@@ -32,7 +32,6 @@ import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
 import { initHerdSystem, updateHerdSystem } from './world/HerdSystem.js';
-import { initMainShop, updateMainShop } from './world/MainShop.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
@@ -243,9 +242,7 @@ preloadPlayerCharacter(selectedCharacterId)
         const playerGroup = scene.children.find(c => c.userData._charModel);
         if (playerGroup) {
           initAnimalSystem(scene, playerGroup);
-          // Initialize main shop NPC
-          initMainShop(scene, camera, playerGroup);
-          // Expose player group globally for shop system
+          // Expose player group globally for shop and pet systems
           window._localPlayerGroup = playerGroup;
         }
       }, 1000);
@@ -266,9 +263,7 @@ preloadPlayerCharacter(selectedCharacterId)
         const playerGroup = scene.children.find(c => c.userData._charModel);
         if (playerGroup) {
           initAnimalSystem(scene, playerGroup);
-          // Initialize main shop NPC
-          initMainShop(scene, camera, playerGroup);
-          // Expose player group globally for shop system
+          // Expose player group globally for shop and pet systems
           window._localPlayerGroup = playerGroup;
         }
       }, 1000);
@@ -322,7 +317,6 @@ function animate() {
   updateMarina(delta);
   updateAnimalSystem(delta);
   updateHerdSystem(delta);
-  updateMainShop(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
   }

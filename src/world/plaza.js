@@ -212,28 +212,19 @@ function addFloor(scene) {
 // ── NPC ───────────────────────────────────────────────────────────────
 
 function addNpc(scene) {
-  const npc = buildNpcCharacter(0xFFB300, 'mainStore');
-  npc.position.set(6, 0.7, 6);
+  // Brighten color by 20%: 0xFFB300 → 0xFFCC33
+  const npc = buildNpcCharacter(0xFFCC33, 'mainStore');
+  npc.position.set(6, 0.80, 6);
   npc.userData.animType = 'dance';
   scene.add(npc);
 
-  registerInteraction([6, 2.5, 6], 'Talk', 3, () => showNpcDialog([
-    'You have arrived at Suy-World, a living marketplace island where every door can lead to a new discovery.',
-    'This is not a regular shop, and it is not just a game.',
-    'Here, you can explore different areas, enter virtual rooms, meet brands, discover products, and build your own identity inside the world.',
-    'In front of you, there are three paths: North, Central, and South.',
-    'Each path leads to a different marketplace hangar, filled with doors on both sides.',
-    'Behind every door, there is a room owned by a seller, creator, or brand.',
-    'Inside each room, you will find products displayed on the walls, shelves, signs, and screens.',
-    'Click on anything that interests you, and you will be able to see more details.',
-    'Some rooms are simple. Some rooms are fully designed with colors, lights, banners, decorations, and special advertisements.',
-    'The better the room looks, the more attention it may receive from visitors like you.',
-    'But remember — you are not only here to look around.',
-    'You can also customize your own character, choose your style, add accessories, and even bring pets with you.',
-    'This world is made for exploring, discovering, and connecting.',
-    'So choose your path, enter the hangar, and start your journey.',
-    'Welcome to Suy-World.',
-  ]));
+  registerInteraction([6, 2.5, 6], 'חנות', 3, () => {
+    if (window.openMainShop) {
+      window.openMainShop();
+    } else {
+      console.warn('[Plaza] window.openMainShop not available yet');
+    }
+  });
 }
 
 // ── Birds ─────────────────────────────────────────────────────────────

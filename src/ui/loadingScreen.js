@@ -148,19 +148,47 @@ async function startRealLoading() {
     updateProgress(5, 'Starting asset loading...');
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    updateProgress(30, 'Loading world assets...');
+    updateProgress(15, 'Loading textures...');
+    // Preload plaza textures
+    const textureLoader = new THREE.TextureLoader(loadingManager);
+    try {
+      await Promise.all([
+        textureLoader.loadAsync('textures/plaza/PavingStones150_2K-JPG_Color.jpg'),
+        textureLoader.loadAsync('textures/plaza/PavingStones150_2K-JPG_NormalGL.jpg'),
+        textureLoader.loadAsync('textures/plaza/PavingStones150_2K-JPG_Roughness.jpg'),
+        textureLoader.loadAsync('textures/plaza/PavingStones150_2K-JPG_AmbientOcclusion.jpg'),
+      ]);
+      console.log('[loading] ✅ Plaza textures loaded');
+    } catch (err) {
+      console.log('[loading] Some textures failed (optional):', err.message);
+    }
 
-    // No character GLB loading needed - characters are built from primitives
-    console.log('[loading] ✅ Character system ready (primitive-based)');
-
-    updateProgress(60, 'Loading environment...');
-
-    // Preload trees (if available)
+    updateProgress(30, 'Loading environment models...');
+    // Preload trees
     try {
       await managedLoader.loadAsync('/models/environment/trees/tree_1.glb');
       console.log('[loading] ✅ Trees loaded');
     } catch (err) {
       console.log('[loading] Trees not found (optional)');
+    }
+
+    updateProgress(50, 'Loading NPCs...');
+    // Preload NPCs
+    const { preloadAllNpcs } = await import('../world/npcGlb.js');
+    try {
+      await preloadAllNpcs();
+      console.log('[loading] ✅ NPCs loaded');
+    } catch (err) {
+      console.log('[loading] NPCs failed (optional):', err.message);
+    }
+
+    updateProgress(70, 'Loading furniture...');
+    // Preload bench model
+    try {
+      await managedLoader.loadAsync('/models/furniture/benches/bench_aged_and_gritty.glb');
+      console.log('[loading] ✅ Furniture loaded');
+    } catch (err) {
+      console.log('[loading] Furniture not found (optional)');
     }
 
     updateProgress(90, 'Preparing world...');
