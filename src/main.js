@@ -31,7 +31,6 @@ import { initBeach, updateBeach }         from './world/beach.js';
 import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
-import { initHerdSystem, updateHerdSystem } from './world/HerdSystem.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
@@ -193,7 +192,6 @@ initDecor(scene);
 initBeach(scene);
 initCollision();
 spawnPlazaTree(scene);
-initHerdSystem(scene);
 initPetSystem(scene);
 
 // ── UI (initialize early, before character loads) ─────────────────────
@@ -316,7 +314,6 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateAnimalSystem(delta);
-  updateHerdSystem(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
   }
