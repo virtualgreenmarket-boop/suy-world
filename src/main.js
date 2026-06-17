@@ -32,6 +32,7 @@ import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
+import { AnimalManager } from './world/AnimalLoader.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initShopUI } from './ui/ShopUI.js';
@@ -217,6 +218,28 @@ setMuteAllCallback(b => setMuteAll(b));
 // Trees and NPCs already preloaded in loading screen
 console.log('[main] Assets already preloaded during loading screen');
 
+// Initialize GLB animal system
+const animalManager = new AnimalManager({
+  basePath: '/models/nature/animals/Ultimate Animated Animals - July 2021/glTF/',
+  scene: scene
+});
+
+// Spawn scattered GLB animals on grass areas (avoid plaza center and paths)
+console.log('[main] 🦌 Spawning GLB animals...');
+animalManager.spawnScattered(
+  ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'],
+  {
+    count: 18,
+    radius: 120,
+    center: { x: 0, y: 0, z: 0 },
+    animations: ['idle', 'walk']
+  }
+).then(() => {
+  console.log('[main] ✅ GLB animals spawned successfully');
+}).catch(err => {
+  console.error('[main] ❌ Failed to spawn GLB animals:', err);
+});
+
 // Preload selected character (no GLB loading, just store the type)
 console.log('[main] 📥 Loading character...');
 preloadPlayerCharacter(selectedCharacterId)
@@ -316,6 +339,9 @@ function animate() {
   updateAnimalSystem(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
+  }
+  if (animalManager) {
+    animalManager.update(delta);
   }
 
   // Procedural NPC animations (wave / spin / dance)
