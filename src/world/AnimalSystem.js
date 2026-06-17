@@ -727,15 +727,26 @@ function checkAnimalCollision(animal1, animal2) {
   const minDist = animal1.userData.radius + animal2.userData.radius;
 
   if (dist < minDist && dist > 0.01) {
-    // Push apart
-    const pushDist = (minDist - dist) * 0.5;
+    // Push apart more aggressively (increased from 0.5 to full separation)
+    const pushDist = (minDist - dist) * 0.52;
     const nx = dx / dist;
     const nz = dz / dist;
 
+    // Push both animals apart
     animal1.position.x -= nx * pushDist;
     animal1.position.z -= nz * pushDist;
     animal2.position.x += nx * pushDist;
     animal2.position.z += nz * pushDist;
+
+    // Also redirect their targets slightly to avoid re-collision
+    if (animal1.userData.target) {
+      animal1.userData.target.x -= nx * 2;
+      animal1.userData.target.z -= nz * 2;
+    }
+    if (animal2.userData.target) {
+      animal2.userData.target.x += nx * 2;
+      animal2.userData.target.z += nz * 2;
+    }
   }
 }
 
@@ -784,7 +795,21 @@ export function updateAnimalSystem(delta) {
         const newX = animal.position.x + moveX;
         const newZ = animal.position.z + moveZ;
 
-        if (isPositionValid(newX, newZ)) {
+        // Check if new position would collide with other animals BEFORE moving
+        let wouldCollide = false;
+        for (const other of _animals) {
+          if (other === animal) continue;
+          const odx = other.position.x - newX;
+          const odz = other.position.z - newZ;
+          const oDist = Math.sqrt(odx * odx + odz * odz);
+          const minDist = animal.userData.radius + other.userData.radius;
+          if (oDist < minDist) {
+            wouldCollide = true;
+            break;
+          }
+        }
+
+        if (!wouldCollide && isPositionValid(newX, newZ)) {
           animal.position.x = newX;
           animal.position.z = newZ;
 
@@ -792,7 +817,7 @@ export function updateAnimalSystem(delta) {
           const targetAngle = Math.atan2(dx, dz);
           animal.rotation.y = lerpAngle(animal.rotation.y, targetAngle, 0.08);
         } else {
-          // Hit forbidden zone, pick new target
+          // Hit forbidden zone or another animal, pick new target
           animal.userData.target = pickRandomTarget(animal);
         }
       } else {
