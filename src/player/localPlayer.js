@@ -9,7 +9,6 @@ import { isChatOpen } from '../ui/chatUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { initActionButtons } from '../ui/actionButtons.js';
 import { getAnimals } from '../world/AnimalSystem.js';
-import { getHerdAnimals } from '../world/HerdSystem.js';
 
 const WALK_SPEED  = 6;
 const RUN_SPEED   = 14;
@@ -192,11 +191,10 @@ export function updateLocalPlayer(delta) {
     const nz = playerGroup.position.z + move.z;
     const [rx, rz] = resolveCollision(nx, nz, playerGroup.position.x, playerGroup.position.z);
 
-    // Check collision with animals (dogs, cats, cows, horses)
+    // Check collision with animals (dogs, cats)
     let blockedByAnimal = false;
     const animals = getAnimals();
-    const herdAnimals = getHerdAnimals();
-    const allAnimals = [...(animals || []), ...(herdAnimals || [])];
+    const allAnimals = animals || [];
 
     if (allAnimals.length > 0) {
       for (const animal of allAnimals) {
