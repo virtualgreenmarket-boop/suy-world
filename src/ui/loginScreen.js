@@ -19,8 +19,11 @@ export function initLoginScreen(onComplete) {
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 40px;
         z-index: 20000;
         font-family: 'Segoe UI', Arial, sans-serif;
+        padding: 20px;
+        box-sizing: border-box;
       }
 
       .login-box {
@@ -116,7 +119,66 @@ export function initLoginScreen(onComplete) {
         display: none;
       }
 
+      .controls-panel {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        max-width: 280px;
+        align-self: flex-start;
+        margin-top: 80px;
+      }
+
+      .controls-title {
+        color: #4CAF50;
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+        border-bottom: 2px solid rgba(76, 175, 80, 0.3);
+        padding-bottom: 8px;
+      }
+
+      .control-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 13px;
+      }
+
+      .control-key {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 5px;
+        padding: 4px 8px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        font-size: 12px;
+        min-width: 60px;
+        text-align: center;
+        color: #ffffff;
+        margin-right: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .control-desc {
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.4;
+      }
+
+      @media (max-width: 1200px) {
+        .controls-panel {
+          display: none;
+        }
+      }
+
       @media (max-width: 768px) {
+        #login-screen {
+          gap: 20px;
+          padding: 15px;
+        }
         .login-box {
           min-width: 300px;
           padding: 40px 30px;
@@ -125,6 +187,40 @@ export function initLoginScreen(onComplete) {
       }
     </style>
 
+    <!-- Mobile Controls (Left) -->
+    <div class="controls-panel">
+      <div class="controls-title">📱 MOBILE CONTROLS</div>
+      <div class="control-item">
+        <div class="control-key">Joystick</div>
+        <div class="control-desc">Move character</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">RunBtn</div>
+        <div class="control-desc">Sprint/Run faster</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Jump Btn</div>
+        <div class="control-desc">Jump over obstacles</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Dance Btn</div>
+        <div class="control-desc">Dance animation</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Drag</div>
+        <div class="control-desc">Rotate camera view</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Pinch</div>
+        <div class="control-desc">Zoom in/out</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Chat Icon</div>
+        <div class="control-desc">Open chat</div>
+      </div>
+    </div>
+
+    <!-- Login Box (Center) -->
     <div class="login-box">
       <div class="login-title">Welcome</div>
       <div class="login-subtitle">Enter your credentials to continue</div>
@@ -162,6 +258,47 @@ export function initLoginScreen(onComplete) {
           Invalid credentials. Please try again.
         </div>
       </form>
+    </div>
+
+    <!-- Desktop Controls (Right) -->
+    <div class="controls-panel">
+      <div class="controls-title">⌨️ KEYBOARD CONTROLS</div>
+      <div class="control-item">
+        <div class="control-key">WASD</div>
+        <div class="control-desc">Move character</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Shift</div>
+        <div class="control-desc">Hold to run</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Space</div>
+        <div class="control-desc">Jump</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">R</div>
+        <div class="control-desc">Dance animation</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Mouse</div>
+        <div class="control-desc">Drag to rotate camera</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Scroll</div>
+        <div class="control-desc">Zoom in/out</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">I</div>
+        <div class="control-desc">Open inventory</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">C</div>
+        <div class="control-desc">Toggle coordinates</div>
+      </div>
+      <div class="control-item">
+        <div class="control-key">Enter</div>
+        <div class="control-desc">Open chat</div>
+      </div>
     </div>
   `;
 
