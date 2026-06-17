@@ -42,6 +42,7 @@ import { initInteractionUI, updateInteractions }         from './ui/interactionU
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
+import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
 
 // ── Wait for DOM to be ready ──────────────────────────────────────────
 
@@ -203,6 +204,7 @@ bindSendChat(sendChat);
 initTouchControls();
 initInteractionUI();
 initInventoryPanel();
+initCoordinatesDisplay();
 onEquipChange((cat, file) => equipLocalPlayerItem(cat, file));
 initSettingsPanel(renderer);
 applyQualitySettings(renderer);
@@ -328,6 +330,11 @@ function animate() {
 
   const pos  = getLocalPlayerPosition();
   const rotY = getLocalPlayerRotY();
+
+  // Update coordinates display
+  if (pos) {
+    updateCoordinates(pos);
+  }
 
   // ── Every frame: physics, networking, core animation ─────────────────
   if (pos) {
