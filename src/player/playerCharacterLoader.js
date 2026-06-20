@@ -40,7 +40,7 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
       n.visible = true;
       n.material.needsUpdate = true;
       n.castShadow = true;
-      n.receiveShadow = true;
+      n.receiveShadow = false; // Changed from true to false to prevent self-shadowing artifacts
     }
   });
   console.log(`[player] 🎨 Applied settings to ${meshCount} meshes`);

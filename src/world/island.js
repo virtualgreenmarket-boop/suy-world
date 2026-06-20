@@ -135,7 +135,7 @@ function addTerrain(scene) {
 
   // Island body — visible tapered cliff edge (asymmetric ellipse)
   // East expansion: 1.4x (40%), North/South expansion: 2.38x (138% - +30% for huge space)
-  const bodyGeom = new THREE.CylinderGeometry(238, 258, 8, 48, 1, true);
+  const bodyGeom = new THREE.CylinderGeometry(336.53, 364.81, 8, 48, 1, true);
   const bodyPos = bodyGeom.attributes.position;
   for (let i = 0; i < bodyPos.count; i++) {
     const x = bodyPos.getX(i);
@@ -155,7 +155,7 @@ function addTerrain(scene) {
 
   // Island bottom cap (asymmetric ellipse)
   const bottom = new THREE.Mesh(
-    createAsymmetricEllipse(256, 1.4, 2.38, 48),
+    createAsymmetricEllipse(362.02, 1.4, 2.38, 48),
     new THREE.MeshStandardMaterial({ color: 0x6B5030, roughness: 0.97 })
   );
   bottom.rotation.x = Math.PI / 2;
@@ -165,7 +165,7 @@ function addTerrain(scene) {
   // Grass disc — inner island (r < 197), realistic PBR grass
   // East expansion: 1.4x (197 → 276m), North/South: 2.38x (197 → 469m), West stays 197m
   const grassMesh = new THREE.Mesh(
-    createAsymmetricEllipse(197, 1.4, 2.38, 128),
+    createAsymmetricEllipse(278.56, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({
       map:          grassColor,
       normalMap:    grassNormal,
@@ -182,7 +182,7 @@ function addTerrain(scene) {
   // Sand ring — beach zone (r 191–246 → asymmetric)
   // East: 246 → 344m, North/South: 246 → 585m (138% expansion), West stays 246m
   const sandMesh = new THREE.Mesh(
-    createAsymmetricRing(191, 246, 1.4, 2.38, 128),
+    createAsymmetricRing(270.07, 347.84, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95, metalness: 0.0 })
   );
   sandMesh.rotation.x = -Math.PI / 2;
@@ -201,7 +201,7 @@ function addWater(scene) {
 
   // Animated deep-water shader — starts beyond the shallow wading zone
   // Asymmetric: east 396→554m (1.4x), north/south 396→942m (2.38x), west stays 396m
-  _water = new Water(createAsymmetricRing(396, 1000, 1.4, 2.38, 80), {
+  _water = new Water(createAsymmetricRing(560.15, 1164.15, 1.4, 2.38, 80), {
     textureWidth:   512,
     textureHeight:  512,
     waterNormals,
@@ -218,7 +218,7 @@ function addWater(scene) {
   // Simple water fill between island edge and shallow zone (r=120→246)
   // Asymmetric expansion: east 1.4x, north/south 2.38x
   const innerWater = new THREE.Mesh(
-    createAsymmetricRing(120, 246, 1.4, 2.38, 80),
+    createAsymmetricRing(169.70, 347.84, 1.4, 2.38, 80),
     new THREE.MeshStandardMaterial({
       color:       0x006994,
       transparent: true,
@@ -241,7 +241,7 @@ function addShallowWater(scene) {
   // North/South: 246→585m inner, 396→942m outer (2.38x - +30% expansion)
   // West: stays 246→396m
   const shallow = new THREE.Mesh(
-    createAsymmetricRing(246, 396, 1.4, 2.38, 128),
+    createAsymmetricRing(347.84, 560.15, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({
       color:       0x38C0D8,
       transparent: true,
@@ -270,7 +270,7 @@ function addShallowSeabed(scene) {
   // Sloped entry: r=246 (y=0) → r=260 (y=-0.25) — asymmetric expansion
   // East: 1.4x, North/South: 2.38x (+30% expansion)
   const slopeMesh = new THREE.Mesh(
-    _slopedRingAsymmetric(246, 260, 0, -1.05, 1.4, 2.38, 128),
+    _slopedRingAsymmetric(347.84, 367.64, 0, -1.05, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0.0,
       emissive: 0x664422, emissiveIntensity: 0.18 })
   );
@@ -284,7 +284,7 @@ function addShallowSeabed(scene) {
   flatTex.repeat.set(10, 80);
   flatTex.needsUpdate = true;
   const flatMesh = new THREE.Mesh(
-    createAsymmetricRing(260, 396, 1.4, 2.38, 128),
+    createAsymmetricRing(367.64, 560.15, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0,
       emissive: 0x664422, emissiveIntensity: 0.18 })
   );

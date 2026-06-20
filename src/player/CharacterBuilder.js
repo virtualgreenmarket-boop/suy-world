@@ -160,20 +160,62 @@ export function buildCharacter(type, overrideColors = {}) {
 export function resetPose(group) {
   const P = group.userData.parts;
   if(!P) return;
-  P.lArmG.rotation.set(0,0,0.12); P.rArmG.rotation.set(0,0,-0.12);
+  P.lArmG.rotation.set(0.3,0,-0.2); P.rArmG.rotation.set(0.3,0,0.2);
   P.lElbowG.rotation.set(0,0,0); P.rElbowG.rotation.set(0,0,0);
   P.lLegG.rotation.set(0,0,0); P.rLegG.rotation.set(0,0,0);
   P.lKneeG.rotation.set(0,0,0); P.rKneeG.rotation.set(0,0,0);
   P.bodyG.rotation.set(0,0,0); P.headG.rotation.set(0,0,0);
-  group.position.y = 0;
+  group.position.y = 0.15;
   P.lLegG.position.set(-0.22,1.05,0); P.rLegG.position.set(0.22,1.05,0);
   P.bodyG.position.set(0,1.62,0); P.headG.position.set(0,2.42,0);
+}
+
+// Helper function to add/remove dance smile
+function _setDanceSmile(headG, show) {
+  // Remove existing dance smile if any
+  headG.children = headG.children.filter(c => !c.name?.startsWith('dance_smile_'));
+
+  if (!show) {
+    // Restore original mouth visibility
+    headG.children.forEach(c => {
+      if (c.name === 'mouth') c.visible = true;
+    });
+    return;
+  }
+
+  // Hide original mouth
+  headG.children.forEach(c => {
+    if (c.name === 'mouth') c.visible = false;
+  });
+
+  // Add curved smile (3 boxes forming arc, similar to happy emotion)
+  const smileC = B(0.14,0.07,0.04,M('#cc3333'));
+  smileC.name='dance_smile_C';
+  smileC.position.set(0,-0.22,0.41);
+  headG.add(smileC);
+
+  const smileL = B(0.1,0.07,0.04,M('#cc3333'));
+  smileL.name='dance_smile_L';
+  smileL.position.set(-0.11,-0.19,0.41);
+  smileL.rotation.z=0.4;
+  headG.add(smileL);
+
+  const smileR = B(0.1,0.07,0.04,M('#cc3333'));
+  smileR.name='dance_smile_R';
+  smileR.position.set(0.11,-0.19,0.41);
+  smileR.rotation.z=-0.4;
+  headG.add(smileR);
 }
 
 export function animateCharacter(group, animType, t, delta) {
   resetPose(group);
   const p = group.userData.parts;
   if(!p) return;
+
+  // Clear dance smile for non-dance animations
+  if (animType !== 'dance') {
+    _setDanceSmile(p.headG, false);
+  }
 
   if(animType === 'idle') {
     group.position.y = Math.sin(t*1.1)*0.04;
@@ -221,10 +263,10 @@ export function animateCharacter(group, animType, t, delta) {
     p.rKneeG.rotation.x = 1.3;
 
     // Arms forward, resting on legs
-    p.lArmG.rotation.set(-0.8, 0, 0.15); // Forward (negative for forward)
-    p.rArmG.rotation.set(-0.8, 0, -0.15);
-    p.lElbowG.rotation.x = -0.6; // Bend elbows natural direction
-    p.rElbowG.rotation.x = -0.6;
+    p.lArmG.rotation.set(-1.0, 0, 0.15); // Forward (negative for forward), lowered from -0.8 to -1.0
+    p.rArmG.rotation.set(-1.0, 0, -0.15);
+    p.lElbowG.rotation.x = -0.7; // Bend elbows natural direction, increased from -0.6 to -0.7
+    p.rElbowG.rotation.x = -0.7;
 
     // Slight body lean back
     p.bodyG.rotation.x = -0.15;
@@ -234,11 +276,14 @@ export function animateCharacter(group, animType, t, delta) {
     group.position.y = Math.abs(s)*0.18;
     p.bodyG.rotation.z = s*0.28; p.headG.rotation.z = -s*0.18;
     p.lArmG.rotation.x = Math.sin(t*3.5+Math.PI)*1.2; p.rArmG.rotation.x = s*1.2;
-    p.lArmG.rotation.z = 0.3+s*0.5; p.rArmG.rotation.z = -0.3-s*0.5;
+    p.lArmG.rotation.z = -0.3-Math.abs(s)*0.4; p.rArmG.rotation.z = 0.3+Math.abs(s)*0.4; // Keep arms outward, never inward
     p.lElbowG.rotation.x = -Math.abs(s)*0.8; p.rElbowG.rotation.x = -Math.abs(s)*0.8;
     p.lLegG.rotation.x = s*0.45; p.rLegG.rotation.x = -s*0.45;
     p.lKneeG.rotation.x = Math.abs(s)*0.4; p.rKneeG.rotation.x = Math.abs(s)*0.4;
     p.bodyG.rotation.x = Math.sin(t*1.8)*0.15;
+
+    // Add smile during dance
+    _setDanceSmile(p.headG, true);
   }
 }
 

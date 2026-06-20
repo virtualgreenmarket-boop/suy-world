@@ -199,6 +199,43 @@ export function initInventoryButton() {
         margin-top: 5px;
       }
 
+      .save-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        border: none;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 20px;
+        font-family: inherit;
+      }
+
+      .save-btn:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+      }
+
+      .save-btn:active {
+        transform: scale(0.98);
+      }
+
+      .save-feedback {
+        text-align: center;
+        color: #4CAF50;
+        font-size: 14px;
+        margin-top: 10px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .save-feedback.show {
+        opacity: 1;
+      }
+
       @media (max-width: 600px) {
         #inventory-panel {
           width: 95vw;
@@ -264,6 +301,8 @@ export function initInventoryButton() {
             <span class="color-picker-label">נעליים</span>
             <input type="color" class="color-picker-input" id="color-shoes" value="#5D4037">
           </div>
+          <button class="save-btn" id="save-customization-btn">💾 שמור התאמה אישית</button>
+          <div class="save-feedback" id="save-feedback">✓ נשמר בהצלחה!</div>
         </div>
 
         <!-- Hand Items tab -->
@@ -357,11 +396,57 @@ export function initInventoryButton() {
     shoes: document.getElementById('color-shoes')
   };
 
+  // Load saved customization from localStorage
+  const CUSTOMIZATION_KEY = 'suy_character_customization';
+  const savedCustomization = loadCustomization();
+  if (savedCustomization) {
+    if (savedCustomization.skin) colorInputs.skin.value = savedCustomization.skin;
+    if (savedCustomization.shirt) colorInputs.shirt.value = savedCustomization.shirt;
+    if (savedCustomization.pants) colorInputs.pants.value = savedCustomization.pants;
+    if (savedCustomization.shoes) colorInputs.shoes.value = savedCustomization.shoes;
+    // Apply saved colors immediately
+    updatePlayerAppearance(savedCustomization);
+  }
+
   Object.entries(colorInputs).forEach(([part, input]) => {
     input.addEventListener('input', () => {
       updatePlayerAppearance({ [part]: input.value });
     });
   });
+
+  // SAVE button functionality
+  const saveBtn = document.getElementById('save-customization-btn');
+  const saveFeedback = document.getElementById('save-feedback');
+
+  saveBtn.addEventListener('click', () => {
+    const customization = {
+      skin: colorInputs.skin.value,
+      shirt: colorInputs.shirt.value,
+      pants: colorInputs.pants.value,
+      shoes: colorInputs.shoes.value
+    };
+
+    // Save to localStorage
+    localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(customization));
+
+    // Show feedback
+    saveFeedback.classList.add('show');
+    setTimeout(() => {
+      saveFeedback.classList.remove('show');
+    }, 2000);
+
+    console.log('[inventory] Customization saved:', customization);
+  });
+
+  function loadCustomization() {
+    try {
+      const raw = localStorage.getItem(CUSTOMIZATION_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (err) {
+      console.warn('[inventory] Failed to load customization:', err);
+    }
+    return null;
+  }
 
   // Populate Hand Items grid
   const handItemsGrid = document.getElementById('hand-items-grid');

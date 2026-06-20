@@ -67,6 +67,11 @@ export function initLocalPlayer(scene, camera, name, characterId) {
     console.error('[local-player] Failed to spawn character:', err);
   });
 
+  // Wire up global function for inventory customization
+  window.updatePlayerAppearance = (changes) => {
+    updatePlayerAppearance(changes);
+  };
+
   window.addEventListener('keydown', e => {
     if (isChatOpen()) return;
     keys[e.code] = true;
@@ -295,6 +300,55 @@ export function savePlayerPosition() {
   if (!playerGroup) return;
   const { x, y, z } = playerGroup.position;
   localStorage.setItem('suy_spawn', JSON.stringify({ x, y, z }));
+}
+
+function updatePlayerAppearance(changes) {
+  if (!playerGroup || !playerGroup.userData._charModel) {
+    console.warn('[local-player] Cannot update appearance: character not loaded yet');
+    return;
+  }
+
+  const charModel = playerGroup.userData._charModel;
+
+  // Update materials by traversing the character model
+  charModel.traverse(child => {
+    if (!child.isMesh || !child.material) return;
+
+    // Get the material - handle both single material and material arrays
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+    materials.forEach(mat => {
+      if (!mat) return;
+
+      // Match material to body part by checking its current color
+      const currentColor = mat.color.getHexString().toLowerCase();
+
+      // Skin color update
+      if (changes.skin && (currentColor === 'ffcc99' || currentColor.startsWith('ff') || currentColor.startsWith('7c') || currentColor.startsWith('cc') || currentColor.startsWith('90'))) {
+        // Check if this looks like a skin material (common skin tones)
+        if (child.parent?.name !== 'headG' || !child.geometry?.parameters || child.geometry.parameters.radius > 0.2) {
+          mat.color.set(changes.skin);
+        }
+      }
+
+      // Shirt color update
+      if (changes.shirt && (currentColor === '2196f3' || currentColor === '666' || currentColor === '8b0000' || currentColor === '455a64' || currentColor === 'e91e63')) {
+        mat.color.set(changes.shirt);
+      }
+
+      // Pants color update
+      if (changes.pants && (currentColor === '333' || currentColor === '444' || currentColor === '9c27b0' || currentColor === '4a0000' || currentColor === '37474f')) {
+        mat.color.set(changes.pants);
+      }
+
+      // Shoes color update
+      if (changes.shoes && (currentColor === '5d4037' || currentColor === '333333' || currentColor === 'e91e63' || currentColor === '222' || currentColor === '263238')) {
+        mat.color.set(changes.shoes);
+      }
+    });
+  });
+
+  console.log('[local-player] Character appearance updated:', changes);
 }
 
 function _loadSpawn() {

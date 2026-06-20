@@ -48,7 +48,7 @@ function solidMat(color, rough = 0.95) {
 
 export function initMarina(scene) {
   const group = new THREE.Group();
-  group.position.set(-230, 0, 0);
+  group.position.set(-325.2, 0, 0);
   group.rotation.y = Math.PI / 2;
   scene.add(group);
 

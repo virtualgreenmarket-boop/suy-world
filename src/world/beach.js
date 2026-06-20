@@ -3,8 +3,8 @@ import * as THREE from 'three';
 // Beach decorations: seashells only
 // Positioned on the sandy ring at radius 220-238, y=0.
 
-const BEACH_INNER = 222;
-const BEACH_OUTER = 236;
+const BEACH_INNER = 313.91;
+const BEACH_OUTER = 333.70;
 
 // ── Public ────────────────────────────────────────────────────────────
 
