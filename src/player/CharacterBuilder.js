@@ -100,29 +100,29 @@ export function buildCharacter(type, overrideColors = {}) {
     const led2=S(0.06,M('#00E5FF',0.3,0.9)); led2.position.set(0.1,0.1,0.34); parts.bodyG.add(led2);
   }
 
-  // LEFT ARM
+  // LEFT ARM (reduced by 10% for Issue 3)
   parts.lArmG = new THREE.Group();
   parts.lArmG.position.set(-0.55, 0.42, 0);
-  parts.lArmG.add(S(0.2, shirt));
-  parts.lArmG.add(P(B(0.28,0.46,0.28,shirt), 0,-0.28,0));
+  parts.lArmG.add(S(0.18, shirt));
+  parts.lArmG.add(P(B(0.252,0.414,0.252,shirt), 0,-0.28,0));
   parts.lElbowG = new THREE.Group();
   parts.lElbowG.position.set(0,-0.52,0);
-  parts.lElbowG.add(S(0.155,skin));
-  parts.lElbowG.add(P(B(0.24,0.42,0.24,skin), 0,-0.26,0));
-  parts.lElbowG.add(P(B(0.28,0.19,0.22,skin), 0,-0.62,0));
+  parts.lElbowG.add(S(0.1395,skin));
+  parts.lElbowG.add(P(B(0.216,0.378,0.216,skin), 0,-0.26,0));
+  parts.lElbowG.add(P(B(0.252,0.171,0.198,skin), 0,-0.62,0));
   parts.lArmG.add(parts.lElbowG);
   parts.bodyG.add(parts.lArmG);
 
-  // RIGHT ARM
+  // RIGHT ARM (reduced by 10% for Issue 3)
   parts.rArmG = new THREE.Group();
   parts.rArmG.position.set(0.55, 0.42, 0);
-  parts.rArmG.add(S(0.2, shirt));
-  parts.rArmG.add(P(B(0.28,0.46,0.28,shirt), 0,-0.28,0));
+  parts.rArmG.add(S(0.18, shirt));
+  parts.rArmG.add(P(B(0.252,0.414,0.252,shirt), 0,-0.28,0));
   parts.rElbowG = new THREE.Group();
   parts.rElbowG.position.set(0,-0.52,0);
-  parts.rElbowG.add(S(0.155,skin));
-  parts.rElbowG.add(P(B(0.24,0.42,0.24,skin), 0,-0.26,0));
-  parts.rElbowG.add(P(B(0.28,0.19,0.22,skin), 0,-0.62,0));
+  parts.rElbowG.add(S(0.1395,skin));
+  parts.rElbowG.add(P(B(0.216,0.378,0.216,skin), 0,-0.26,0));
+  parts.rElbowG.add(P(B(0.252,0.171,0.198,skin), 0,-0.62,0));
   parts.rArmG.add(parts.rElbowG);
   parts.bodyG.add(parts.rArmG);
   group.add(parts.bodyG);
@@ -165,7 +165,7 @@ export function resetPose(group) {
   P.lLegG.rotation.set(0,0,0); P.rLegG.rotation.set(0,0,0);
   P.lKneeG.rotation.set(0,0,0); P.rKneeG.rotation.set(0,0,0);
   P.bodyG.rotation.set(0,0,0); P.headG.rotation.set(0,0,0);
-  group.position.y = 0.15;
+  group.position.y = group.userData._groundY || 0;
   P.lLegG.position.set(-0.22,1.05,0); P.rLegG.position.set(0.22,1.05,0);
   P.bodyG.position.set(0,1.62,0); P.headG.position.set(0,2.42,0);
 }
@@ -218,38 +218,47 @@ export function animateCharacter(group, animType, t, delta) {
   }
 
   if(animType === 'idle') {
-    group.position.y = Math.sin(t*1.1)*0.04;
-    p.lArmG.rotation.x = Math.sin(t*0.9)*0.06;
-    p.rArmG.rotation.x = -Math.sin(t*0.9)*0.06;
+    // No vertical motion in idle - character stays firmly on ground
+    p.lArmG.rotation.x = -0.1 + Math.sin(t*0.9)*0.06;
+    p.rArmG.rotation.x = -0.1 + -Math.sin(t*0.9)*0.06;
+    p.lArmG.rotation.z = -0.2;
+    p.rArmG.rotation.z = 0.2;
     p.headG.rotation.z = Math.sin(t*0.7)*0.04;
   }
   else if(animType === 'walk') {
     const s = Math.sin(t*4.2); // 50% faster (2.8 * 1.5 = 4.2)
-    p.lArmG.rotation.x = s*0.7; p.rArmG.rotation.x = -s*0.7;
+    p.lArmG.rotation.x = -0.1 + s*0.7;
+    p.rArmG.rotation.x = -0.1 + -s*0.7;
+    p.lArmG.rotation.z = -0.2;
+    p.rArmG.rotation.z = 0.2;
     p.lElbowG.rotation.x = -Math.max(0,-s)*0.5; p.rElbowG.rotation.x = -Math.max(0,s)*0.5;
     p.lLegG.rotation.x = -s*0.65; p.rLegG.rotation.x = s*0.65;
     p.lKneeG.rotation.x = Math.max(0,s)*0.55; p.rKneeG.rotation.x = Math.max(0,-s)*0.55;
-    group.position.y = Math.abs(s)*0.1-0.02;
+    group.position.y = (group.userData._groundY || 0) + Math.abs(s)*0.1-0.02;
     p.bodyG.rotation.z = s*0.05;
   }
   else if(animType === 'run') {
     const s = Math.sin(t*6.75); // 50% faster (4.5 * 1.5 = 6.75)
-    p.lArmG.rotation.x = s*1.1; p.rArmG.rotation.x = -s*1.1;
-    p.lArmG.rotation.z = 0.2; p.rArmG.rotation.z = -0.2;
+    p.lArmG.rotation.x = -0.1 + s*1.1;
+    p.rArmG.rotation.x = -0.1 + -s*1.1;
+    p.lArmG.rotation.z = -0.2;
+    p.rArmG.rotation.z = 0.2;
     p.lElbowG.rotation.x = 0.8-Math.max(0,-s)*0.6;
     p.rElbowG.rotation.x = 0.8-Math.max(0,s)*0.6;
     p.lLegG.rotation.x = -s*1.0; p.rLegG.rotation.x = s*1.0;
     p.lKneeG.rotation.x = Math.max(0,s)*0.9; p.rKneeG.rotation.x = Math.max(0,-s)*0.9;
-    group.position.y = Math.abs(s)*0.18-0.04;
+    group.position.y = (group.userData._groundY || 0) + Math.abs(s)*0.18-0.04;
     p.bodyG.rotation.x = -0.22; p.headG.rotation.x = 0.12;
   }
   else if(animType === 'jump') {
     const jt = (Math.sin(t*1.8)+1)/2;
-    group.position.y = jt*1.1;
+    group.position.y = (group.userData._groundY || 0) + jt*1.1;
     p.lLegG.rotation.x = -jt*0.7; p.rLegG.rotation.x = -jt*0.7;
     p.lKneeG.rotation.x = jt*1.1; p.rKneeG.rotation.x = jt*1.1;
-    p.lArmG.rotation.x = -jt*1.0; p.rArmG.rotation.x = -jt*1.0;
-    p.lArmG.rotation.z = jt*0.5; p.rArmG.rotation.z = -jt*0.5;
+    p.lArmG.rotation.x = -0.1 + -jt*1.0;
+    p.rArmG.rotation.x = -0.1 + -jt*1.0;
+    p.lArmG.rotation.z = -0.2 + jt*0.5;
+    p.rArmG.rotation.z = 0.2 + -jt*0.5;
   }
   else if(animType === 'sit') {
     // Lower body slightly and move forward
@@ -263,8 +272,10 @@ export function animateCharacter(group, animType, t, delta) {
     p.rKneeG.rotation.x = 1.3;
 
     // Arms forward, resting on legs
-    p.lArmG.rotation.set(-1.0, 0, 0.15); // Forward (negative for forward), lowered from -0.8 to -1.0
-    p.rArmG.rotation.set(-1.0, 0, -0.15);
+    p.lArmG.rotation.x = -0.3;
+    p.rArmG.rotation.x = -0.3;
+    p.lArmG.rotation.z = -0.15;
+    p.rArmG.rotation.z = 0.15;
     p.lElbowG.rotation.x = -0.7; // Bend elbows natural direction, increased from -0.6 to -0.7
     p.rElbowG.rotation.x = -0.7;
 
@@ -273,10 +284,12 @@ export function animateCharacter(group, animType, t, delta) {
   }
   else if(animType === 'dance') {
     const s = Math.sin(t*3.5);
-    group.position.y = Math.abs(s)*0.18;
+    group.position.y = (group.userData._groundY || 0) + Math.abs(s)*0.18;
     p.bodyG.rotation.z = s*0.28; p.headG.rotation.z = -s*0.18;
-    p.lArmG.rotation.x = Math.sin(t*3.5+Math.PI)*1.2; p.rArmG.rotation.x = s*1.2;
-    p.lArmG.rotation.z = -0.3-Math.abs(s)*0.4; p.rArmG.rotation.z = 0.3+Math.abs(s)*0.4; // Keep arms outward, never inward
+    p.lArmG.rotation.x = -0.1 + Math.sin(t*3.5+Math.PI)*1.2;
+    p.rArmG.rotation.x = -0.1 + s*1.2;
+    p.lArmG.rotation.z = -0.2 + -0.1-Math.abs(s)*0.4;
+    p.rArmG.rotation.z = 0.2 + 0.1+Math.abs(s)*0.4;
     p.lElbowG.rotation.x = -Math.abs(s)*0.8; p.rElbowG.rotation.x = -Math.abs(s)*0.8;
     p.lLegG.rotation.x = s*0.45; p.rLegG.rotation.x = -s*0.45;
     p.lKneeG.rotation.x = Math.abs(s)*0.4; p.rKneeG.rotation.x = Math.abs(s)*0.4;

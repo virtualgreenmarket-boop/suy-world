@@ -63,6 +63,7 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
   const bbox2 = new THREE.Box3().setFromObject(charGroup);
   const offset = -bbox2.min.y;
   charGroup.position.y = offset;
+  charGroup.userData._groundY = offset;
 
   console.log(`[player] 📍 Positioned at Y=${offset.toFixed(2)}`);
 
