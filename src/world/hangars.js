@@ -290,23 +290,41 @@ function getBrickMat() {
 }
 
 // ── Dimensions ────────────────────────────────────────────────────────
-const W  = 72.9;   // exterior width  (x: -36.45..+36.45)
-const D  = 126.9;  // exterior depth  (z: -63.45..+63.45)
-const H  = 18.9;   // wall height
-const TH = 1.62;   // roof thickness
+// Per-hangar exterior dimensions: [North, East/Center, South].
+// North resized per spec: 84m wide × 330m long, 14m walls, 1.5m roof (~15.5m total height).
+export const HANGAR_DIMS = [
+  { W: 84,   D: 330,   H: 14,   TH: 1.5  }, // North
+  { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
+  { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
+];
 
-// ── Room constants (4 rooms per side, 8 total) ─────────────────────────
-const ROOM_W     = 31.7;  // room width along Z axis
-const ROOM_D     = 21.45; // room depth along X axis (into hangar from side wall)
-const ROOM_H     = 17;    // room interior height
-const ROOM_COUNT = 4;     // rooms per side
-const DOOR_W     = 7;     // door opening width (world Z)
-const DOOR_H     = 12;    // door opening height
-const DOOR_T     = 0.7;   // door panel thickness
+// ── Positions ─────────────────────────────────────────────────────────
+// Hangar positions - moved 20% further from plaza for elliptical island
+// (135.5 × 1.2 = 162.6m from center).
+// North hangar is much longer than East/South (330m vs 126.9m); its z position is
+// pushed further from the plaza so its entrance (south-facing side) stays at the same
+// world position as the original layout (-99.15), with the extra length extending
+// away from the plaza.
+// Exported so collision.js can build wall colliders that always match the real geometry.
+export const HANGAR_CONFIGS = [
+  { x:   0, z: -99.15 - HANGAR_DIMS[0].D / 2, rotY: 0,           name: 'North Hangar' }, // z = -264.15
+  { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },
+  { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },
+];
+
+// ── Room constants (15 rooms per side, 30 total — North hangar only) ──
+const ROOM_W     = 20;    // room width along Z axis
+const ROOM_D     = 24;    // room depth along X axis (into hangar from side wall)
+const ROOM_H     = 14;    // room interior height (matches North hangar wall height)
+const ROOM_COUNT = 15;    // rooms per side
+const DOOR_W     = 6;     // door opening width (world Z)
+const DOOR_H     = 5.5;   // door opening height
+const DOOR_T     = 0.6;   // door panel thickness
 const WALL_T     = 0.3;   // interior wall thickness
 // Equal gap before / between / after rooms along Z
-// Note: 4 × 31.7 = 126.8 m ≈ D (126.9 m), so gap is ~0.02 m — rooms are nearly wall-to-wall
-const ROOM_GAP   = (D - ROOM_COUNT * ROOM_W) / (ROOM_COUNT + 1);
+// Note: rooms are only built in the North hangar (buildRooms is called for hangarIndex 0 only)
+// Central corridor width = W - 2*ROOM_D = 84 - 2*24 = 36 m (matches spec)
+const ROOM_GAP   = (HANGAR_DIMS[0].D - ROOM_COUNT * ROOM_W) / (ROOM_COUNT + 1);
 
 // Far-wall store slots (unchanged)
 const FRONT_SPAN  = 67.5;
@@ -387,25 +405,18 @@ function _toggleDoor(door) {
 
 export function initHangars(scene, camera) {
   _camera = camera;
-  // Hangar positions - moved 20% further from plaza for elliptical island
-  // 135.5 × 1.2 = 162.6m from center
-  const configs = [
-    { x:   0, z: -162.6, rotY: 0,           name: 'North Hangar' },  // 20% further
-    { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },  // 20% further
-    { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },  // 20% further
-  ];
 
-  configs.forEach((cfg, i) => buildHangar(scene, cfg, i));
+  HANGAR_CONFIGS.forEach((cfg, i) => buildHangar(scene, cfg, i));
 
   // Register entrance NPCs as "Shop" interactions
   // World positions: NPC is at local (0, 0, D/2-4) inside each rotated hangar group
-  const halfD = D / 2 - 4;
+  const halfD = HANGAR_DIMS.map(d => d.D / 2 - 4);
   const sin0 = Math.sin(0),        cos0 = Math.cos(0);
   const sinNE = Math.sin(-Math.PI/2), cosNE = Math.cos(-Math.PI/2);
   const sinS = Math.sin(Math.PI),   cosS = Math.cos(Math.PI);
 
-  // North: x=0, z=-162.6, rotY=0 (10m closer to plaza)
-  registerInteraction([0 + halfD*sin0, 0, -162.6 + halfD*cos0], 'Talk', 7, () => {
+  // North: x=0, z=HANGAR_CONFIGS[0].z, rotY=0
+  registerInteraction([0 + halfD[0]*sin0, 0, HANGAR_CONFIGS[0].z + halfD[0]*cos0], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the North Hangar!',
       'This hangar is home to a variety of stores and creators. Walk along both sides and explore the rooms — each one belongs to a different seller or brand.',
@@ -414,7 +425,7 @@ export function initHangars(scene, camera) {
     ], 'North Hangar');
   });
   // Center: x=162.6, z=0, rotY=-PI/2 (10m closer to plaza)
-  registerInteraction([162.6 + halfD*sinNE, 0, 0 + halfD*cosNE], 'Talk', 7, () => {
+  registerInteraction([162.6 + halfD[1]*sinNE, 0, 0 + halfD[1]*cosNE], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the Central Hangar!',
       'You are standing at the heart of Suy-World. This hangar connects all directions and is filled with rooms from all kinds of sellers, creators, and brands.',
@@ -423,7 +434,7 @@ export function initHangars(scene, camera) {
     ], 'Central Hangar');
   });
   // South: x=0, z=162.6, rotY=PI (10m closer to plaza)
-  registerInteraction([0 + halfD*sinS, 0, 162.6 + halfD*cosS], 'Talk', 7, () => {
+  registerInteraction([0 + halfD[2]*sinS, 0, 162.6 + halfD[2]*cosS], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the South Hangar!',
       'This hangar is packed with unique rooms and products. Each door you open leads to a different world — a different seller with their own style and story.',
@@ -445,6 +456,8 @@ export function initHangars(scene, camera) {
 // ── Build one hangar ──────────────────────────────────────────────────
 
 function buildHangar(scene, { x, z, rotY }, hangarIndex) {
+  const { W, D, H, TH } = HANGAR_DIMS[hangarIndex];
+
   const group = new THREE.Group();
   group.position.set(x, 0, z);
   group.rotation.y = rotY;
@@ -456,7 +469,7 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   const colMat    = stdMat(0xF0EBE3, 0.78, 0.05);
 
   // ── Shell ─────────────────────────────────────────────────────────
-  buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat);
+  buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangarIndex);
 
   // ── Store slots ───────────────────────────────────────────────────
   const slotSignMat = stdMat(0xBDBDBD, 0.82); // default: available (gray)
@@ -510,7 +523,9 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
 
 // ── Hangar exterior shell ─────────────────────────────────────────────
 
-function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat) {
+function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangarIndex) {
+  const { W, D, H, TH } = HANGAR_DIMS[hangarIndex];
+
   // Floor — SOLID platform raised above grass level
   const floorThickness = 0.5; // Thicker floor for solidity
   const floorY = 0.25; // Raise floor 25cm above grass
@@ -593,6 +608,7 @@ function _buildRoomNumberSign(number) {
 // ── Rooms (4 per side, 8 total per hangar) ───────────────────────────
 
 function buildRooms(group, side, hangarIndex) {
+  const { W, D } = HANGAR_DIMS[hangarIndex];
   const inward = side === 'left' ? 1 : -1;
   const outerX = side === 'left' ? -W / 2 : W / 2;
   const frontX = outerX + inward * ROOM_D;  // corridor-facing wall X
@@ -612,14 +628,14 @@ function buildRooms(group, side, hangarIndex) {
     });
 
     // Front wall — two side panels flanking the door + header above door
-    const sideSegW = (ROOM_W - DOOR_W) / 2; // 12.35 m each
+    const sideSegW = (ROOM_W - DOOR_W) / 2; // 7 m each
     [-1, 1].forEach(sign => {
       const fw = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, ROOM_H, sideSegW), wallMat);
       fw.position.set(frontX, ROOM_H / 2, centerZ + sign * (DOOR_W / 2 + sideSegW / 2));
       group.add(fw);
     });
 
-    const aboveH = ROOM_H - DOOR_H; // 5 m header
+    const aboveH = ROOM_H - DOOR_H; // 8.5 m header
     const header = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, aboveH, DOOR_W), wallMat);
     header.position.set(frontX, DOOR_H + aboveH / 2, centerZ);
     group.add(header);
@@ -735,6 +751,7 @@ async function _placeDoorModels() {
 }
 
 function buildFarSlots(group, hangarIndex, signMat, counterMat) {
+  const { H, D } = HANGAR_DIMS[hangarIndex];
   const wallZ  = -(D / 2 - 0.3);
 
   for (let i = 0; i < FRONT_COUNT; i++) {

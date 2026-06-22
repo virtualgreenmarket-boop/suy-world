@@ -1,19 +1,20 @@
 // Axis-aligned wall collision for hangar interiors.
 // Walls are stored as world-space AABBs; works because hangars only use 90° rotations.
+import { HANGAR_DIMS, HANGAR_CONFIGS } from '../world/hangars.js';
 
 const boxes = [];
 const PLAYER_R = 0.55;
 
-// Hangar geometry constants (must match hangars.js) - updated for 35% larger hangars
-const HW  = 36.45;  // W/2  = 72.9/2 (was 27, 54/2)
-const HD  = 63.45;  // D/2  = 126.9/2 (was 47, 94/2)
 const TH  = 0.35;   // wall half-thickness (wall is 0.6 thick)
-const OPN = 6;      // far-wall door half-opening (door is 12 m wide)
+const OPN = 6;       // far-wall door half-opening (door is 12 m wide)
 
 export function initCollision() {
-  addHangar(  0, -162.6,  0);           // North (10m closer to plaza)
-  addHangar(162.6,    0, -Math.PI / 2); // Center (10m closer to plaza)
-  addHangar(  0,  162.6,  Math.PI);     // South (10m closer to plaza)
+  // Wall colliders are derived directly from HANGAR_DIMS/HANGAR_CONFIGS (hangars.js)
+  // so they always match the real geometry, even when hangars are resized per-hangar.
+  HANGAR_CONFIGS.forEach(({ x, z, rotY }, i) => {
+    const { W, D } = HANGAR_DIMS[i];
+    addHangar(x, z, rotY, W / 2, D / 2);
+  });
 }
 
 function rot(lx, lz, cx, cz, ry) {
@@ -34,15 +35,15 @@ function addRotBox(lx1, lz1, lx2, lz2, cx, cz, ry) {
   });
 }
 
-function addHangar(cx, cz, ry) {
-  // Left wall (local x ≈ −HW, spanning full depth)
-  addRotBox(-HW - TH, -HD, -HW + TH,  HD, cx, cz, ry);
+function addHangar(cx, cz, ry, hw, hd) {
+  // Left wall (local x ≈ −hw, spanning full depth)
+  addRotBox(-hw - TH, -hd, -hw + TH,  hd, cx, cz, ry);
   // Right wall
-  addRotBox( HW - TH, -HD,  HW + TH,  HD, cx, cz, ry);
+  addRotBox( hw - TH, -hd,  hw + TH,  hd, cx, cz, ry);
   // Far wall — left of opening
-  addRotBox(-HW, -HD - TH, -OPN, -HD + TH, cx, cz, ry);
+  addRotBox(-hw, -hd - TH, -OPN, -hd + TH, cx, cz, ry);
   // Far wall — right of opening
-  addRotBox( OPN, -HD - TH,  HW, -HD + TH, cx, cz, ry);
+  addRotBox( OPN, -hd - TH,  hw, -hd + TH, cx, cz, ry);
 }
 
 function collidesAny(x, z) {

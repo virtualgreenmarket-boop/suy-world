@@ -9,6 +9,7 @@ import { isChatOpen } from '../ui/chatUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { initActionButtons } from '../ui/actionButtons.js';
 import { getAnimals } from '../world/AnimalSystem.js';
+import { HANGAR_DIMS, HANGAR_CONFIGS } from '../world/hangars.js';
 
 let _glbAnimalManager = null;
 export function setGLBAnimalManager(manager) {
@@ -21,7 +22,10 @@ const KB_SPEED    = 10;
 const CAM_DIST_MIN = 3;
 const CAM_DIST_MAX = 20;
 const CAM_LOOK_H  = 1.6;
-const ISLAND_R    = 396;
+// Circular movement boundary. Derived from the base terrain radius and the farthest
+// hangar corner (+ margin) so resizing a hangar (e.g. the North hangar's 330m length)
+// can never trap the player short of a room they should be able to reach.
+const ISLAND_R    = computeIslandRadius();
 const GRAVITY     = -22;
 const JUMP_FORCE  = 8;
 const MAX_STEP    = 0.82;
@@ -349,6 +353,21 @@ function updatePlayerAppearance(changes) {
   });
 
   console.log('[local-player] Character appearance updated:', changes);
+}
+
+function computeIslandRadius() {
+  const BASE_R = 396; // original world/terrain boundary (unrelated to hangars)
+  const MARGIN = 20;  // walking room past the farthest hangar corner
+
+  let maxCornerDist = 0;
+  HANGAR_CONFIGS.forEach(({ x, z }, i) => {
+    const { W, D } = HANGAR_DIMS[i];
+    const hw = W / 2, hd = D / 2;
+    [[x - hw, z - hd], [x - hw, z + hd], [x + hw, z - hd], [x + hw, z + hd]]
+      .forEach(([cx, cz]) => { maxCornerDist = Math.max(maxCornerDist, Math.hypot(cx, cz)); });
+  });
+
+  return Math.max(BASE_R, maxCornerDist + MARGIN);
 }
 
 function _loadSpawn() {
