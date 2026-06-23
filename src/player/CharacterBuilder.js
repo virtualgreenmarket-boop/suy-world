@@ -25,67 +25,228 @@ export function buildCharacter(type, overrideColors = {}) {
   const group = new THREE.Group();
   const parts = {};
 
-  // HEAD
+  // HEAD - Upright egg shape (all 5 characters)
+  // FINAL CONFIRMED: taller than wide, height/width ratio ≈ 1.17
+  const BASE_RADIUS = 0.6;
+  const SCALE_XZ = 1 / Math.sqrt(1.3);
+  const SCALE_Y = Math.sqrt(1.3) * 0.9; // 10% height reduction from initial 1.3 attempt
+
   parts.headG = new THREE.Group();
   parts.headG.position.set(0, 2.42, 0);
-  parts.headG.add(B(0.78,0.78,0.78,skin));
 
-  // Hair
+  const headGeo = new THREE.SphereGeometry(BASE_RADIUS, 64, 48);
+  const head = new THREE.Mesh(headGeo, skin);
+  head.scale.set(SCALE_XZ, SCALE_Y, SCALE_XZ);
+  head.castShadow = true;
+  parts.headG.add(head);
+
+  // Store scale values for hair/face positioning
+  parts.headG.userData.BASE_RADIUS = BASE_RADIUS;
+  parts.headG.userData.SCALE_XZ = SCALE_XZ;
+  parts.headG.userData.SCALE_Y = SCALE_Y;
+
+  // Hair - custom design per character
   if(c.hairStyle === 'normal') {
-    parts.headG.add(P(B(0.8,0.22,0.8,hairM), 0,0.46,0));
-    parts.headG.add(P(B(0.8,0.3,0.14,hairM), 0,0.38,0.36));
+    // ALEX - FINAL: Simple short hair cap, nothing else
+    // Angular coverage calculated to clear above eyebrows with margin
+    const capGeo = new THREE.SphereGeometry(BASE_RADIUS + 0.015, 48, 32, 0, Math.PI*2, 0, Math.PI * 0.3612);
+    const cap = new THREE.Mesh(capGeo, hairM);
+    cap.scale.set(SCALE_XZ, SCALE_Y, SCALE_XZ);
+    cap.castShadow = true;
+    parts.headG.add(cap);
+
   } else if(c.hairStyle === 'long') {
-    parts.headG.add(P(B(0.8,0.22,0.8,hairM), 0,0.46,0));
-    parts.headG.add(P(B(0.2,0.9,0.15,hairM), -0.38,-0.2,-0.1));
-    parts.headG.add(P(B(0.2,0.9,0.15,hairM), 0.38,-0.2,-0.1));
-    parts.headG.add(P(B(0.6,0.85,0.15,hairM), 0,-0.2,-0.42));
+    // MAYA - Egg-shaped head with long flowing hair
+    // Top cap - partial sphere matching egg contour, STOPS at hairline (not covering forehead/face)
+    const topCapGeo = new THREE.SphereGeometry(
+      0.64,    // Slightly larger than egg radius
+      48,      // Width segments
+      32,      // Height segments
+      Math.PI * 0.25,   // Theta start - BEGIN at 45° (avoids front/face)
+      Math.PI * 1.5,    // Theta length - covers sides and back only (270°)
+      0,                // Phi start - from top
+      Math.PI * 0.52    // Phi length - upper hemisphere
+    );
+    const topCap = new THREE.Mesh(topCapGeo, hairM);
+    // Match egg's Y-scale
+    topCap.scale.set(1, 0.5 / 0.6, 1);
+    topCap.position.set(0, 0.25, 0);
+    topCap.castShadow = true;
+    parts.headG.add(topCap);
+
+    // Left side panel - long hanging hair
+    const leftPanel = B(0.2, 0.9, 0.15, hairM);
+    leftPanel.position.set(-0.38, -0.2, -0.1);
+    parts.headG.add(leftPanel);
+
+    // Right side panel - long hanging hair
+    const rightPanel = B(0.2, 0.9, 0.15, hairM);
+    rightPanel.position.set(0.38, -0.2, -0.1);
+    parts.headG.add(rightPanel);
+
+    // Back panel - long hanging hair
+    const backPanel = B(0.6, 0.85, 0.15, hairM);
+    backPanel.position.set(0, -0.2, -0.42);
+    parts.headG.add(backPanel);
+
   } else if(c.hairStyle === 'messy') {
-    parts.headG.add(P(B(0.9,0.25,0.9,hairM), 0,0.44,0));
-    const s1=B(0.18,0.25,0.18,hairM); s1.position.set(-0.25,0.62,0.1); s1.rotation.z=0.3; parts.headG.add(s1);
-    const s2=B(0.18,0.22,0.18,hairM); s2.position.set(0.2,0.65,-0.05); s2.rotation.z=-0.2; parts.headG.add(s2);
+    // ZED - Messy zombie hair on egg head (leave existing for now per instructions)
+    // Top cap adjusted for egg height
+    const topCapY = BASE_RADIUS * SCALE_Y * 0.4;
+    parts.headG.add(P(B(0.9, 0.25, 0.9, hairM), 0, topCapY, 0));
+
+    // Messy spikes
+    const spikeY = BASE_RADIUS * SCALE_Y * 0.57;
+    const s1 = B(0.18, 0.25, 0.18, hairM);
+    s1.position.set(-0.25, spikeY, 0.1);
+    s1.rotation.z = 0.3;
+    parts.headG.add(s1);
+
+    const s2 = B(0.18, 0.22, 0.18, hairM);
+    s2.position.set(0.2, spikeY + 0.03, -0.05);
+    s2.rotation.z = -0.2;
+    parts.headG.add(s2);
+
   } else if(c.hairStyle === 'horns') {
-    const h1=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.55,8),M('#8B0000')); h1.castShadow=true;
-    h1.position.set(-0.28,0.7,0); h1.rotation.z=0.25; parts.headG.add(h1);
-    const h2=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.55,8),M('#8B0000')); h2.castShadow=true;
-    h2.position.set(0.28,0.7,0); h2.rotation.z=-0.25; parts.headG.add(h2);
+    // KAEL - Demon horns positioned on egg head surface
+    // X positions adjusted for narrower egg width (SCALE_XZ)
+    const hornX = BASE_RADIUS * SCALE_XZ * 0.85; // Positioned on side of egg
+    const hornY = BASE_RADIUS * SCALE_Y * 0.65;  // Upper portion of egg
+
+    const h1 = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.55, 8), M('#8B0000'));
+    h1.castShadow = true;
+    h1.position.set(-hornX, hornY, 0);
+    h1.rotation.z = 0.25;
+    parts.headG.add(h1);
+
+    const h2 = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.55, 8), M('#8B0000'));
+    h2.castShadow = true;
+    h2.position.set(hornX, hornY, 0);
+    h2.rotation.z = -0.25;
+    parts.headG.add(h2);
+
   } else if(c.hairStyle === 'antenna') {
-    parts.headG.add(P(B(0.84,0.15,0.84,hairM), 0,0.44,0));
-    parts.headG.add(P(CY(0.03,0.03,0.5,hairM), 0,0.7,0));
-    const ball=S(0.09,M('#00E5FF',0.3,0.8)); ball.position.set(0,0.97,0); parts.headG.add(ball);
+    // R-7 - Robot antenna positioned on top of egg head
+    const antennaTopY = BASE_RADIUS * SCALE_Y; // Top of egg
+
+    // Small base disc on top
+    const antennaBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.08, 0.04, 20),
+      hairM
+    );
+    antennaBase.position.set(0, antennaTopY + 0.02, 0);
+    antennaBase.castShadow = true;
+    parts.headG.add(antennaBase);
+
+    // Antenna stem
+    const antennaStem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.5, 12),
+      hairM
+    );
+    antennaStem.position.set(0, antennaTopY + 0.29, 0);
+    antennaStem.castShadow = true;
+    parts.headG.add(antennaStem);
+
+    // Antenna ball (glowing blue)
+    const antennaBall = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 20, 20),
+      M('#00E5FF', 0.3, 0.8)
+    );
+    antennaBall.position.set(0, antennaTopY + 0.59, 0);
+    antennaBall.castShadow = true;
+    parts.headG.add(antennaBall);
   }
 
-  // Eyes (with names for emotion system)
-  const eyeWhiteL = P(B(0.17,0.17,0.04,white), -0.17,0.05,0.39);
+  // Face - round eyes, curved eyebrows, curved mouth (all 5 characters)
+  const EYE_R = 0.1;
+  const PUPIL_R = 0.05;
+  const faceZ = BASE_RADIUS * SCALE_XZ;
+
+  // Left eye - round white sclera
+  const eyeWhiteL = new THREE.Mesh(new THREE.SphereGeometry(EYE_R, 16, 16), white);
+  eyeWhiteL.scale.set(1, 1, 0.4); // Flatten for face surface
+  eyeWhiteL.position.set(-0.21, 0.05, faceZ - 0.04);
   eyeWhiteL.name = 'eyeWhiteL';
+  eyeWhiteL.castShadow = true;
   parts.headG.add(eyeWhiteL);
 
-  const eyeL = P(B(0.09,0.09,0.06,eyeM), -0.17,0.05,0.42);
+  // Left pupil
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(PUPIL_R, 12, 12), eyeM);
+  eyeL.scale.set(1, 1, 0.6);
+  eyeL.position.set(-0.21, 0.04, faceZ - 0.015);
   eyeL.name = 'eyeL';
+  eyeL.castShadow = true;
   parts.headG.add(eyeL);
 
-  const eyeWhiteR = P(B(0.17,0.17,0.04,white), 0.17,0.05,0.39);
+  // Right eye - round white sclera
+  const eyeWhiteR = new THREE.Mesh(new THREE.SphereGeometry(EYE_R, 16, 16), white);
+  eyeWhiteR.scale.set(1, 1, 0.4);
+  eyeWhiteR.position.set(0.21, 0.05, faceZ - 0.04);
   eyeWhiteR.name = 'eyeWhiteR';
+  eyeWhiteR.castShadow = true;
   parts.headG.add(eyeWhiteR);
 
-  const eyeR = P(B(0.09,0.09,0.06,eyeM), 0.17,0.05,0.42);
+  // Right pupil
+  const eyeR = new THREE.Mesh(new THREE.SphereGeometry(PUPIL_R, 12, 12), eyeM);
+  eyeR.scale.set(1, 1, 0.6);
+  eyeR.position.set(0.21, 0.04, faceZ - 0.015);
   eyeR.name = 'eyeR';
+  eyeR.castShadow = true;
   parts.headG.add(eyeR);
 
-  const mouth = P(B(0.26,0.07,0.04,M(type==='zombie'?'#228B22':type==='demon'?'#FF6600':'#8B4513')), 0,-0.2,0.41);
+  // Eyebrows - thin curved arcs
+  const browColor = M(type === 'demon' ? '#000' : c.hair, 0.7, 0.05);
+
+  // Left eyebrow
+  const browLGeo = new THREE.TorusGeometry(0.09, 0.015, 8, 16, Math.PI);
+  const browL = new THREE.Mesh(browLGeo, browColor);
+  browL.position.set(-0.21, 0.21, faceZ - 0.03);
+  browL.rotation.set(0, 0, 0.06);
+  browL.castShadow = true;
+  parts.headG.add(browL);
+
+  // Right eyebrow
+  const browRGeo = new THREE.TorusGeometry(0.09, 0.015, 8, 16, Math.PI);
+  const browR = new THREE.Mesh(browRGeo, browColor);
+  browR.position.set(0.21, 0.21, faceZ - 0.03);
+  browR.rotation.set(0, 0, -0.06);
+  browR.castShadow = true;
+  parts.headG.add(browR);
+
+  // Mouth - simple curved line
+  const mouthColor = M(type === 'zombie' ? '#228B22' : type === 'demon' ? '#FF6600' : '#8B4513');
+  const mouthGeo = new THREE.TorusGeometry(0.13, 0.02, 8, 16, Math.PI);
+  const mouth = new THREE.Mesh(mouthGeo, mouthColor);
+  mouth.position.set(0, -0.13, faceZ - 0.01);
+  mouth.rotation.set(Math.PI, 0, 0); // Flip to smile
   mouth.name = 'mouth';
+  mouth.castShadow = true;
   parts.headG.add(mouth);
 
-  if(type==='zombie') parts.headG.add(P(B(0.07,0.1,0.05,white), 0.06,-0.19,0.43));
-  parts.headG.add(P(CY(0.13,0.15,0.16,skin), 0,-0.47,0));
+  // Zombie tooth detail
+  if(type === 'zombie') {
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.02), white);
+    tooth.position.set(0.06, -0.15, faceZ + 0.01);
+    tooth.castShadow = true;
+    parts.headG.add(tooth);
+  }
 
-  // Ears
-  parts.headG.add(P(B(0.1,0.25,0.2,skin), -0.46,0,0));
-  parts.headG.add(P(B(0.1,0.25,0.2,skin),  0.46,0,0));
+  // Neck - positioned at bottom of egg
+  const neckY = -BASE_RADIUS * SCALE_Y - 0.08;
+  parts.headG.add(P(CY(0.13,0.15,0.16,skin), 0, neckY, 0));
+
+  // Ears - positioned on sides of egg
+  const earX = BASE_RADIUS * SCALE_XZ * 0.95;
+  parts.headG.add(P(B(0.1,0.25,0.2,skin), -earX, 0, 0));
+  parts.headG.add(P(B(0.1,0.25,0.2,skin),  earX, 0, 0));
+
   if(type==='demon') {
+    // Demon ear spikes
+    const spikeX = earX + 0.02;
     const eL=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.25,6),M('#CC0000')); eL.castShadow=true;
-    eL.position.set(-0.48,0.22,0); eL.rotation.z=0.4; parts.headG.add(eL);
+    eL.position.set(-spikeX, 0.22, 0); eL.rotation.z=0.4; parts.headG.add(eL);
     const eR=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.25,6),M('#CC0000')); eR.castShadow=true;
-    eR.position.set(0.48,0.22,0); eR.rotation.z=-0.4; parts.headG.add(eR);
+    eR.position.set(spikeX, 0.22, 0); eR.rotation.z=-0.4; parts.headG.add(eR);
   }
   group.add(parts.headG);
 
@@ -176,16 +337,16 @@ function _setDanceSmile(headG, show) {
   headG.children = headG.children.filter(c => !c.name?.startsWith('dance_smile_'));
 
   if (!show) {
-    // Restore original mouth visibility
+    // Restore original mouth visibility (including smile curve pieces)
     headG.children.forEach(c => {
-      if (c.name === 'mouth') c.visible = true;
+      if (c.name === 'mouth' || c.name === 'mouth_curveL' || c.name === 'mouth_curveR') c.visible = true;
     });
     return;
   }
 
-  // Hide original mouth
+  // Hide original mouth (including smile curve pieces)
   headG.children.forEach(c => {
-    if (c.name === 'mouth') c.visible = false;
+    if (c.name === 'mouth' || c.name === 'mouth_curveL' || c.name === 'mouth_curveR') c.visible = false;
   });
 
   // Add curved smile (3 boxes forming arc, similar to happy emotion)
@@ -312,11 +473,11 @@ export function setCharacterEmotion(group, emotion) {
     return true;
   });
 
-  // Hide original eyes and mouth
+  // Hide original eyes and mouth (including smile curve pieces)
   headG.children.forEach(child => {
     if (child.name === 'eyeL' || child.name === 'eyeR' ||
         child.name === 'eyeWhiteL' || child.name === 'eyeWhiteR' ||
-        child.name === 'mouth') {
+        child.name === 'mouth' || child.name === 'mouth_curveL' || child.name === 'mouth_curveR') {
       child.visible = false;
     }
   });
@@ -326,7 +487,7 @@ export function setCharacterEmotion(group, emotion) {
     headG.children.forEach(child => {
       if (child.name === 'eyeL' || child.name === 'eyeR' ||
           child.name === 'eyeWhiteL' || child.name === 'eyeWhiteR' ||
-          child.name === 'mouth') {
+          child.name === 'mouth' || child.name === 'mouth_curveL' || child.name === 'mouth_curveR') {
         child.visible = true;
       }
     });
@@ -423,11 +584,11 @@ export function clearCharacterEmotion(group) {
     return true;
   });
 
-  // Restore original face visibility
+  // Restore original face visibility (including smile curve pieces)
   headG.children.forEach(child => {
     if (child.name === 'eyeL' || child.name === 'eyeR' ||
         child.name === 'eyeWhiteL' || child.name === 'eyeWhiteR' ||
-        child.name === 'mouth') {
+        child.name === 'mouth' || child.name === 'mouth_curveL' || child.name === 'mouth_curveR') {
       child.visible = true;
     }
   });

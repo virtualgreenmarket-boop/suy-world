@@ -6,6 +6,7 @@ import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, setActiveInteractionLabel, showNpcDialog } from '../ui/interactionUI.js';
 import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 import { attachLabel } from '../ui/labels.js';
+import { loadEisha, updateEisha } from './eishaLoader.js';
 
 const PLAZA_SIZE        = 82;
 const FLOOR_Y           = 0.35;
@@ -25,6 +26,10 @@ export function initPlaza(scene) {
   _birds = createBirds(scene);
 
   spawnAllPlazaNpcs(scene).catch(err => console.error('[plaza] NPC spawn failed:', err));
+
+  // Load Eisha FBX model
+  loadEisha(scene).catch(err => console.error('[plaza] Eisha load failed:', err));
+
   _addBenchLabels(scene);
 
   // Two seat anchors per bench at ±SO from centre (≈ 1/3 and 2/3 of bench length).
@@ -63,6 +68,7 @@ export function initPlaza(scene) {
 export function updatePlaza(delta, time) {
   for (const b of _birds) _updateBird(b, delta, time);
   updateAllPlazaNpcs(delta);
+  updateEisha(delta); // Update Eisha animations
 }
 
 // ── Bench GLB loading + placement ─────────────────────────────────────
