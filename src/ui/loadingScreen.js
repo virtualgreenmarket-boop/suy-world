@@ -182,6 +182,15 @@ async function startRealLoading() {
       console.log('[loading] NPCs failed (optional):', err.message);
     }
 
+    // Preload Eisha FBX
+    const { preloadEisha } = await import('../world/eishaLoader.js');
+    try {
+      await preloadEisha();
+      console.log('[loading] ✅ Eisha loaded');
+    } catch (err) {
+      console.log('[loading] Eisha failed (optional):', err.message);
+    }
+
     updateProgress(70, 'Loading furniture...');
     // Preload bench model
     try {

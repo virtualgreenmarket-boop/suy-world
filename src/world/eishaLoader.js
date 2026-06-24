@@ -55,33 +55,42 @@ export async function loadEisha(scene) {
       const model = eishaTemplate.clone(true);
       console.log('[Eisha] ✅ Template cloned successfully!');
 
-        // Enable shadows
+        // Enable shadows and fix materials
         model.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
 
-            // Improve material quality
+            // Clone materials to avoid shared material issues
             if (child.material) {
-              const materials = Array.isArray(child.material) ? child.material : [child.material];
-              materials.forEach(mat => {
-                if (mat.isMeshStandardMaterial) {
-                  // Add slight emissive for better visibility
-                  mat.emissive.setHex(0x222222);
-                  mat.emissiveIntensity = 0.2;
-                  mat.roughness = Math.min(mat.roughness ?? 1.0, 0.75);
-                  mat.needsUpdate = true;
-
-                  // Enable anisotropic filtering for sharper textures
-                  if (mat.map) {
-                    mat.map.anisotropy = 16;
-                    mat.map.needsUpdate = true;
+              if (Array.isArray(child.material)) {
+                child.material = child.material.map(mat => {
+                  const cloned = mat.clone();
+                  // Fix GLB color space
+                  if (cloned.map) {
+                    cloned.map.colorSpace = THREE.SRGBColorSpace;
+                    cloned.map.anisotropy = 16;
                   }
+                  cloned.roughness = Math.min(cloned.roughness ?? 1.0, 0.75);
+                  cloned.needsUpdate = true;
+                  return cloned;
+                });
+              } else {
+                const cloned = child.material.clone();
+                // Fix GLB color space
+                if (cloned.map) {
+                  cloned.map.colorSpace = THREE.SRGBColorSpace;
+                  cloned.map.anisotropy = 16;
                 }
-              });
+                cloned.roughness = Math.min(cloned.roughness ?? 1.0, 0.75);
+                cloned.needsUpdate = true;
+                child.material = cloned;
+              }
             }
           }
         });
+
+        console.log('[Eisha] Materials fixed and shadows enabled');
 
         // Scale to target height
         const box = new THREE.Box3().setFromObject(model);
