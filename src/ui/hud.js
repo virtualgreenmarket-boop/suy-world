@@ -39,16 +39,26 @@ export function initHud() {
 
   document.body.appendChild(topLeft);
 
-  // Emoji picker (hidden by default)
+  // Emoji picker (hidden by default) - 15 emoji options
   const emojiPicker = el('div', { id: 'hud-emoji-picker' });
   emojiPicker.style.display = 'none';
   const emotions = [
     { emoji: '😐', key: 'neutral' },
-    { emoji: '😊', key: 'happy' },
-    { emoji: '😠', key: 'angry' },
-    { emoji: '😍', key: 'love' },
-    { emoji: '😢', key: 'sad' },
-    { emoji: '😂', key: 'laugh' }
+    { emoji: '😂', key: 'laugh_tears' },
+    { emoji: '🫠', key: 'melting' },
+    { emoji: '😉', key: 'wink' },
+    { emoji: '😊', key: 'calm_smile' },
+    { emoji: '🥲', key: 'smile_tear' },
+    { emoji: '😋', key: 'yummy' },
+    { emoji: '🫣', key: 'peek' },
+    { emoji: '🤫', key: 'shh' },
+    { emoji: '🤔', key: 'thinking' },
+    { emoji: '🫡', key: 'salute_face' },
+    { emoji: '🤨', key: 'skeptical' },
+    { emoji: '😮‍💨', key: 'exhale' },
+    { emoji: '😳', key: 'stunned' },
+    { emoji: '🙅', key: 'shake_no' },
+    { emoji: '🙆', key: 'nod_yes' }
   ];
   emotions.forEach(({ emoji, key }) => {
     const btn = el('button', { class: 'emoji-option' });
@@ -81,8 +91,9 @@ function selectEmotion(emotionKey) {
   picker.style.opacity = '0';
   setTimeout(() => { picker.style.display = 'none'; }, 200);
 
-  if (window.setPlayerEmotion) {
-    window.setPlayerEmotion(emotionKey);
+  // Use new emoji system
+  if (window.setPlayerEmoji) {
+    window.setPlayerEmoji(emotionKey);
     setTimeout(() => {
       if (window.clearPlayerEmotion) {
         window.clearPlayerEmotion();

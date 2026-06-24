@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCharacter, attachHat, attachHandItem, HATS, HAND_ITEMS } from '../player/CharacterBuilder.js';
+import { buildCharacter, attachHat, attachHandItem, attachShoes, attachGloves, attachWings, HATS, HAND_ITEMS, SHOES, GLOVES, WINGS } from '../player/CharacterBuilder.js';
 
 let _previewScene = null;
 let _previewCamera = null;
@@ -162,6 +162,33 @@ export function initInventoryButton() {
         background: transparent;
       }
 
+      .color-palette {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 4px;
+        max-width: 320px;
+      }
+
+      .color-swatch {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 2px solid rgba(255,255,255,0.2);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .color-swatch:hover {
+        transform: scale(1.15);
+        border-color: rgba(255,255,255,0.6);
+      }
+
+      .color-swatch.selected {
+        border: 3px solid #fff;
+        box-shadow: 0 0 8px rgba(255,255,255,0.6);
+        transform: scale(1.1);
+      }
+
       .item-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
@@ -275,6 +302,9 @@ export function initInventoryButton() {
         <button class="inventory-tab active" data-tab="clothes">בגדים</button>
         <button class="inventory-tab" data-tab="hand-items">פריטי יד</button>
         <button class="inventory-tab" data-tab="hats">כובעים</button>
+        <button class="inventory-tab" data-tab="shoes">נעליים</button>
+        <button class="inventory-tab" data-tab="gloves">כפפות</button>
+        <button class="inventory-tab" data-tab="wings">כנפיים</button>
       </div>
 
       <div class="inventory-content">
@@ -287,19 +317,19 @@ export function initInventoryButton() {
         <div class="inventory-section active" data-section="clothes">
           <div class="color-picker-row">
             <span class="color-picker-label">עור</span>
-            <input type="color" class="color-picker-input" id="color-skin" value="#FFCC99">
+            <div class="color-palette" id="palette-skin"></div>
           </div>
           <div class="color-picker-row">
             <span class="color-picker-label">חולצה</span>
-            <input type="color" class="color-picker-input" id="color-shirt" value="#2196F3">
+            <div class="color-palette" id="palette-shirt"></div>
           </div>
           <div class="color-picker-row">
             <span class="color-picker-label">מכנסיים</span>
-            <input type="color" class="color-picker-input" id="color-pants" value="#333333">
+            <div class="color-palette" id="palette-pants"></div>
           </div>
           <div class="color-picker-row">
             <span class="color-picker-label">נעליים</span>
-            <input type="color" class="color-picker-input" id="color-shoes" value="#5D4037">
+            <div class="color-palette" id="palette-shoes"></div>
           </div>
           <button class="save-btn" id="save-customization-btn">💾 שמור התאמה אישית</button>
           <div class="save-feedback" id="save-feedback">✓ נשמר בהצלחה!</div>
@@ -313,6 +343,21 @@ export function initInventoryButton() {
         <!-- Hats tab -->
         <div class="inventory-section" data-section="hats">
           <div class="item-grid" id="hats-grid"></div>
+        </div>
+
+        <!-- Shoes tab -->
+        <div class="inventory-section" data-section="shoes">
+          <div class="item-grid" id="shoes-grid"></div>
+        </div>
+
+        <!-- Gloves tab -->
+        <div class="inventory-section" data-section="gloves">
+          <div class="item-grid" id="gloves-grid"></div>
+        </div>
+
+        <!-- Wings tab -->
+        <div class="inventory-section" data-section="wings">
+          <div class="item-grid" id="wings-grid"></div>
         </div>
         </div>
         <!-- End of inventory-options -->
@@ -388,25 +433,77 @@ export function initInventoryButton() {
     });
   });
 
-  // Color pickers
-  const colorInputs = {
-    skin: document.getElementById('color-skin'),
-    shirt: document.getElementById('color-shirt'),
-    pants: document.getElementById('color-pants'),
-    shoes: document.getElementById('color-shoes')
+  // 20-color palette
+  const COLOR_PALETTE = [
+    '#FF0000', '#0000FF', '#FFFF00', '#00FF00', // Primary
+    '#FF00FF', '#00FFFF', '#FF8800', // Secondary
+    '#FFFFFF', '#CCCCCC', '#888888', '#000000', // Neutrals
+    '#FFB6C1', '#E6E6FA', '#FFDAB9', '#B0E0E6', '#98FB98', // Pastels
+    '#8B4513', '#800080', '#2F4F4F', '#DC143C' // Rich/Dark
+  ];
+
+  // Current selected colors
+  const selectedColors = {
+    skin: '#FFCC99',
+    shirt: '#2196F3',
+    pants: '#333333',
+    shoes: '#5D4037'
   };
 
   // Load saved customization from localStorage
   const CUSTOMIZATION_KEY = 'suy_character_customization';
   const savedCustomization = loadCustomization();
   if (savedCustomization) {
-    if (savedCustomization.skin) colorInputs.skin.value = savedCustomization.skin;
-    if (savedCustomization.shirt) colorInputs.shirt.value = savedCustomization.shirt;
-    if (savedCustomization.pants) colorInputs.pants.value = savedCustomization.pants;
-    if (savedCustomization.shoes) colorInputs.shoes.value = savedCustomization.shoes;
+    if (savedCustomization.skin) selectedColors.skin = savedCustomization.skin;
+    if (savedCustomization.shirt) selectedColors.shirt = savedCustomization.shirt;
+    if (savedCustomization.pants) selectedColors.pants = savedCustomization.pants;
+    if (savedCustomization.shoes) selectedColors.shoes = savedCustomization.shoes;
     // Apply saved colors immediately
     updatePlayerAppearance(savedCustomization);
   }
+
+  // Create color palettes
+  const paletteCategories = ['skin', 'shirt', 'pants', 'shoes'];
+  paletteCategories.forEach(category => {
+    const paletteEl = document.getElementById(`palette-${category}`);
+    if (!paletteEl) return;
+
+    COLOR_PALETTE.forEach(color => {
+      const swatch = document.createElement('div');
+      swatch.className = 'color-swatch';
+      swatch.style.backgroundColor = color;
+      swatch.dataset.color = color;
+      swatch.dataset.category = category;
+
+      // Mark selected
+      if (color === selectedColors[category]) {
+        swatch.classList.add('selected');
+      }
+
+      swatch.addEventListener('click', () => {
+        // Remove previous selection
+        paletteEl.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        swatch.classList.add('selected');
+
+        // Update selected color
+        selectedColors[category] = color;
+
+        // Update preview
+        if (_previewCharacter) {
+          updatePreviewColors();
+        }
+
+        // Update player
+        const changes = {};
+        changes[category] = color;
+        if (window.updatePlayerAppearance) {
+          window.updatePlayerAppearance(changes);
+        }
+      });
+
+      paletteEl.appendChild(swatch);
+    });
+  });
 
   Object.entries(colorInputs).forEach(([part, input]) => {
     input.addEventListener('input', () => {
@@ -420,10 +517,10 @@ export function initInventoryButton() {
 
   saveBtn.addEventListener('click', () => {
     const customization = {
-      skin: colorInputs.skin.value,
-      shirt: colorInputs.shirt.value,
-      pants: colorInputs.pants.value,
-      shoes: colorInputs.shoes.value
+      skin: selectedColors.skin,
+      shirt: selectedColors.shirt,
+      pants: selectedColors.pants,
+      shoes: selectedColors.shoes
     };
 
     // Save to localStorage
@@ -519,6 +616,111 @@ export function initInventoryButton() {
 
   // Set default hat
   hatsGrid.querySelector('[data-hat="none"]').classList.add('equipped');
+
+  // Populate Shoes grid
+  const shoesGrid = document.getElementById('shoes-grid');
+  Object.entries(SHOES).forEach(([key, item]) => {
+    const btn = document.createElement('button');
+    btn.className = 'item-btn';
+    btn.dataset.shoe = key;
+    btn.innerHTML = `<div>${key === 'none' ? '❌' : '👟'}</div><div class="item-btn-label">${item.name}</div>`;
+    shoesGrid.appendChild(btn);
+  });
+
+  // Shoes buttons
+  let currentShoe = 'none';
+  shoesGrid.querySelectorAll('[data-shoe]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const shoeKey = btn.dataset.shoe;
+
+      shoesGrid.querySelectorAll('[data-shoe]').forEach(b => b.classList.remove('equipped'));
+      btn.classList.add('equipped');
+
+      currentShoe = shoeKey;
+
+      // Update preview
+      if (_previewCharacter && _previewCharacter.userData.parts) {
+        attachShoes(_previewCharacter.userData.parts, shoeKey);
+      }
+
+      // Update player
+      if (window.applyPlayerShoes) {
+        window.applyPlayerShoes(shoeKey);
+      }
+    });
+  });
+
+  shoesGrid.querySelector('[data-shoe="none"]').classList.add('equipped');
+
+  // Populate Gloves grid
+  const glovesGrid = document.getElementById('gloves-grid');
+  Object.entries(GLOVES).forEach(([key, item]) => {
+    const btn = document.createElement('button');
+    btn.className = 'item-btn';
+    btn.dataset.glove = key;
+    btn.innerHTML = `<div>${key === 'none' ? '❌' : '🧤'}</div><div class="item-btn-label">${item.name}</div>`;
+    glovesGrid.appendChild(btn);
+  });
+
+  // Gloves buttons
+  let currentGlove = 'none';
+  glovesGrid.querySelectorAll('[data-glove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const gloveKey = btn.dataset.glove;
+
+      glovesGrid.querySelectorAll('[data-glove]').forEach(b => b.classList.remove('equipped'));
+      btn.classList.add('equipped');
+
+      currentGlove = gloveKey;
+
+      // Update preview
+      if (_previewCharacter && _previewCharacter.userData.parts) {
+        attachGloves(_previewCharacter.userData.parts, gloveKey);
+      }
+
+      // Update player
+      if (window.applyPlayerGloves) {
+        window.applyPlayerGloves(gloveKey);
+      }
+    });
+  });
+
+  glovesGrid.querySelector('[data-glove="none"]').classList.add('equipped');
+
+  // Populate Wings grid
+  const wingsGrid = document.getElementById('wings-grid');
+  Object.entries(WINGS).forEach(([key, item]) => {
+    const btn = document.createElement('button');
+    btn.className = 'item-btn';
+    btn.dataset.wing = key;
+    btn.innerHTML = `<div>${key === 'none' ? '❌' : '🪽'}</div><div class="item-btn-label">${item.name}</div>`;
+    wingsGrid.appendChild(btn);
+  });
+
+  // Wings buttons
+  let currentWing = 'none';
+  wingsGrid.querySelectorAll('[data-wing]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const wingKey = btn.dataset.wing;
+
+      wingsGrid.querySelectorAll('[data-wing]').forEach(b => b.classList.remove('equipped'));
+      btn.classList.add('equipped');
+
+      currentWing = wingKey;
+
+      // Update preview
+      if (_previewCharacter && _previewCharacter.userData.parts) {
+        attachWings(_previewCharacter.userData.parts, wingKey);
+      }
+
+      // Update player
+      if (window.applyPlayerWings) {
+        window.applyPlayerWings(wingKey);
+      }
+    });
+  });
+
+  wingsGrid.querySelector('[data-wing="none"]').classList.add('equipped');
 
   console.log('[inventory] Inventory button initialized');
 }

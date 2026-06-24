@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCharacter, animateCharacter, CHARACTERS, setCharacterEmotion, clearCharacterEmotion, attachHat, attachHandItem } from './CharacterBuilder.js';
+import { buildCharacter, animateCharacter, CHARACTERS, setCharacterEmotion, clearCharacterEmotion, setCharacterEmoji, updateCharacterEmoji, attachHat, attachHandItem, attachShoes, attachGloves, attachWings, EMOJI_LIST } from './CharacterBuilder.js';
 
 let _characterType = 'boy';
 let _localPlayerGroup = null;
@@ -100,16 +100,27 @@ export function updatePlayerCharacterMixer(group, delta) {
 
   const state = group.userData._animState || 'idle';
   animateCharacter(group.userData._charModel, state, group.userData._animT, delta);
+
+  // Update emoji animations (required for 6 of 15 emojis to animate)
+  updateCharacterEmoji(group.userData._charModel, delta);
 }
 
 export function getCharacterModelPath(charId) {
   return null; // No GLB needed
 }
 
-// Global emotion functions
+// Global emotion/emoji functions
 window.setPlayerEmotion = (emotion) => {
+  // Backward compatibility: old 6-emotion system still works
   if (_localPlayerGroup && _localPlayerGroup.userData._charModel) {
     setCharacterEmotion(_localPlayerGroup.userData._charModel, emotion);
+  }
+};
+
+window.setPlayerEmoji = (emojiKey) => {
+  // New 15-emoji system
+  if (_localPlayerGroup && _localPlayerGroup.userData._charModel) {
+    setCharacterEmoji(_localPlayerGroup.userData._charModel, emojiKey);
   }
 };
 
@@ -183,4 +194,28 @@ window.applyPlayerHandItem = (itemKey) => {
   if(!model || !model.userData.parts) return;
   attachHandItem(model.userData.parts.rArmG, itemKey);
   console.log('[player] 🔧 Hand item applied:', itemKey);
+};
+
+// Global shoes attachment function
+window.applyPlayerShoes = (shoeKey) => {
+  const model = _localPlayerGroup?.userData?._charModel;
+  if(!model || !model.userData.parts) return;
+  attachShoes(model.userData.parts, shoeKey);
+  console.log('[player] 👟 Shoes applied:', shoeKey);
+};
+
+// Global gloves attachment function
+window.applyPlayerGloves = (gloveKey) => {
+  const model = _localPlayerGroup?.userData?._charModel;
+  if(!model || !model.userData.parts) return;
+  attachGloves(model.userData.parts, gloveKey);
+  console.log('[player] 🧤 Gloves applied:', gloveKey);
+};
+
+// Global wings attachment function
+window.applyPlayerWings = (wingKey) => {
+  const model = _localPlayerGroup?.userData?._charModel;
+  if(!model || !model.userData.parts) return;
+  attachWings(model.userData.parts, wingKey);
+  console.log('[player] 🪽 Wings applied:', wingKey);
 };
