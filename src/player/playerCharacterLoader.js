@@ -132,11 +132,16 @@ window.clearPlayerEmotion = () => {
 
 // Global appearance update function
 window.updatePlayerAppearance = (changes) => {
+  console.log('[player] updatePlayerAppearance called with:', changes);
   const group = _localPlayerGroup;
-  if (!group) return;
+  if (!group) {
+    console.error('[player] No _localPlayerGroup found!');
+    return;
+  }
 
   // Rebuild the character with new colors
   const currentType = group.userData._charType || 'boy';
+  console.log('[player] Rebuilding character type:', currentType, 'with changes:', changes);
   const newModel = buildCharacter(currentType, changes);
 
   // Ensure all meshes have proper settings

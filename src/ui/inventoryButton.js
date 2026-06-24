@@ -163,19 +163,53 @@ export function initInventoryButton() {
       }
 
       .color-palette {
-        display: grid;
-        grid-template-columns: repeat(10, 1fr);
-        gap: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
         max-width: 320px;
       }
 
+      .color-palette-slider {
+        display: flex;
+        gap: 4px;
+        overflow: hidden;
+        flex: 1;
+      }
+
+      .color-palette-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: #fff;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+
+      .color-palette-btn:hover {
+        background: rgba(255,255,255,0.2);
+        border-color: rgba(255,255,255,0.5);
+      }
+
+      .color-palette-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
       .color-swatch {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         border-radius: 6px;
         border: 2px solid rgba(255,255,255,0.2);
         cursor: pointer;
         transition: all 0.2s;
+        flex-shrink: 0;
       }
 
       .color-swatch:hover {
@@ -476,25 +510,53 @@ export function initInventoryButton() {
     updatePlayerAppearance(savedCustomization);
   }
 
-  // Create color palettes
+  // Create color palettes with slider (5 colors at a time)
   const paletteCategories = ['skin', 'shirt', 'pants', 'shoes'];
+  const paletteStates = {}; // Track current offset for each palette
+
   paletteCategories.forEach(category => {
     const paletteEl = document.getElementById(`palette-${category}`);
     if (!paletteEl) return;
 
-    COLOR_PALETTE.forEach(color => {
-      const swatch = document.createElement('div');
-      swatch.className = 'color-swatch';
-      swatch.style.backgroundColor = color;
-      swatch.dataset.color = color;
-      swatch.dataset.category = category;
+    paletteStates[category] = { offset: 0 };
 
-      // Mark selected
-      if (color === selectedColors[category]) {
-        swatch.classList.add('selected');
-      }
+    // Create structure: [< button] [slider with 5 swatches] [> button]
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'color-palette-btn';
+    prevBtn.textContent = '‹';
+    prevBtn.type = 'button';
 
-      swatch.addEventListener('click', () => {
+    const sliderContainer = document.createElement('div');
+    sliderContainer.className = 'color-palette-slider';
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'color-palette-btn';
+    nextBtn.textContent = '›';
+    nextBtn.type = 'button';
+
+    const updatePalette = () => {
+      const offset = paletteStates[category].offset;
+      sliderContainer.innerHTML = '';
+
+      // Show 5 colors starting from offset
+      for (let i = 0; i < 5; i++) {
+        const colorIndex = (offset + i) % COLOR_PALETTE.length;
+        const color = COLOR_PALETTE[colorIndex];
+
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = color;
+        swatch.dataset.color = color;
+        swatch.dataset.category = category;
+
+        // Mark selected
+        if (color === selectedColors[category]) {
+          swatch.classList.add('selected');
+        }
+
+        swatch.addEventListener('click', () => {
+        console.log('[inventory] Color swatch clicked:', category, color);
+
         // Remove previous selection
         paletteEl.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         swatch.classList.add('selected');
@@ -502,28 +564,78 @@ export function initInventoryButton() {
         // Update selected color
         selectedColors[category] = color;
 
-        // Update preview
-        if (_previewCharacter) {
-          updatePreviewColors();
+        // Update preview - rebuild preview character with new color
+        if (_previewCharacter && _previewScene) {
+          const currentType = _previewCharacter.userData._charType || 'boy';
+          const newPreview = buildCharacter(currentType, selectedColors);
+
+          // Scale and position for preview
+          const bbox = new THREE.Box3().setFromObject(newPreview);
+          const size = bbox.getSize(new THREE.Vector3());
+          if (size.y > 0) {
+            const scale = 2.0 / size.y;
+            newPreview.scale.setScalar(scale);
+          }
+
+          // Remove old preview
+          _previewScene.remove(_previewCharacter);
+
+          // Add new preview
+          _previewCharacter = newPreview;
+          _previewCharacter.userData._charType = currentType;
+          _previewScene.add(_previewCharacter);
+
+          console.log('[inventory] Preview character rebuilt with new color');
         }
 
         // Update player
         const changes = {};
         changes[category] = color;
+        console.log('[inventory] Calling window.updatePlayerAppearance with:', changes);
         if (window.updatePlayerAppearance) {
           window.updatePlayerAppearance(changes);
+        } else {
+          console.error('[inventory] window.updatePlayerAppearance not found!');
         }
+
+        // Update all palettes to reflect new selection
+        paletteCategories.forEach(cat => {
+          const state = paletteStates[cat];
+          if (state && state.updateFn) state.updateFn();
+        });
       });
 
-      paletteEl.appendChild(swatch);
+        sliderContainer.appendChild(swatch);
+      }
+
+      // Update button states
+      prevBtn.disabled = false; // Always enabled (wraps around)
+      nextBtn.disabled = false;
+    };
+
+    // Arrow button handlers
+    prevBtn.addEventListener('click', () => {
+      paletteStates[category].offset = (paletteStates[category].offset - 5 + COLOR_PALETTE.length) % COLOR_PALETTE.length;
+      updatePalette();
     });
+
+    nextBtn.addEventListener('click', () => {
+      paletteStates[category].offset = (paletteStates[category].offset + 5) % COLOR_PALETTE.length;
+      updatePalette();
+    });
+
+    // Store update function for later use
+    paletteStates[category].updateFn = updatePalette;
+
+    // Assemble palette
+    paletteEl.appendChild(prevBtn);
+    paletteEl.appendChild(sliderContainer);
+    paletteEl.appendChild(nextBtn);
+
+    // Initial render
+    updatePalette();
   });
 
-  Object.entries(colorInputs).forEach(([part, input]) => {
-    input.addEventListener('input', () => {
-      updatePlayerAppearance({ [part]: input.value });
-    });
-  });
 
   // SAVE button functionality
   const saveBtn = document.getElementById('save-customization-btn');
@@ -769,13 +881,20 @@ function initCharacterPreview() {
   fillLight.position.set(-2, 2, -1);
   _previewScene.add(fillLight);
 
-  // Create character (default 'boy')
-  _previewCharacter = buildCharacter('boy');
+  // Create character - use player's actual character type
+  let playerType = 'boy';
+  if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
+    playerType = window.localPlayer.userData._charType;
+  }
+  console.log('[inventory] Creating preview with character type:', playerType);
+
+  _previewCharacter = buildCharacter(playerType, selectedColors);
+  _previewCharacter.userData._charType = playerType;
 
   // Scale to fit in preview (smaller than game size)
   const bbox = new THREE.Box3().setFromObject(_previewCharacter);
   const size = bbox.getSize(new THREE.Vector3());
-  const scale = 2.2 / size.y;
+  const scale = 2.0 / size.y;
   _previewCharacter.scale.setScalar(scale);
 
   // Position at ground
@@ -785,7 +904,45 @@ function initCharacterPreview() {
 
   _previewScene.add(_previewCharacter);
 
-  console.log('[inventory] Character preview initialized');
+  // Add drag-to-rotate interaction
+  let isDragging = false;
+  let previousMouseX = 0;
+  let cameraAngle = 0;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    previousMouseX = e.clientX;
+    canvas.style.cursor = 'grabbing';
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+
+    const deltaX = e.clientX - previousMouseX;
+    previousMouseX = e.clientX;
+
+    // Rotate camera around character
+    cameraAngle -= deltaX * 0.01;
+
+    const radius = 3.5;
+    _previewCamera.position.x = Math.sin(cameraAngle) * radius;
+    _previewCamera.position.z = Math.cos(cameraAngle) * radius;
+    _previewCamera.lookAt(0, 1.2, 0);
+  });
+
+  canvas.addEventListener('pointerup', () => {
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+  });
+
+  canvas.addEventListener('pointerleave', () => {
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+  });
+
+  canvas.style.cursor = 'grab';
+
+  console.log('[inventory] Character preview initialized with type:', playerType);
 }
 
 function startPreviewAnimation() {
