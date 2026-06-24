@@ -135,16 +135,6 @@ export async function loadEisha(scene) {
         // Add to scene
         scene.add(model);
 
-        // Debug: Add red marker cube at position
-        const debugMarker = new THREE.Mesh(
-          new THREE.BoxGeometry(1, 3, 1),
-          new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 })
-        );
-        debugMarker.position.copy(model.position);
-        debugMarker.position.y += 1.5; // Center of 3m tall cube
-        scene.add(debugMarker);
-        console.log('[Eisha] 🔴 Red debug marker added at position');
-
         console.log('[Eisha] ✅ Model added to scene');
         console.log('[Eisha] Position:', model.position.x.toFixed(2), model.position.y.toFixed(2), model.position.z.toFixed(2));
         console.log('[Eisha] Scale:', scale.toFixed(3), '| Height:', (currentHeight * scale).toFixed(2), 'm');
