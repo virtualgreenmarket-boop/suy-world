@@ -40,7 +40,7 @@ export async function spawnPlayerCharacter(parentGroup, characterId) {
       n.visible = true;
       n.material.needsUpdate = true;
       n.castShadow = true;
-      n.receiveShadow = false; // Changed from true to false to prevent self-shadowing artifacts
+      n.receiveShadow = false; // Prevents self-shadowing artifacts (dark pixel/triangle artifacts on the character's own body)
     }
   });
   console.log(`[player] 🎨 Applied settings to ${meshCount} meshes`);
@@ -129,12 +129,16 @@ window.updatePlayerAppearance = (changes) => {
   const newModel = buildCharacter(currentType, changes);
 
   // Ensure all meshes have proper settings
+  // FIX: receiveShadow was previously set to true here, inconsistent with
+  // spawnPlayerCharacter's false (the self-shadow-artifact fix) -- meaning
+  // changing clothing color in the bag silently reintroduced the dark
+  // pixel/triangle self-shadow bug on the character. Now matches spawn.
   newModel.traverse(n => {
     if (n.isMesh) {
       n.visible = true;
       n.material.needsUpdate = true;
       n.castShadow = true;
-      n.receiveShadow = true;
+      n.receiveShadow = false; // Must match spawnPlayerCharacter's setting — prevents self-shadowing artifacts
     }
   });
 
@@ -153,6 +157,7 @@ window.updatePlayerAppearance = (changes) => {
   const bbox2 = new THREE.Box3().setFromObject(newModel);
   const offset = -bbox2.min.y;
   newModel.position.y = offset;
+  newModel.userData._groundY = offset; // FIX: also missing before — without this, the rebuilt model's resetPose() would fall back to _groundY=0 every frame, undoing the correct ground offset (the same root-cause class of bug fixed earlier for hover) the moment any animation played after a clothing-color change.
 
   // Remove old model, add new one
   if (group.userData._charModel) {
