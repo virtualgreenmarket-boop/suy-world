@@ -557,8 +557,8 @@ export function initInventoryButton() {
         swatch.addEventListener('click', () => {
         console.log('[inventory] Color swatch clicked:', category, color);
 
-        // Remove previous selection
-        paletteEl.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        // Remove previous selection from this slider
+        sliderContainer.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         swatch.classList.add('selected');
 
         // Update selected color
