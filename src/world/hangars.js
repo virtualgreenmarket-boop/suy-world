@@ -271,7 +271,7 @@ function getBrickMat() {
   const rough  = loader.load(pfx + 'Roughness.jpg');
   const ao     = loader.load(pfx + 'AmbientOcclusion.jpg');
 
-  // repeat.set(16, 5): side walls 94 m long / 14 m tall → ~5.9 m × 2.8 m per tile
+  // repeat.set(16, 5): ~15 m × 2.8 m per tile across all hangars
   [color, normal, rough, ao].forEach(t => {
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(16, 5);
@@ -291,9 +291,9 @@ function getBrickMat() {
 
 // ── Dimensions ────────────────────────────────────────────────────────
 // Per-hangar exterior dimensions: [North, East/Center, South].
-// North resized per spec: 84m wide × 330m long, 14m walls, 1.5m roof (~15.5m total height).
+// North: 120m wide × 250m long, 14m walls, 1.3m roof (15.3m total height).
 export const HANGAR_DIMS = [
-  { W: 84,   D: 330,   H: 14,   TH: 1.5  }, // North
+  { W: 120,  D: 250,   H: 14,   TH: 1.3  }, // North
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
 ];
@@ -307,28 +307,35 @@ export const HANGAR_DIMS = [
 // away from the plaza.
 // Exported so collision.js can build wall colliders that always match the real geometry.
 export const HANGAR_CONFIGS = [
-  { x:   0, z: -99.15 - HANGAR_DIMS[0].D / 2, rotY: 0,           name: 'North Hangar' }, // z = -264.15
+  { x:   0, z: -99.15 - HANGAR_DIMS[0].D / 2, rotY: 0,           name: 'North Hangar' }, // z = -224.15
   { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },
   { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },
 ];
 
-// ── Room constants (15 rooms per side, 30 total — North hangar only) ──
-const ROOM_W     = 20;    // room width along Z axis
-const ROOM_D     = 24;    // room depth along X axis (into hangar from side wall)
-const ROOM_H     = 14;    // room interior height (matches North hangar wall height)
-const ROOM_COUNT = 15;    // rooms per side
-const DOOR_W     = 6;     // door opening width (world Z)
-const DOOR_H     = 5.5;   // door opening height
-const DOOR_T     = 0.6;   // door panel thickness
-const WALL_T     = 0.3;   // interior wall thickness
-// Equal gap before / between / after rooms along Z
-// Note: rooms are only built in the North hangar (buildRooms is called for hangarIndex 0 only)
-// Central corridor width = W - 2*ROOM_D = 84 - 2*24 = 36 m (matches spec)
-const ROOM_GAP   = (HANGAR_DIMS[0].D - ROOM_COUNT * ROOM_W) / (ROOM_COUNT + 1);
+// ── Room constants (North: 12 left + 12 right + 6 far-wall = 30 rooms total) ──────
+// All North hangar rooms share these dimensions.
+const ROOM_W      = 18;   // room width  — Z-axis for side rooms, X-axis for far rooms
+const ROOM_D      = 22;   // room depth  — extends inward from the outer wall
+const ROOM_H      = 10;   // room interior height
+const ROOM_COUNT  = 12;   // rooms per side (left or right)
+const DOOR_W      = 6;    // door opening width
+const DOOR_H      = 5.5;  // door opening height
+const DOOR_T      = 0.5;  // door panel thickness (GLB model reference)
+const ROOM_WALL_T = 0.25; // interior wall thickness
 
-// Far-wall store slots (unchanged)
-const FRONT_SPAN  = 67.5;
-const FRONT_COUNT = 10;
+// Side-room spacing: rooms start at the entrance end and step toward the far wall.
+//   12 × 18 m  +  11 × 1.5 m gap  =  232.5 m
+//   250 m depth  −  17 m lobby  −  232.5 m rooms  ≈  0.5 m end clearance  ✓
+const SIDE_ENTRANCE_MARGIN = 17;   // m — lobby / NPC space at entrance end
+const SIDE_INTER_GAP       = 1.5;  // m — gap between consecutive side rooms
+
+// Far-wall rooms (North only): 6 full rooms along X at the far end wall.
+// Gap = (120 − 6×18) / (6+1) ≈ 1.71 m — equal margin on every side.
+const FAR_ROOM_COUNT = 6;
+
+// ── Far-wall counter/sign slots — East/Center and South hangars only ──────────────
+const FRONT_SPAN   = 67.5;
+const FRONT_COUNT  = 10;
 const SLOT_W_FRONT = FRONT_SPAN / FRONT_COUNT; // 6.75 m
 
 // Accent colours per hangar
@@ -348,13 +355,6 @@ const INTERACTION_DISTANCE = 5;
 const _doors = [];
 let _camera = null;
 
-function _registerDoor(door) {
-  door.userData.isOpen = false;
-  door.userData.isAnimating = false;
-  door.userData.closedRotationY = door.rotation.y;
-  door.userData.openRotationY   = door.rotation.y + Math.PI / 2;
-  _doors.push(door);
-}
 
 function _getNearestDoor() {
   let nearestDoor = null;
@@ -476,10 +476,14 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   const counterMat  = stdMat(0x90A4AE, 0.88);
 
   if (hangarIndex === 0) {
+    // North hangar: full rooms on all three sides (U-shape)
     buildRooms(group, 'left',  hangarIndex);
     buildRooms(group, 'right', hangarIndex);
+    buildFarRooms(group, hangarIndex);
+  } else {
+    // East / South hangars: simple counter slots on far wall
+    buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
   }
-  buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
 
   // ── Entrance NPC character ────────────────────────────────────────
   // Floor top surface is at y=0.5 (floor center at 0.25 + thickness/2)
@@ -601,57 +605,62 @@ function _buildRoomNumberSign(number) {
   tex.magFilter = THREE.LinearFilter;
 
   const mat   = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true });
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5), mat);
+  plane.renderOrder = 1; // always draw on top of the wall surface
   return plane;
 }
 
-// ── Rooms (4 per side, 8 total per hangar) ───────────────────────────
+// ── Side rooms (left or right wall, 12 per side) ────────────────────
+// Rooms run along Z, extending ROOM_D inward from the outer wall.
+// Doors face the central corridor (open area between the two rows).
+// Layout: entrance lobby at z=+D/2, rooms step toward far wall.
 
 function buildRooms(group, side, hangarIndex) {
   const { W, D } = HANGAR_DIMS[hangarIndex];
   const inward = side === 'left' ? 1 : -1;
   const outerX = side === 'left' ? -W / 2 : W / 2;
-  const frontX = outerX + inward * ROOM_D;  // corridor-facing wall X
+  const frontX = outerX + inward * ROOM_D;     // corridor-facing wall X
   const midX   = outerX + inward * (ROOM_D / 2);
 
   const wallMat = new THREE.MeshStandardMaterial({ color: 0xF0EBE0, roughness: 0.88, metalness: 0.0 });
   const ceilMat = new THREE.MeshStandardMaterial({ color: 0xE0DBD0, roughness: 0.9,  metalness: 0.0 });
 
-  for (let i = ROOM_COUNT - 1; i >= 0; i--) {
-    const centerZ = -D / 2 + ROOM_GAP + ROOM_W / 2 + i * (ROOM_W + ROOM_GAP);
+  // i=0 → nearest entrance, i=ROOM_COUNT-1 → nearest far wall
+  for (let i = 0; i < ROOM_COUNT; i++) {
+    const centerZ = D / 2 - SIDE_ENTRANCE_MARGIN - ROOM_W / 2 - i * (ROOM_W + SIDE_INTER_GAP);
 
-    // Side walls — run along X, perpendicular to hangar outer wall
+    // Side walls — run along X, perpendicular to outer wall
     [-1, 1].forEach(sign => {
-      const sw = new THREE.Mesh(new THREE.BoxGeometry(ROOM_D, ROOM_H, WALL_T), wallMat);
+      const sw = new THREE.Mesh(new THREE.BoxGeometry(ROOM_D, ROOM_H, ROOM_WALL_T), wallMat);
       sw.position.set(midX, ROOM_H / 2, centerZ + sign * ROOM_W / 2);
       group.add(sw);
     });
 
-    // Front wall — two side panels flanking the door + header above door
-    const sideSegW = (ROOM_W - DOOR_W) / 2; // 7 m each
+    // Front wall — two panels flanking the door + header above
+    const sideSegW = (ROOM_W - DOOR_W) / 2;
     [-1, 1].forEach(sign => {
-      const fw = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, ROOM_H, sideSegW), wallMat);
+      const fw = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WALL_T, ROOM_H, sideSegW), wallMat);
       fw.position.set(frontX, ROOM_H / 2, centerZ + sign * (DOOR_W / 2 + sideSegW / 2));
       group.add(fw);
     });
 
-    const aboveH = ROOM_H - DOOR_H; // 8.5 m header
-    const header = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, aboveH, DOOR_W), wallMat);
+    const aboveH = ROOM_H - DOOR_H;
+    const header = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WALL_T, aboveH, DOOR_W), wallMat);
     header.position.set(frontX, DOOR_H + aboveH / 2, centerZ);
     group.add(header);
 
     // Ceiling slab
-    const ceil = new THREE.Mesh(new THREE.BoxGeometry(ROOM_D, WALL_T, ROOM_W), ceilMat);
+    const ceil = new THREE.Mesh(new THREE.BoxGeometry(ROOM_D, ROOM_WALL_T, ROOM_W), ceilMat);
     ceil.position.set(midX, ROOM_H, centerZ);
     group.add(ceil);
 
-    // Small sign plate above door — used by stores.js for proximity highlight
+    // Sign plate above door (corridor-facing)
     const signMat  = new THREE.MeshStandardMaterial({ color: 0xBDBDBD, roughness: 0.82 });
     const signMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.05, 0.5, DOOR_W - 0.5),
       signMat
     );
-    signMesh.position.set(frontX - inward * 0.1, DOOR_H + (ROOM_H - DOOR_H) / 2, centerZ);
+    signMesh.position.set(frontX - inward * 0.1, DOOR_H + aboveH / 2, centerZ);
     signMesh.userData.isSlot = true;
     group.add(signMesh);
 
@@ -668,21 +677,99 @@ function buildRooms(group, side, hangarIndex) {
       worldPos:  new THREE.Vector3(),
     });
 
-    // Room number sign — mounted on corridor-facing side of front wall, above door
-    const roomNumber = slotId + 1;
-    const numSign = _buildRoomNumberSign(roomNumber);
-    // Offset slightly off the wall face toward the corridor so it's visible
+    // Room number sign — mounted on corridor side of front wall, centered above door
+    const numSign = _buildRoomNumberSign(slotId + 1);
     numSign.position.set(
-      frontX - inward * (WALL_T / 2 + 0.05),
-      DOOR_H + (ROOM_H - DOOR_H) / 2,
+      frontX + inward * (ROOM_WALL_T / 2 + 0.05), // proud of corridor face by 5 cm
+      DOOR_H + aboveH / 2,
       centerZ
     );
-    // Rotate to face the corridor
     numSign.rotation.y = side === 'left' ? Math.PI / 2 : -Math.PI / 2;
     group.add(numSign);
 
-    // Queue GLB door for async placement at exact door coordinates
-    _doorPlacements.push({ group, x: frontX, z: centerZ, slotId });
+    // Queue GLB door — rotY=PI/2 so door panel spans Z (side-room orientation)
+    _doorPlacements.push({ group, x: frontX, z: centerZ, slotId, rotY: Math.PI / 2 });
+  }
+}
+
+// ── Far-wall rooms (North hangar only: 6 rooms along X at the far end wall) ────
+// Rooms run along X, extending ROOM_D inward from the far wall toward the entrance.
+// Doors face toward the entrance (positive Z direction).
+
+function buildFarRooms(group, hangarIndex) {
+  const { W, D } = HANGAR_DIMS[hangarIndex];
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xF0EBE0, roughness: 0.88, metalness: 0.0 });
+  const ceilMat = new THREE.MeshStandardMaterial({ color: 0xE0DBD0, roughness: 0.9,  metalness: 0.0 });
+
+  const backWallZ  = -D / 2;              // hangar far end wall (interior face)
+  const roomMidZ   = backWallZ + ROOM_D / 2;   // center of room along Z
+  const roomFrontZ = backWallZ + ROOM_D;        // door-face wall Z (faces entrance)
+
+  // Equal margin on each side: (W − FAR_ROOM_COUNT×ROOM_W) / (FAR_ROOM_COUNT+1)
+  const farGap = (W - FAR_ROOM_COUNT * ROOM_W) / (FAR_ROOM_COUNT + 1);
+
+  for (let i = 0; i < FAR_ROOM_COUNT; i++) {
+    const centerX = -W / 2 + farGap + ROOM_W / 2 + i * (ROOM_W + farGap);
+
+    // Left side wall (runs along Z)
+    const lw = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WALL_T, ROOM_H, ROOM_D), wallMat);
+    lw.position.set(centerX - ROOM_W / 2, ROOM_H / 2, roomMidZ);
+    group.add(lw);
+
+    // Right side wall (runs along Z)
+    const rw = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WALL_T, ROOM_H, ROOM_D), wallMat);
+    rw.position.set(centerX + ROOM_W / 2, ROOM_H / 2, roomMidZ);
+    group.add(rw);
+
+    // Front wall — two panels flanking door + header above (runs along X at roomFrontZ)
+    const sideSegW = (ROOM_W - DOOR_W) / 2;
+    [-1, 1].forEach(sign => {
+      const fw = new THREE.Mesh(new THREE.BoxGeometry(sideSegW, ROOM_H, ROOM_WALL_T), wallMat);
+      fw.position.set(centerX + sign * (DOOR_W / 2 + sideSegW / 2), ROOM_H / 2, roomFrontZ);
+      group.add(fw);
+    });
+
+    const aboveH = ROOM_H - DOOR_H;
+    const header = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, aboveH, ROOM_WALL_T), wallMat);
+    header.position.set(centerX, DOOR_H + aboveH / 2, roomFrontZ);
+    group.add(header);
+
+    // Ceiling slab
+    const ceil = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W, ROOM_WALL_T, ROOM_D), ceilMat);
+    ceil.position.set(centerX, ROOM_H, roomMidZ);
+    group.add(ceil);
+
+    // Sign plate above door (entrance-facing side of front wall)
+    const signMat  = new THREE.MeshStandardMaterial({ color: 0xBDBDBD, roughness: 0.82 });
+    const signMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(DOOR_W - 0.5, 0.5, 0.05),
+      signMat
+    );
+    signMesh.position.set(centerX, DOOR_H + aboveH / 2, roomFrontZ + ROOM_WALL_T / 2 + 0.1);
+    signMesh.userData.isSlot = true;
+    group.add(signMesh);
+
+    // Register slot
+    const slotId = allSlots.length;
+    allSlots.push({
+      id:        slotId,
+      hangarIndex,
+      wall:      'far',
+      slotIndex: i,
+      localPos:  new THREE.Vector3(centerX, 0, roomFrontZ + 2),
+      signMesh,
+      status:    'available',
+      worldPos:  new THREE.Vector3(),
+    });
+
+    // Room number sign — faces entrance (rotation.y = 0 → faces +Z)
+    const numSign = _buildRoomNumberSign(slotId + 1);
+    numSign.position.set(centerX, DOOR_H + aboveH / 2, roomFrontZ + ROOM_WALL_T / 2 + 0.05);
+    numSign.rotation.y = 0;
+    group.add(numSign);
+
+    // Queue GLB door — rotY=0 so door panel spans X (far-wall orientation)
+    _doorPlacements.push({ group, x: centerX, z: roomFrontZ, slotId, rotY: 0 });
   }
 }
 
@@ -702,62 +789,125 @@ async function _placeDoorModels() {
 
   const template = gltf.scene;
 
-  _doorPlacements.forEach(({ group, x, z }) => {
-    const door = template.clone(true);
+  // ── Measure model once at identity to get natural proportions ────────
+  {
+    const probe = template.clone(true);
+    probe.rotation.set(0, 0, 0);
+    probe.position.set(0, 0, 0);
+    probe.scale.set(1, 1, 1);
+    probe.updateMatrixWorld(true);
+    const rawBox  = new THREE.Box3().setFromObject(probe);
+    const rawSize = new THREE.Vector3();
+    rawBox.getSize(rawSize);
+    template.userData._naturalW = Math.max(rawSize.x, rawSize.z); // wider horiz. extent
+    template.userData._naturalH = rawSize.y;
+  }
 
-    // Step 1: rotate first so world-Z becomes the door's width axis
-    door.rotation.y = Math.PI / 2;
-    door.position.set(0, 0, 0);
+  const modelW = template.userData._naturalW;
+  const modelH = template.userData._naturalH;
 
-    // Step 2: measure actual rendered size after rotation (scale still 1)
-    door.updateMatrixWorld(true);
-    const sizeBox = new THREE.Box3().setFromObject(door);
-    const size = new THREE.Vector3();
-    sizeBox.getSize(size);
-    // After rotation: size.z = visible door width in world Z
-    //                 size.y = visible door height in world Y
+  // ── Uniform fit-inside scale for one leaf (half the opening width) ───
+  // Each leaf fills 3 m of the 6 m opening. No independent axis stretch.
+  const LEAF_TARGET_W = DOOR_W / 2; // 3 m per leaf
+  const finalScale    = Math.min(
+    LEAF_TARGET_W / modelW,   // don't exceed target leaf width
+    DOOR_H        / modelH    // don't exceed opening height
+  ) * 0.98;                   // 2 % inset — never touches frame edge
 
-    // Step 3: compute per-axis scale factors and use the larger to fill completely
-    const scaleByWidth  = DOOR_W / size.z;
-    const scaleByHeight = DOOR_H / size.y;
-    const fitScale = Math.max(scaleByWidth, scaleByHeight);
-    door.scale.multiplyScalar(fitScale);
+  const finalLeafW = modelW * finalScale; // actual rendered leaf width
+  const finalLeafH = modelH * finalScale; // actual rendered leaf height
 
-    // Step 4: re-measure after scaling, then align
-    door.updateMatrixWorld(true);
-    const b = new THREE.Box3().setFromObject(door);
-
-    door.position.set(
-      x - (b.min.x + b.max.x) / 2,  // center on wall X
-      -b.min.y,                       // floor-align (Y bottom = 0)
-      z - (b.min.z + b.max.z) / 2    // center on room Z
-    );
-    door.traverse(n => {
-      if (n.isMesh) {
-        n.castShadow    = true;
-        n.receiveShadow = false;
-        n.material      = n.material.clone();
-        n.material.color.set(0xD8D8D8);
-        n.material.roughness  = 0.4;
-        n.material.metalness  = 0.15;
-      }
+  // ── Helper: apply uniform door material ─────────────────────────────
+  function applyDoorMat(obj) {
+    obj.traverse(n => {
+      if (!n.isMesh) return;
+      n.castShadow    = true;
+      n.receiveShadow = false;
+      n.material      = n.material.clone();
+      n.material.color.set(0xD8D8D8);
+      n.material.roughness = 0.4;
+      n.material.metalness = 0.15;
     });
-    group.add(door);
-    _registerDoor(door);
+  }
+
+  // ── Place double doors for every opening ────────────────────────────
+  _doorPlacements.forEach(({ group, x, z, rotY = Math.PI / 2 }) => {
+    // Side rooms: opening runs along Z (rotY ≈ PI/2).
+    // Far-wall rooms: opening runs along X (rotY ≈ 0).
+    const isSideRoom = Math.abs(rotY - Math.PI / 2) < 0.01;
+
+    // Create one leaf at the given offset along the opening axis.
+    // openDir = -1 swings the leaf -PI/2 (left), +1 swings it +PI/2 (right).
+    function makeLeaf(offsetAlongOpening, openDir) {
+      const leaf = template.clone(true);
+      leaf.rotation.y = rotY;
+      leaf.scale.setScalar(finalScale);
+      leaf.position.set(0, 0, 0);
+      leaf.updateMatrixWorld(true);
+
+      const b = new THREE.Box3().setFromObject(leaf);
+
+      if (isSideRoom) {
+        // Shift leaf along Z so its bounding-box centre lands at (z + offset)
+        leaf.position.set(
+          x - (b.min.x + b.max.x) / 2,
+          -b.min.y,
+          (z + offsetAlongOpening) - (b.min.z + b.max.z) / 2
+        );
+      } else {
+        // Shift leaf along X so its bounding-box centre lands at (x + offset)
+        leaf.position.set(
+          (x + offsetAlongOpening) - (b.min.x + b.max.x) / 2,
+          -b.min.y,
+          z - (b.min.z + b.max.z) / 2
+        );
+      }
+
+      applyDoorMat(leaf);
+      group.add(leaf);
+
+      // Register for E-key toggle — each leaf swings independently
+      leaf.userData.isOpen          = false;
+      leaf.userData.isAnimating     = false;
+      leaf.userData.closedRotationY = leaf.rotation.y;
+      leaf.userData.openRotationY   = leaf.rotation.y + openDir * Math.PI / 2;
+      _doors.push(leaf);
+    }
+
+    // Left leaf: inner edge at opening centre, swings left on open
+    makeLeaf(-finalLeafW / 2, -1);
+    // Right leaf: inner edge at opening centre, swings right on open
+    makeLeaf(+finalLeafW / 2, +1);
+
+    // ── Optional filler panel above leaves if aspect ratio leaves a gap ─
+    const topGap = DOOR_H - finalLeafH;
+    if (topGap > 0.05) {
+      const fillerMat = new THREE.MeshStandardMaterial({ color: 0xD0C8BE, roughness: 0.9, metalness: 0.0 });
+      const filler = new THREE.Mesh(
+        isSideRoom
+          ? new THREE.BoxGeometry(0.05, topGap, DOOR_W)   // side room — spans Z
+          : new THREE.BoxGeometry(DOOR_W, topGap, 0.05),  // far-wall room — spans X
+        fillerMat
+      );
+      filler.position.set(x, finalLeafH + topGap / 2, z);
+      group.add(filler);
+    }
   });
 
-  console.log(`[hangars] Placed ${_doorPlacements.length} GLB door(s)`);
+  console.log(`[hangars] Double doors placed — ${_doorPlacements.length} openings, ${_doorPlacements.length * 2} leaves. Leaf: ${finalLeafW.toFixed(2)} m × ${finalLeafH.toFixed(2)} m`);
   _doorPlacements.length = 0;
 }
 
 function buildFarSlots(group, hangarIndex, signMat, counterMat) {
   const { H, D } = HANGAR_DIMS[hangarIndex];
   const wallZ  = -(D / 2 - 0.3);
+  const count  = FRONT_COUNT;
+  const slotW  = FRONT_SPAN / count;
 
-  for (let i = 0; i < FRONT_COUNT; i++) {
-    const slotX = -FRONT_SPAN / 2 + (i + 0.5) * SLOT_W_FRONT;
+  for (let i = 0; i < count; i++) {
+    const slotX = -FRONT_SPAN / 2 + (i + 0.5) * slotW;
 
-    const pillarX = -FRONT_SPAN / 2 + i * SLOT_W_FRONT;
+    const pillarX = -FRONT_SPAN / 2 + i * slotW;
     const pillar = new THREE.Mesh(
       new THREE.BoxGeometry(0.35, H * 0.85, 0.35),
       new THREE.MeshStandardMaterial({ color: 0xC8C0B8, roughness: 0.88 })
@@ -766,7 +916,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     group.add(pillar);
 
     const sign = new THREE.Mesh(
-      new THREE.BoxGeometry(SLOT_W_FRONT - 0.35, 1.2, 0.15),
+      new THREE.BoxGeometry(slotW - 0.35, 1.2, 0.15),
       signMat.clone()
     );
     sign.position.set(slotX, 5.5, wallZ + 0.1);
@@ -774,7 +924,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     group.add(sign);
 
     const counter = new THREE.Mesh(
-      new THREE.BoxGeometry(SLOT_W_FRONT - 0.45, 0.9, 1.6),
+      new THREE.BoxGeometry(slotW - 0.45, 0.9, 1.6),
       counterMat
     );
     counter.position.set(slotX, 0.45, wallZ + 1.4);

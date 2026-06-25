@@ -7,6 +7,14 @@ let _previewRenderer = null;
 let _previewCharacter = null;
 let _animationFrame = null;
 
+// Module-level so both initInventoryButton and initCharacterPreview can access it
+let selectedColors = {
+  skin:  '#FFCC99',
+  shirt: '#2196F3',
+  pants: '#333333',
+  shoes: '#5D4037'
+};
+
 export function initInventoryButton() {
   console.log('[inventory] Initializing inventory button...');
 
@@ -519,13 +527,7 @@ export function initInventoryButton() {
     '#8B4513', '#800080', '#2F4F4F', '#DC143C' // Rich/Dark
   ];
 
-  // Current selected colors
-  const selectedColors = {
-    skin: '#FFCC99',
-    shirt: '#2196F3',
-    pants: '#333333',
-    shoes: '#5D4037'
-  };
+  // selectedColors is declared at module scope (shared with initCharacterPreview)
 
   // Load saved customization from localStorage
   const CUSTOMIZATION_KEY = 'suy_character_customization';
