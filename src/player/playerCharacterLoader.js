@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCharacter, animateCharacter, CHARACTERS, setCharacterEmotion, clearCharacterEmotion, setCharacterEmoji, updateCharacterEmoji, attachHat, attachHandItem, attachShoes, attachGloves, attachWings, EMOJI_LIST } from './CharacterBuilder.js';
+import { buildCharacter, animateCharacter, CHARACTERS, setCharacterEmotion, clearCharacterEmotion, setCharacterEmoji, updateCharacterEmoji, attachHat, attachHandItem, attachShoes, attachGloves, attachWings } from './CharacterBuilder.js';
 
 let _characterType = 'boy';
 let _localPlayerGroup = null;
