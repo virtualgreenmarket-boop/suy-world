@@ -293,7 +293,7 @@ function getBrickMat() {
 // Per-hangar exterior dimensions: [North, East/Center, South].
 // North: 120m wide × 250m long, 14m walls, 1.3m roof (15.3m total height).
 export const HANGAR_DIMS = [
-  { W: 120,  D: 250,   H: 14,   TH: 1.3  }, // North
+  { W: 140,  D: 300,   H: 16,   TH: 1.3  }, // North
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
 ];
@@ -307,30 +307,30 @@ export const HANGAR_DIMS = [
 // away from the plaza.
 // Exported so collision.js can build wall colliders that always match the real geometry.
 export const HANGAR_CONFIGS = [
-  { x:   0, z: -99.15 - HANGAR_DIMS[0].D / 2, rotY: 0,           name: 'North Hangar' }, // z = -224.15
+  { x:   0, z: -99.15 - HANGAR_DIMS[0].D / 2, rotY: 0,           name: 'North Hangar' }, // z = -249.15
   { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },
   { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },
 ];
 
 // ── Room constants (North: 12 left + 12 right + 6 far-wall = 30 rooms total) ──────
 // All North hangar rooms share these dimensions.
-const ROOM_W      = 18;   // room width  — Z-axis for side rooms, X-axis for far rooms
-const ROOM_D      = 22;   // room depth  — extends inward from the outer wall
-const ROOM_H      = 10;   // room interior height
+const ROOM_W      = 20;   // room width  — Z-axis for side rooms, X-axis for far rooms
+const ROOM_D      = 24;   // room depth  — extends inward from the outer wall
+const ROOM_H      = 12;   // room interior height
 const ROOM_COUNT  = 12;   // rooms per side (left or right)
-const DOOR_W      = 6;    // door opening width
-const DOOR_H      = 5.5;  // door opening height
+const DOOR_W      = 5.7;  // door opening width  (single door per room)
+const DOOR_H      = 9.6;  // door opening height (2.4 m header above: 12 − 9.6)
 const DOOR_T      = 0.5;  // door panel thickness (GLB model reference)
 const ROOM_WALL_T = 0.25; // interior wall thickness
 
 // Side-room spacing: rooms start at the entrance end and step toward the far wall.
-//   12 × 18 m  +  11 × 1.5 m gap  =  232.5 m
-//   250 m depth  −  17 m lobby  −  232.5 m rooms  ≈  0.5 m end clearance  ✓
+//   12 × 20 m  +  11 × 1.5 m gap  =  256.5 m
+//   300 m depth  −  17 m lobby  −  256.5 m rooms  ≈  26.5 m end clearance  ✓
 const SIDE_ENTRANCE_MARGIN = 17;   // m — lobby / NPC space at entrance end
 const SIDE_INTER_GAP       = 1.5;  // m — gap between consecutive side rooms
 
 // Far-wall rooms (North only): 6 full rooms along X at the far end wall.
-// Gap = (120 − 6×18) / (6+1) ≈ 1.71 m — equal margin on every side.
+// Gap = (140 − 6×20) / (6+1) ≈ 2.86 m — equal margin on every side.
 const FAR_ROOM_COUNT = 6;
 
 // ── Far-wall counter/sign slots — East/Center and South hangars only ──────────────
@@ -774,6 +774,8 @@ function buildFarRooms(group, hangarIndex) {
 }
 
 // ── GLB door loader ───────────────────────────────────────────────────
+// One single door model per room opening. Uniform fit-inside scaling only.
+// Orientation: side rooms use rotY=PI/2 (panel spans Z), far rooms use rotY=0 (panel spans X).
 
 async function _placeDoorModels() {
   const loader = new GLTFLoader();
@@ -789,7 +791,7 @@ async function _placeDoorModels() {
 
   const template = gltf.scene;
 
-  // ── Measure model once at identity to get natural proportions ────────
+  // Measure model once at identity to get its natural proportions
   {
     const probe = template.clone(true);
     probe.rotation.set(0, 0, 0);
@@ -799,25 +801,22 @@ async function _placeDoorModels() {
     const rawBox  = new THREE.Box3().setFromObject(probe);
     const rawSize = new THREE.Vector3();
     rawBox.getSize(rawSize);
-    template.userData._naturalW = Math.max(rawSize.x, rawSize.z); // wider horiz. extent
+    template.userData._naturalW = Math.max(rawSize.x, rawSize.z); // wider horizontal extent
     template.userData._naturalH = rawSize.y;
   }
 
   const modelW = template.userData._naturalW;
   const modelH = template.userData._naturalH;
 
-  // ── Uniform fit-inside scale for one leaf (half the opening width) ───
-  // Each leaf fills 3 m of the 6 m opening. No independent axis stretch.
-  const LEAF_TARGET_W = DOOR_W / 2; // 3 m per leaf
-  const finalScale    = Math.min(
-    LEAF_TARGET_W / modelW,   // don't exceed target leaf width
-    DOOR_H        / modelH    // don't exceed opening height
-  ) * 0.98;                   // 2 % inset — never touches frame edge
+  // Uniform fit-inside scale: door must fit within DOOR_W × DOOR_H, no axis stretching
+  const finalScale = Math.min(
+    DOOR_W / modelW,   // don't exceed opening width
+    DOOR_H / modelH    // don't exceed opening height
+  ) * 0.98;            // 2 % inset so door never clips the frame
 
-  const finalLeafW = modelW * finalScale; // actual rendered leaf width
-  const finalLeafH = modelH * finalScale; // actual rendered leaf height
+  const finalDoorW = modelW * finalScale;
+  const finalDoorH = modelH * finalScale;
 
-  // ── Helper: apply uniform door material ─────────────────────────────
   function applyDoorMat(obj) {
     obj.traverse(n => {
       if (!n.isMesh) return;
@@ -830,57 +829,37 @@ async function _placeDoorModels() {
     });
   }
 
-  // ── Place double doors for every opening ────────────────────────────
-  _doorPlacements.forEach(({ group, x, z, rotY = Math.PI / 2 }) => {
-    // Side rooms: opening runs along Z (rotY ≈ PI/2).
-    // Far-wall rooms: opening runs along X (rotY ≈ 0).
+  _doorPlacements.forEach(({ group, x, z, slotId, rotY = Math.PI / 2 }) => {
+    // Side rooms: opening spans Z (rotY ≈ PI/2).
+    // Far-wall rooms: opening spans X (rotY ≈ 0).
     const isSideRoom = Math.abs(rotY - Math.PI / 2) < 0.01;
 
-    // Create one leaf at the given offset along the opening axis.
-    // openDir = -1 swings the leaf -PI/2 (left), +1 swings it +PI/2 (right).
-    function makeLeaf(offsetAlongOpening, openDir) {
-      const leaf = template.clone(true);
-      leaf.rotation.y = rotY;
-      leaf.scale.setScalar(finalScale);
-      leaf.position.set(0, 0, 0);
-      leaf.updateMatrixWorld(true);
+    const door = template.clone(true);
+    door.rotation.y = rotY;
+    door.scale.setScalar(finalScale);
+    door.position.set(0, 0, 0);
+    door.updateMatrixWorld(true);
 
-      const b = new THREE.Box3().setFromObject(leaf);
+    // Center bounding box over the opening, floor-aligned
+    const b = new THREE.Box3().setFromObject(door);
+    door.position.set(
+      x - (b.min.x + b.max.x) / 2,
+      -b.min.y,                          // sit exactly on the floor
+      z - (b.min.z + b.max.z) / 2
+    );
 
-      if (isSideRoom) {
-        // Shift leaf along Z so its bounding-box centre lands at (z + offset)
-        leaf.position.set(
-          x - (b.min.x + b.max.x) / 2,
-          -b.min.y,
-          (z + offsetAlongOpening) - (b.min.z + b.max.z) / 2
-        );
-      } else {
-        // Shift leaf along X so its bounding-box centre lands at (x + offset)
-        leaf.position.set(
-          (x + offsetAlongOpening) - (b.min.x + b.max.x) / 2,
-          -b.min.y,
-          z - (b.min.z + b.max.z) / 2
-        );
-      }
+    applyDoorMat(door);
+    group.add(door);
 
-      applyDoorMat(leaf);
-      group.add(leaf);
+    // Register for E-key toggle — single door swings +PI/2 to open
+    door.userData.isOpen          = false;
+    door.userData.isAnimating     = false;
+    door.userData.closedRotationY = door.rotation.y;
+    door.userData.openRotationY   = door.rotation.y + Math.PI / 2;
+    _doors.push(door);
 
-      // Register for E-key toggle — each leaf swings independently
-      leaf.userData.isOpen          = false;
-      leaf.userData.isAnimating     = false;
-      leaf.userData.closedRotationY = leaf.rotation.y;
-      leaf.userData.openRotationY   = leaf.rotation.y + openDir * Math.PI / 2;
-      _doors.push(leaf);
-    }
-
-    // Left leaf: inner edge at opening centre, swings left on open
-    makeLeaf(-finalLeafW / 2, -1);
-    // Right leaf: inner edge at opening centre, swings right on open
-    makeLeaf(+finalLeafW / 2, +1);
-
-    // ── Optional filler panel above leaves if aspect ratio leaves a gap ─
-    const topGap = DOOR_H - finalLeafH;
+    // Filler panel above door when aspect ratio leaves a gap under the header
+    const topGap = DOOR_H - finalDoorH;
     if (topGap > 0.05) {
       const fillerMat = new THREE.MeshStandardMaterial({ color: 0xD0C8BE, roughness: 0.9, metalness: 0.0 });
       const filler = new THREE.Mesh(
@@ -889,12 +868,12 @@ async function _placeDoorModels() {
           : new THREE.BoxGeometry(DOOR_W, topGap, 0.05),  // far-wall room — spans X
         fillerMat
       );
-      filler.position.set(x, finalLeafH + topGap / 2, z);
+      filler.position.set(x, finalDoorH + topGap / 2, z);
       group.add(filler);
     }
   });
 
-  console.log(`[hangars] Double doors placed — ${_doorPlacements.length} openings, ${_doorPlacements.length * 2} leaves. Leaf: ${finalLeafW.toFixed(2)} m × ${finalLeafH.toFixed(2)} m`);
+  console.log(`[hangars] Single doors placed — ${_doorPlacements.length} openings. Door: ${finalDoorW.toFixed(2)} m × ${finalDoorH.toFixed(2)} m`);
   _doorPlacements.length = 0;
 }
 
