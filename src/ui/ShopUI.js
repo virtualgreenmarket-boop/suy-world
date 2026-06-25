@@ -137,6 +137,8 @@ export function initShopUI() {
   // Set global functions
   window.openMainShop = _openShop;
   window.closeMainShop = _closeShop;
+  window.isItemOwned = (itemId) => _ownedItems.has(itemId);
+  window.getOwnedItems = () => [..._ownedItems];
 
   console.log('[ShopUI] Initialized with', window.playerCoins, 'coins and', _ownedItems.size, 'owned items');
 }

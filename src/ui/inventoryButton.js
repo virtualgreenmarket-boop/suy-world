@@ -242,6 +242,7 @@ export function initInventoryButton() {
         transition: all 0.2s;
         font-size: 32px;
         color: white;
+        position: relative;
       }
 
       .item-btn:hover {
@@ -258,6 +259,20 @@ export function initInventoryButton() {
       .item-btn-label {
         font-size: 12px;
         margin-top: 5px;
+      }
+
+      .use-badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: #4CAF50;
+        color: white;
+        font-size: 9px;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        pointer-events: none;
       }
 
       .save-btn {
@@ -512,6 +527,40 @@ export function initInventoryButton() {
     }
   }
 
+  // Equipped items state management
+  const EQUIPPED_KEY = 'player_equipped_items';
+
+  function loadEquippedItems() {
+    try {
+      const raw = localStorage.getItem(EQUIPPED_KEY);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch (err) {
+      console.warn('[inventory] Failed to load equipped items:', err);
+    }
+    // Default fallback
+    return {
+      hat: 'none',
+      handItem: 'none',
+      shoes: 'none',
+      gloves: 'none',
+      wings: 'none'
+    };
+  }
+
+  function saveEquippedItems(equipped) {
+    try {
+      localStorage.setItem(EQUIPPED_KEY, JSON.stringify(equipped));
+      console.log('[inventory] Saved equipped items:', equipped);
+    } catch (err) {
+      console.error('[inventory] Failed to save equipped items:', err);
+    }
+  }
+
+  const equippedItems = loadEquippedItems();
+  console.log('[inventory] Loaded equipped items:', equippedItems);
+
   // Create color palettes with slider (5 colors at a time)
   const paletteCategories = ['skin', 'shirt', 'pants', 'shoes'];
   const paletteStates = {}; // Track current offset for each palette
@@ -680,180 +729,273 @@ export function initInventoryButton() {
 
   // Populate Hand Items grid
   const handItemsGrid = document.getElementById('hand-items-grid');
-  Object.entries(HAND_ITEMS).forEach(([key, item]) => {
-    const btn = document.createElement('button');
-    btn.className = 'item-btn';
-    btn.dataset.handItem = key;
-    btn.innerHTML = `<div>${key === 'none' ? '❌' : item.name.split(' ')[1] || '🔧'}</div><div class="item-btn-label">${item.name.split(' ')[0]}</div>`;
-    handItemsGrid.appendChild(btn);
-  });
 
-  // Hand Item buttons
-  let currentHandItem = 'none';
-  handItemsGrid.querySelectorAll('[data-hand-item]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const itemKey = btn.dataset.handItem;
-
-      handItemsGrid.querySelectorAll('[data-hand-item]').forEach(b => b.classList.remove('equipped'));
-      btn.classList.add('equipped');
-
-      currentHandItem = itemKey;
-
-      // Update preview
-      if (_previewCharacter && _previewCharacter.userData.parts) {
-        attachHandItem(_previewCharacter.userData.parts.rArmG, itemKey);
+  function renderHandItems() {
+    handItemsGrid.innerHTML = '';
+    Object.entries(HAND_ITEMS).forEach(([key, item]) => {
+      // Filter: only show 'none' or owned items
+      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`hand_${key}`)) {
+        return;
       }
 
-      // Update player
-      if (window.applyPlayerHandItem) {
-        window.applyPlayerHandItem(itemKey);
+      const btn = document.createElement('button');
+      btn.className = 'item-btn';
+      btn.dataset.handItem = key;
+
+      let content = `<div>${key === 'none' ? '❌' : item.name.split(' ')[1] || '🔧'}</div><div class="item-btn-label">${item.name.split(' ')[0]}</div>`;
+
+      // Add USE badge if this item is equipped
+      if (key === equippedItems.handItem) {
+        content += '<span class="use-badge">USE</span>';
+        btn.classList.add('equipped');
       }
+
+      btn.innerHTML = content;
+      handItemsGrid.appendChild(btn);
     });
-  });
 
-  // Set default hand item
-  handItemsGrid.querySelector('[data-hand-item="none"]').classList.add('equipped');
+    // Re-attach event listeners
+    handItemsGrid.querySelectorAll('[data-hand-item]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const itemKey = btn.dataset.handItem;
+
+        // Update equipped state
+        equippedItems.handItem = itemKey;
+        saveEquippedItems(equippedItems);
+
+        // Update preview
+        if (_previewCharacter && _previewCharacter.userData.parts) {
+          attachHandItem(_previewCharacter.userData.parts.rArmG, itemKey);
+        }
+
+        // Update player
+        if (window.applyPlayerHandItem) {
+          window.applyPlayerHandItem(itemKey);
+        }
+
+        // Re-render to update badges
+        renderHandItems();
+      });
+    });
+  }
+
+  renderHandItems();
 
   // Populate Hats grid
   const hatsGrid = document.getElementById('hats-grid');
-  Object.entries(HATS).forEach(([key, item]) => {
-    const btn = document.createElement('button');
-    btn.className = 'item-btn';
-    btn.dataset.hat = key;
-    btn.innerHTML = `<div>${key === 'none' ? '❌' : item.name.split(' ')[1] || '🎩'}</div><div class="item-btn-label">${item.name.split(' ')[0]}</div>`;
-    hatsGrid.appendChild(btn);
-  });
 
-  // Hat buttons
-  let currentHat = 'none';
-  hatsGrid.querySelectorAll('[data-hat]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const hatKey = btn.dataset.hat;
-
-      hatsGrid.querySelectorAll('[data-hat]').forEach(b => b.classList.remove('equipped'));
-      btn.classList.add('equipped');
-
-      currentHat = hatKey;
-
-      // Update preview
-      if (_previewCharacter && _previewCharacter.userData.parts) {
-        attachHat(_previewCharacter.userData.parts.headG, hatKey);
+  function renderHats() {
+    hatsGrid.innerHTML = '';
+    Object.entries(HATS).forEach(([key, item]) => {
+      // Filter: only show 'none' or owned items
+      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`hat_${key}`)) {
+        return;
       }
 
-      // Update player
-      if (window.applyPlayerHat) {
-        window.applyPlayerHat(hatKey);
+      const btn = document.createElement('button');
+      btn.className = 'item-btn';
+      btn.dataset.hat = key;
+
+      let content = `<div>${key === 'none' ? '❌' : item.name.split(' ')[1] || '🎩'}</div><div class="item-btn-label">${item.name.split(' ')[0]}</div>`;
+
+      // Add USE badge if this item is equipped
+      if (key === equippedItems.hat) {
+        content += '<span class="use-badge">USE</span>';
+        btn.classList.add('equipped');
       }
+
+      btn.innerHTML = content;
+      hatsGrid.appendChild(btn);
     });
-  });
 
-  // Set default hat
-  hatsGrid.querySelector('[data-hat="none"]').classList.add('equipped');
+    // Re-attach event listeners
+    hatsGrid.querySelectorAll('[data-hat]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hatKey = btn.dataset.hat;
+
+        // Update equipped state
+        equippedItems.hat = hatKey;
+        saveEquippedItems(equippedItems);
+
+        // Update preview
+        if (_previewCharacter && _previewCharacter.userData.parts) {
+          attachHat(_previewCharacter.userData.parts.headG, hatKey);
+        }
+
+        // Update player
+        if (window.applyPlayerHat) {
+          window.applyPlayerHat(hatKey);
+        }
+
+        // Re-render to update badges
+        renderHats();
+      });
+    });
+  }
+
+  renderHats();
 
   // Populate Shoes grid
   const shoesGrid = document.getElementById('shoes-grid');
-  Object.entries(SHOES).forEach(([key, item]) => {
-    const btn = document.createElement('button');
-    btn.className = 'item-btn';
-    btn.dataset.shoe = key;
-    btn.innerHTML = `<div>${key === 'none' ? '❌' : '👟'}</div><div class="item-btn-label">${item.name}</div>`;
-    shoesGrid.appendChild(btn);
-  });
 
-  // Shoes buttons
-  let currentShoe = 'none';
-  shoesGrid.querySelectorAll('[data-shoe]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const shoeKey = btn.dataset.shoe;
-
-      shoesGrid.querySelectorAll('[data-shoe]').forEach(b => b.classList.remove('equipped'));
-      btn.classList.add('equipped');
-
-      currentShoe = shoeKey;
-
-      // Update preview
-      if (_previewCharacter && _previewCharacter.userData.parts) {
-        attachShoes(_previewCharacter.userData.parts, shoeKey);
+  function renderShoes() {
+    shoesGrid.innerHTML = '';
+    Object.entries(SHOES).forEach(([key, item]) => {
+      // Filter: only show 'none' or owned items
+      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`shoes_${key}`)) {
+        return;
       }
 
-      // Update player
-      if (window.applyPlayerShoes) {
-        window.applyPlayerShoes(shoeKey);
+      const btn = document.createElement('button');
+      btn.className = 'item-btn';
+      btn.dataset.shoe = key;
+
+      let content = `<div>${key === 'none' ? '❌' : '👟'}</div><div class="item-btn-label">${item.name}</div>`;
+
+      // Add USE badge if this item is equipped
+      if (key === equippedItems.shoes) {
+        content += '<span class="use-badge">USE</span>';
+        btn.classList.add('equipped');
       }
+
+      btn.innerHTML = content;
+      shoesGrid.appendChild(btn);
     });
-  });
 
-  shoesGrid.querySelector('[data-shoe="none"]').classList.add('equipped');
+    // Re-attach event listeners
+    shoesGrid.querySelectorAll('[data-shoe]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const shoeKey = btn.dataset.shoe;
+
+        // Update equipped state
+        equippedItems.shoes = shoeKey;
+        saveEquippedItems(equippedItems);
+
+        // Update preview
+        if (_previewCharacter && _previewCharacter.userData.parts) {
+          attachShoes(_previewCharacter.userData.parts, shoeKey);
+        }
+
+        // Update player
+        if (window.applyPlayerShoes) {
+          window.applyPlayerShoes(shoeKey);
+        }
+
+        // Re-render to update badges
+        renderShoes();
+      });
+    });
+  }
+
+  renderShoes();
 
   // Populate Gloves grid
   const glovesGrid = document.getElementById('gloves-grid');
-  Object.entries(GLOVES).forEach(([key, item]) => {
-    const btn = document.createElement('button');
-    btn.className = 'item-btn';
-    btn.dataset.glove = key;
-    btn.innerHTML = `<div>${key === 'none' ? '❌' : '🧤'}</div><div class="item-btn-label">${item.name}</div>`;
-    glovesGrid.appendChild(btn);
-  });
 
-  // Gloves buttons
-  let currentGlove = 'none';
-  glovesGrid.querySelectorAll('[data-glove]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const gloveKey = btn.dataset.glove;
-
-      glovesGrid.querySelectorAll('[data-glove]').forEach(b => b.classList.remove('equipped'));
-      btn.classList.add('equipped');
-
-      currentGlove = gloveKey;
-
-      // Update preview
-      if (_previewCharacter && _previewCharacter.userData.parts) {
-        attachGloves(_previewCharacter.userData.parts, gloveKey);
+  function renderGloves() {
+    glovesGrid.innerHTML = '';
+    Object.entries(GLOVES).forEach(([key, item]) => {
+      // Filter: only show 'none' or owned items
+      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`glove_${key}`)) {
+        return;
       }
 
-      // Update player
-      if (window.applyPlayerGloves) {
-        window.applyPlayerGloves(gloveKey);
+      const btn = document.createElement('button');
+      btn.className = 'item-btn';
+      btn.dataset.glove = key;
+
+      let content = `<div>${key === 'none' ? '❌' : '🧤'}</div><div class="item-btn-label">${item.name}</div>`;
+
+      // Add USE badge if this item is equipped
+      if (key === equippedItems.gloves) {
+        content += '<span class="use-badge">USE</span>';
+        btn.classList.add('equipped');
       }
+
+      btn.innerHTML = content;
+      glovesGrid.appendChild(btn);
     });
-  });
 
-  glovesGrid.querySelector('[data-glove="none"]').classList.add('equipped');
+    // Re-attach event listeners
+    glovesGrid.querySelectorAll('[data-glove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const gloveKey = btn.dataset.glove;
+
+        // Update equipped state
+        equippedItems.gloves = gloveKey;
+        saveEquippedItems(equippedItems);
+
+        // Update preview
+        if (_previewCharacter && _previewCharacter.userData.parts) {
+          attachGloves(_previewCharacter.userData.parts, gloveKey);
+        }
+
+        // Update player
+        if (window.applyPlayerGloves) {
+          window.applyPlayerGloves(gloveKey);
+        }
+
+        // Re-render to update badges
+        renderGloves();
+      });
+    });
+  }
+
+  renderGloves();
 
   // Populate Wings grid
   const wingsGrid = document.getElementById('wings-grid');
-  Object.entries(WINGS).forEach(([key, item]) => {
-    const btn = document.createElement('button');
-    btn.className = 'item-btn';
-    btn.dataset.wing = key;
-    btn.innerHTML = `<div>${key === 'none' ? '❌' : '🪽'}</div><div class="item-btn-label">${item.name}</div>`;
-    wingsGrid.appendChild(btn);
-  });
 
-  // Wings buttons
-  let currentWing = 'none';
-  wingsGrid.querySelectorAll('[data-wing]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const wingKey = btn.dataset.wing;
-
-      wingsGrid.querySelectorAll('[data-wing]').forEach(b => b.classList.remove('equipped'));
-      btn.classList.add('equipped');
-
-      currentWing = wingKey;
-
-      // Update preview
-      if (_previewCharacter && _previewCharacter.userData.parts) {
-        attachWings(_previewCharacter.userData.parts, wingKey);
+  function renderWings() {
+    wingsGrid.innerHTML = '';
+    Object.entries(WINGS).forEach(([key, item]) => {
+      // Filter: only show 'none' or owned items
+      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`wing_${key}`)) {
+        return;
       }
 
-      // Update player
-      if (window.applyPlayerWings) {
-        window.applyPlayerWings(wingKey);
+      const btn = document.createElement('button');
+      btn.className = 'item-btn';
+      btn.dataset.wing = key;
+
+      let content = `<div>${key === 'none' ? '❌' : '🪽'}</div><div class="item-btn-label">${item.name}</div>`;
+
+      // Add USE badge if this item is equipped
+      if (key === equippedItems.wings) {
+        content += '<span class="use-badge">USE</span>';
+        btn.classList.add('equipped');
       }
+
+      btn.innerHTML = content;
+      wingsGrid.appendChild(btn);
     });
-  });
 
-  wingsGrid.querySelector('[data-wing="none"]').classList.add('equipped');
+    // Re-attach event listeners
+    wingsGrid.querySelectorAll('[data-wing]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const wingKey = btn.dataset.wing;
+
+        // Update equipped state
+        equippedItems.wings = wingKey;
+        saveEquippedItems(equippedItems);
+
+        // Update preview
+        if (_previewCharacter && _previewCharacter.userData.parts) {
+          attachWings(_previewCharacter.userData.parts, wingKey);
+        }
+
+        // Update player
+        if (window.applyPlayerWings) {
+          window.applyPlayerWings(wingKey);
+        }
+
+        // Re-render to update badges
+        renderWings();
+      });
+    });
+  }
+
+  renderWings();
 
   console.log('[inventory] Inventory button initialized');
 }
