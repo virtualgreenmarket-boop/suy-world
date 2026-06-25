@@ -812,3 +812,131 @@ export function attachHandItem(rArmG, itemType) {
     });
   }
 }
+
+// Shoes registry and attachment
+export const SHOES = {
+  none: { name: 'None' },
+  sneakers: { name: 'Sneakers', color: '#FFFFFF' },
+  boots: { name: 'Boots', color: '#8B4513' },
+  sandals: { name: 'Sandals', color: '#D2691E' }
+};
+
+export function attachShoes(parts, shoeType) {
+  // Remove existing shoes
+  if (parts.lLegG) {
+    const toRemove = parts.lLegG.children.filter(c => c.userData.isShoe);
+    toRemove.forEach(c => parts.lLegG.remove(c));
+  }
+  if (parts.rLegG) {
+    const toRemove = parts.rLegG.children.filter(c => c.userData.isShoe);
+    toRemove.forEach(c => parts.rLegG.remove(c));
+  }
+
+  if (shoeType === 'none') return;
+
+  const shoe = SHOES[shoeType];
+  if (!shoe) return;
+
+  const mat = M(shoe.color, 0.6, 0.2);
+  const tag = (mesh) => { mesh.userData.isShoe = true; mesh.castShadow = true; return mesh; };
+
+  // Left shoe
+  const lShoe = tag(B(0.25, 0.15, 0.35, mat));
+  lShoe.position.set(0, -0.6, 0.05);
+  parts.lLegG.add(lShoe);
+
+  // Right shoe
+  const rShoe = tag(B(0.25, 0.15, 0.35, mat));
+  rShoe.position.set(0, -0.6, 0.05);
+  parts.rLegG.add(rShoe);
+}
+
+// Gloves registry and attachment
+export const GLOVES = {
+  none: { name: 'None' },
+  work: { name: 'Work Gloves', color: '#8B7355' },
+  garden: { name: 'Garden Gloves', color: '#4CAF50' },
+  winter: { name: 'Winter Gloves', color: '#FF0000' }
+};
+
+export function attachGloves(parts, gloveType) {
+  // Remove existing gloves
+  if (parts.lArmG) {
+    const toRemove = parts.lArmG.children.filter(c => c.userData.isGlove);
+    toRemove.forEach(c => parts.lArmG.remove(c));
+  }
+  if (parts.rArmG) {
+    const toRemove = parts.rArmG.children.filter(c => c.userData.isGlove);
+    toRemove.forEach(c => parts.rArmG.remove(c));
+  }
+
+  if (gloveType === 'none') return;
+
+  const glove = GLOVES[gloveType];
+  if (!glove) return;
+
+  const mat = M(glove.color, 0.7, 0.1);
+  const tag = (mesh) => { mesh.userData.isGlove = true; mesh.castShadow = true; return mesh; };
+
+  // Left glove (on hand)
+  const lGlove = tag(B(0.22, 0.18, 0.08, mat));
+  lGlove.position.set(0, -0.45, 0);
+  parts.lArmG.add(lGlove);
+
+  // Right glove (on hand)
+  const rGlove = tag(B(0.22, 0.18, 0.08, mat));
+  rGlove.position.set(0, -0.45, 0);
+  parts.rArmG.add(rGlove);
+}
+
+// Wings registry and attachment
+export const WINGS = {
+  none: { name: 'None' },
+  angel: { name: 'Angel Wings', color: '#FFFFFF' },
+  fairy: { name: 'Fairy Wings', color: '#FFB6C1' },
+  dragon: { name: 'Dragon Wings', color: '#8B0000' }
+};
+
+export function attachWings(parts, wingType) {
+  // Remove existing wings
+  if (parts.torsoG) {
+    const toRemove = parts.torsoG.children.filter(c => c.userData.isWing);
+    toRemove.forEach(c => parts.torsoG.remove(c));
+  }
+
+  if (wingType === 'none') return;
+
+  const wing = WINGS[wingType];
+  if (!wing) return;
+
+  const mat = M(wing.color, 0.3, 0);
+  const tag = (mesh) => { mesh.userData.isWing = true; mesh.castShadow = true; return mesh; };
+
+  // Left wing
+  const lWing = tag(new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.8, 0.5),
+    mat
+  ));
+  lWing.position.set(-0.3, 0.2, -0.2);
+  lWing.rotation.z = Math.PI / 6;
+  parts.torsoG.add(lWing);
+
+  // Right wing
+  const rWing = tag(new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.8, 0.5),
+    mat
+  ));
+  rWing.position.set(0.3, 0.2, -0.2);
+  rWing.rotation.z = -Math.PI / 6;
+  parts.torsoG.add(rWing);
+}
+
+// Emoji system stubs (for compatibility)
+export function setCharacterEmoji(group, emojiKey) {
+  // Placeholder - emoji system not implemented in this version
+  console.log('[CharacterBuilder] setCharacterEmoji called:', emojiKey);
+}
+
+export function updateCharacterEmoji(group, delta) {
+  // Placeholder - emoji system not implemented in this version
+}
