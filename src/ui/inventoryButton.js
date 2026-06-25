@@ -10,6 +10,20 @@ let _animationFrame = null;
 export function initInventoryButton() {
   console.log('[inventory] Initializing inventory button...');
 
+  try {
+    // Test imports
+    console.log('[inventory] Testing imports:', {
+      HATS: !!HATS,
+      HAND_ITEMS: !!HAND_ITEMS,
+      SHOES: !!SHOES,
+      GLOVES: !!GLOVES,
+      WINGS: !!WINGS
+    });
+  } catch (err) {
+    console.error('[inventory] Import test failed:', err);
+    return;
+  }
+
   const container = document.createElement('div');
   container.id = 'inventory-container';
   container.innerHTML = `
@@ -731,8 +745,10 @@ export function initInventoryButton() {
   const handItemsGrid = document.getElementById('hand-items-grid');
 
   function renderHandItems() {
-    handItemsGrid.innerHTML = '';
-    Object.entries(HAND_ITEMS).forEach(([key, item]) => {
+    try {
+      console.log('[inventory] renderHandItems called, HAND_ITEMS:', HAND_ITEMS);
+      handItemsGrid.innerHTML = '';
+      Object.entries(HAND_ITEMS).forEach(([key, item]) => {
       // Filter: only show 'none' or owned items
       // If isItemOwned doesn't exist yet, show all items
       if (key !== 'none' && typeof window.isItemOwned === 'function' && !window.isItemOwned(`hand_${key}`)) {
@@ -778,9 +794,16 @@ export function initInventoryButton() {
         renderHandItems();
       });
     });
+    } catch (err) {
+      console.error('[inventory] renderHandItems error:', err);
+    }
   }
 
-  renderHandItems();
+  try {
+    renderHandItems();
+  } catch (err) {
+    console.error('[inventory] Failed to render hand items:', err);
+  }
 
   // Populate Hats grid
   const hatsGrid = document.getElementById('hats-grid');
