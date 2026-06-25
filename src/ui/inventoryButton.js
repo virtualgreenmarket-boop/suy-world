@@ -506,17 +506,24 @@ export function initInventoryButton() {
     if (savedCustomization.shirt) selectedColors.shirt = savedCustomization.shirt;
     if (savedCustomization.pants) selectedColors.pants = savedCustomization.pants;
     if (savedCustomization.shoes) selectedColors.shoes = savedCustomization.shoes;
-    // Apply saved colors immediately
-    updatePlayerAppearance(savedCustomization);
+    // Apply saved colors when player is ready
+    if (window.updatePlayerAppearance) {
+      window.updatePlayerAppearance(savedCustomization);
+    }
   }
 
   // Create color palettes with slider (5 colors at a time)
   const paletteCategories = ['skin', 'shirt', 'pants', 'shoes'];
   const paletteStates = {}; // Track current offset for each palette
 
+  console.log('[inventory] Creating color palettes...');
   paletteCategories.forEach(category => {
     const paletteEl = document.getElementById(`palette-${category}`);
-    if (!paletteEl) return;
+    if (!paletteEl) {
+      console.warn(`[inventory] Palette element not found: palette-${category}`);
+      return;
+    }
+    console.log(`[inventory] Creating palette for: ${category}`);
 
     paletteStates[category] = { offset: 0 };
 
