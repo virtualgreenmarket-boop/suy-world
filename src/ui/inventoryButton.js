@@ -394,13 +394,27 @@ export function initInventoryButton() {
   initCharacterPreview();
 
   // Toggle panel
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (e) => {
+    console.log('[inventory] Bag button clicked, panel open:', panel.classList.contains('open'));
+
+    // Check if shop overlay is blocking
+    const shopOverlay = document.getElementById('shop-overlay');
+    if (shopOverlay && shopOverlay.style.display === 'flex') {
+      console.warn('[inventory] Shop overlay is still open! Closing it first.');
+      if (window.closeMainShop) {
+        window.closeMainShop();
+      }
+      return; // Don't open bag until next click
+    }
+
     const isOpening = !panel.classList.contains('open');
     panel.classList.toggle('open');
 
     if (isOpening) {
+      console.log('[inventory] Opening bag panel');
       startPreviewAnimation();
     } else {
+      console.log('[inventory] Closing bag panel');
       stopPreviewAnimation();
     }
   });

@@ -441,18 +441,30 @@ function _createShopOverlay() {
  * Open shop
  */
 function _openShop() {
+  console.log('[ShopUI] Opening shop, overlay exists:', !!_overlay);
   if (!_overlay) return;
+
+  // Close inventory bag if open
+  const inventoryPanel = document.getElementById('inventory-panel');
+  if (inventoryPanel && inventoryPanel.classList.contains('open')) {
+    console.log('[ShopUI] Closing inventory bag before opening shop');
+    inventoryPanel.classList.remove('open');
+  }
+
   _overlay.style.display = 'flex';
   _updateBalanceDisplay();
   _renderItems('hats'); // Default category
+  console.log('[ShopUI] Shop opened');
 }
 
 /**
  * Close shop
  */
 function _closeShop() {
+  console.log('[ShopUI] Closing shop, overlay exists:', !!_overlay);
   if (!_overlay) return;
   _overlay.style.display = 'none';
+  console.log('[ShopUI] Shop closed, display set to none');
 }
 
 /**
