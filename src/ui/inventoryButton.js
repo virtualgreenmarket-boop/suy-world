@@ -734,7 +734,8 @@ export function initInventoryButton() {
     handItemsGrid.innerHTML = '';
     Object.entries(HAND_ITEMS).forEach(([key, item]) => {
       // Filter: only show 'none' or owned items
-      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`hand_${key}`)) {
+      // If isItemOwned doesn't exist yet, show all items
+      if (key !== 'none' && typeof window.isItemOwned === 'function' && !window.isItemOwned(`hand_${key}`)) {
         return;
       }
 
@@ -788,7 +789,8 @@ export function initInventoryButton() {
     hatsGrid.innerHTML = '';
     Object.entries(HATS).forEach(([key, item]) => {
       // Filter: only show 'none' or owned items
-      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`hat_${key}`)) {
+      // If isItemOwned doesn't exist yet, show all items
+      if (key !== 'none' && typeof window.isItemOwned === 'function' && !window.isItemOwned(`hat_${key}`)) {
         return;
       }
 
@@ -842,7 +844,8 @@ export function initInventoryButton() {
     shoesGrid.innerHTML = '';
     Object.entries(SHOES).forEach(([key, item]) => {
       // Filter: only show 'none' or owned items
-      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`shoes_${key}`)) {
+      // If isItemOwned doesn't exist yet, show all items
+      if (key !== 'none' && typeof window.isItemOwned === 'function' && !window.isItemOwned(`shoes_${key}`)) {
         return;
       }
 
@@ -896,7 +899,8 @@ export function initInventoryButton() {
     glovesGrid.innerHTML = '';
     Object.entries(GLOVES).forEach(([key, item]) => {
       // Filter: only show 'none' or owned items
-      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`glove_${key}`)) {
+      // If isItemOwned doesn't exist yet, show all items
+      if (key !== 'none' && typeof window.isItemOwned === 'function' && !window.isItemOwned(`glove_${key}`)) {
         return;
       }
 
@@ -950,7 +954,8 @@ export function initInventoryButton() {
     wingsGrid.innerHTML = '';
     Object.entries(WINGS).forEach(([key, item]) => {
       // Filter: only show 'none' or owned items
-      if (key !== 'none' && window.isItemOwned && !window.isItemOwned(`wing_${key}`)) {
+      // If isItemOwned doesn't exist yet, show all items
+      if (key !== 'none' && typeof window.isItemOwned === 'function' && !window.isItemOwned(`wing_${key}`)) {
         return;
       }
 
