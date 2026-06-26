@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCharacter, attachHat, attachHandItem, attachShoes, attachGloves, attachWings, HATS, HAND_ITEMS, SHOES, GLOVES, WINGS } from '../player/CharacterBuilder.js';
+import { buildCharacter, attachHat, attachHandItem, attachShoes, attachGloves, attachWings, HATS, HAND_ITEMS, SHOES, GLOVES, WINGS, CHARACTERS } from '../player/CharacterBuilder.js';
 
 let _previewScene = null;
 let _previewCamera = null;
@@ -8,12 +8,16 @@ let _previewCharacter = null;
 let _animationFrame = null;
 
 // Module-level so both initInventoryButton and initCharacterPreview can access it
+// Default to 'boy' colors, will be overridden with actual character type colors
 let selectedColors = {
   skin:  '#FFCC99',
   shirt: '#2196F3',
   pants: '#333333',
   shoes: '#5D4037'
 };
+
+// Current character type (set during init)
+let _currentCharacterType = 'boy';
 
 export function initInventoryButton() {
   console.log('[inventory] Initializing inventory button...');
@@ -557,20 +561,36 @@ export function initInventoryButton() {
     '#8B4513', '#800080', '#2F4F4F', '#DC143C' // Rich/Dark
   ];
 
-  // selectedColors is declared at module scope (shared with initCharacterPreview)
+  // Get current character type
+  _currentCharacterType = 'boy'; // default
+  if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
+    _currentCharacterType = window.localPlayer.userData._charType;
+  }
+  console.log('[inventory] Current character type:', _currentCharacterType);
 
-  // Load saved customization from localStorage
-  const CUSTOMIZATION_KEY = 'suy_character_customization';
+  // Set default colors based on character type
+  const defaultColors = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
+  selectedColors.skin = defaultColors.skin;
+  selectedColors.shirt = defaultColors.shirt;
+  selectedColors.pants = defaultColors.pants;
+  selectedColors.shoes = defaultColors.shoes;
+  console.log('[inventory] Default colors for', _currentCharacterType, ':', selectedColors);
+
+  // Load saved customization from localStorage (per character type)
+  const CUSTOMIZATION_KEY = `suy_character_customization_${_currentCharacterType}`;
   const savedCustomization = loadCustomization();
   if (savedCustomization) {
-    if (savedCustomization.skin) selectedColors.skin = savedCustomization.skin;
+    console.log('[inventory] Loading saved customization for', _currentCharacterType, ':', savedCustomization);
+    // Only apply shirt, pants, shoes (not skin - it's fixed per character type)
     if (savedCustomization.shirt) selectedColors.shirt = savedCustomization.shirt;
     if (savedCustomization.pants) selectedColors.pants = savedCustomization.pants;
     if (savedCustomization.shoes) selectedColors.shoes = savedCustomization.shoes;
     // Apply saved colors when player is ready
     if (window.updatePlayerAppearance) {
-      window.updatePlayerAppearance(savedCustomization);
+      window.updatePlayerAppearance(selectedColors);
     }
+  } else {
+    console.log('[inventory] No saved customization for', _currentCharacterType, '- using defaults');
   }
 
   // Equipped items state management
@@ -767,14 +787,15 @@ export function initInventoryButton() {
   const resetBtn = document.getElementById('reset-colors-btn');
 
   resetBtn.addEventListener('click', () => {
-    console.log('[inventory] 🔄 Resetting colors to defaults');
+    console.log('[inventory] 🔄 Resetting colors to defaults for', _currentCharacterType);
 
-    // Default colors
+    // Get default colors for current character type
+    const charDefaults = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
     const defaultColors = {
-      skin: '#FFCC99',
-      shirt: '#2196F3',
-      pants: '#333333',
-      shoes: '#5D4037'
+      skin: charDefaults.skin,
+      shirt: charDefaults.shirt,
+      pants: charDefaults.pants,
+      shoes: charDefaults.shoes
     };
 
     // Update selectedColors
