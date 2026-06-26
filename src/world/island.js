@@ -15,7 +15,7 @@ function createAsymmetricEllipse(baseRadius, eastExpansion, northSouthExpansion,
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
-    const z = pos.getZ(i);
+    const y = pos.getY(i);
 
     // Expand east side (x > 0) by eastExpansion factor
     if (x > 0) {
@@ -23,8 +23,9 @@ function createAsymmetricEllipse(baseRadius, eastExpansion, northSouthExpansion,
     }
     // Keep west side (x <= 0) the same
 
-    // Expand both north and south (z direction) by northSouthExpansion factor
-    pos.setZ(i, z * northSouthExpansion);
+    // CircleGeometry lies in XY plane; after rotation.x=-PI/2, geometry Y maps to world Z.
+    // Expand both north and south by scaling geometry Y.
+    pos.setY(i, y * northSouthExpansion);
   }
 
   geometry.attributes.position.needsUpdate = true;
@@ -41,15 +42,15 @@ function createAsymmetricRing(innerRadius, outerRadius, eastExpansion, northSout
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
-    const z = pos.getZ(i);
+    const y = pos.getY(i);
 
     // Expand east side (x > 0)
     if (x > 0) {
       pos.setX(i, x * eastExpansion);
     }
 
-    // Expand north/south
-    pos.setZ(i, z * northSouthExpansion);
+    // RingGeometry lies in XY plane; after rotation.x=-PI/2, geometry Y maps to world Z.
+    pos.setY(i, y * northSouthExpansion);
   }
 
   geometry.attributes.position.needsUpdate = true;
