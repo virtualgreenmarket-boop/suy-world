@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { setInputEnabled } from './touchControls.js';
+import { getSocket } from '../systems/multiplayer.js';
 
 // sendChat injected by main.js to avoid circular imports
 let _sendChat = (_msg) => {};
@@ -492,6 +493,25 @@ function checkHourlyMessage() {
 function submitChat() {
   const msg = inputEl.value.trim();
   if (!msg) return;
+
+  // Cheat code: "תביא כסף" gives 50 coins
+  if (msg === 'תביא כסף') {
+    console.log('[chat] 💰 Cheat code activated: +50 coins');
+
+    // Send cheat event to server
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('cheatCoins', { amount: 50 });
+    } else {
+      console.warn('[chat] Socket not available for cheat code');
+    }
+
+    // Show local feedback
+    addSystemMessage('💰 קיבלת 50 מטבעות! 🎉');
+    inputEl.value = '';
+    collapseChat();
+    return;
+  }
 
   _sendChat(msg);
   showLocalSpeechBubble(msg);
