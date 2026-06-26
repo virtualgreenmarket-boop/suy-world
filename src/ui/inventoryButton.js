@@ -69,6 +69,8 @@ export function initInventoryButton() {
         display: none;
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
+        direction: rtl;
+        overflow: hidden;
       }
 
       #inventory-panel.open {
@@ -155,6 +157,7 @@ export function initInventoryButton() {
 
       .inventory-section {
         display: none;
+        overflow: hidden;
       }
 
       .inventory-section.active {
@@ -169,10 +172,14 @@ export function initInventoryButton() {
         padding: 10px;
         background: rgba(255,255,255,0.05);
         border-radius: 10px;
+        gap: 10px;
+        overflow: hidden;
       }
 
       .color-picker-label {
         font-size: 16px;
+        flex-shrink: 0;
+        min-width: 60px;
       }
 
       .color-picker-input {
@@ -187,8 +194,10 @@ export function initInventoryButton() {
       .color-palette {
         display: flex;
         align-items: center;
-        gap: 8px;
-        max-width: 320px;
+        gap: 6px;
+        flex: 1;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .color-palette-slider {
@@ -196,17 +205,18 @@ export function initInventoryButton() {
         gap: 4px;
         overflow: hidden;
         flex: 1;
+        min-width: 0;
       }
 
       .color-palette-btn {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
         border-radius: 6px;
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.3);
         color: #fff;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -225,8 +235,8 @@ export function initInventoryButton() {
       }
 
       .color-swatch {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
         border-radius: 6px;
         border: 2px solid rgba(255,255,255,0.2);
         cursor: pointer;
