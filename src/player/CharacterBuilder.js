@@ -914,83 +914,43 @@ export function attachWings(parts, wingType) {
   parts.torsoG.add(rWing);
 }
 
-// Emoji system - display emoji above character's head
-const EMOJI_MAP = {
-  'neutral': '😐',
-  'laugh_tears': '😂',
-  'melting': '🫠',
-  'wink': '😉',
-  'calm_smile': '😊',
-  'smile_tear': '🥲',
-  'yummy': '😋',
-  'peek': '🫣',
-  'shh': '🤫',
-  'thinking': '🤔',
-  'salute_face': '🫡',
-  'skeptical': '🤨',
-  'exhale': '😮‍💨',
-  'stunned': '😳',
-  'shake_no': '🙅',
-  'nod_yes': '🙆'
+// Emoji system - maps emoji picker selections to facial expressions
+// Uses the existing setCharacterEmotion() system to change the 3D model's face
+const EMOJI_TO_EMOTION = {
+  'neutral': 'neutral',
+  'laugh_tears': 'laugh',
+  'melting': 'sad',
+  'wink': 'happy',
+  'calm_smile': 'happy',
+  'smile_tear': 'sad',
+  'yummy': 'happy',
+  'peek': 'neutral',
+  'shh': 'neutral',
+  'thinking': 'neutral',
+  'salute_face': 'neutral',
+  'skeptical': 'angry',
+  'exhale': 'sad',
+  'stunned': 'neutral',
+  'shake_no': 'angry',
+  'nod_yes': 'happy'
 };
 
 export function setCharacterEmoji(group, emojiKey) {
   console.log('[CharacterBuilder] setCharacterEmoji:', emojiKey);
 
-  // Remove existing emoji if any
-  clearCharacterEmotion(group);
+  // Map emoji to emotion
+  const emotion = EMOJI_TO_EMOTION[emojiKey] || 'neutral';
+  console.log('[CharacterBuilder] Mapping emoji', emojiKey, '→ emotion:', emotion);
 
-  const emoji = EMOJI_MAP[emojiKey] || emojiKey;
-
-  // Create emoji sprite above head
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-
-  // Clear and draw emoji
-  ctx.clearRect(0, 0, 128, 128);
-  ctx.font = 'bold 96px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(emoji, 64, 64);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-
-  const spriteMaterial = new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    depthTest: false
-  });
-
-  const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(1.5, 1.5, 1);
-  sprite.position.set(0, 2.8, 0); // Above head
-  sprite.name = 'emoji-sprite';
-
-  group.add(sprite);
-  group.userData._emojiSprite = sprite;
-
-  console.log('[CharacterBuilder] ✅ Emoji sprite added:', emoji);
+  // Use existing emotion system to change facial expression
+  setCharacterEmotion(group, emotion);
 }
 
 export function clearCharacterEmotion(group) {
-  if (group.userData._emojiSprite) {
-    group.remove(group.userData._emojiSprite);
-    if (group.userData._emojiSprite.material.map) {
-      group.userData._emojiSprite.material.map.dispose();
-    }
-    group.userData._emojiSprite.material.dispose();
-    group.userData._emojiSprite = null;
-    console.log('[CharacterBuilder] Emoji cleared');
-  }
+  // Reset to neutral face
+  setCharacterEmotion(group, 'neutral');
 }
 
 export function updateCharacterEmoji(group, delta) {
-  // Optional: add animation to emoji sprite
-  if (group.userData._emojiSprite) {
-    // Gentle bobbing animation
-    group.userData._emojiSprite.position.y = 2.8 + Math.sin(Date.now() * 0.003) * 0.1;
-  }
+  // No animation needed - the facial expression is static geometry
 }
