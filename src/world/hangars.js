@@ -687,8 +687,6 @@ function buildRooms(group, side, hangarIndex) {
     numSign.rotation.y = side === 'left' ? Math.PI / 2 : -Math.PI / 2;
     group.add(numSign);
 
-    // Queue GLB door — rotY=PI/2 so door panel spans Z (side-room orientation)
-    _doorPlacements.push({ group, x: frontX, z: centerZ, slotId, rotY: Math.PI / 2 });
   }
 }
 
@@ -768,8 +766,6 @@ function buildFarRooms(group, hangarIndex) {
     numSign.rotation.y = 0;
     group.add(numSign);
 
-    // Queue GLB door — rotY=0 so door panel spans X (far-wall orientation)
-    _doorPlacements.push({ group, x: centerX, z: roomFrontZ, slotId, rotY: 0 });
   }
 }
 
