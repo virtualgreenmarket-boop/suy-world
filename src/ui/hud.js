@@ -39,26 +39,18 @@ export function initHud() {
 
   document.body.appendChild(topLeft);
 
-  // Emoji picker (hidden by default) - 15 emoji options
+  // Emoji picker (hidden by default) - 8 custom emoji expressions
   const emojiPicker = el('div', { id: 'hud-emoji-picker' });
   emojiPicker.style.display = 'none';
   const emotions = [
-    { emoji: '😐', key: 'neutral' },
     { emoji: '😂', key: 'laugh_tears' },
-    { emoji: '🫠', key: 'melting' },
     { emoji: '😉', key: 'wink' },
-    { emoji: '😊', key: 'calm_smile' },
-    { emoji: '🥲', key: 'smile_tear' },
     { emoji: '😋', key: 'yummy' },
-    { emoji: '🫣', key: 'peek' },
     { emoji: '🤫', key: 'shh' },
-    { emoji: '🤔', key: 'thinking' },
-    { emoji: '🫡', key: 'salute_face' },
-    { emoji: '🤨', key: 'skeptical' },
-    { emoji: '😮‍💨', key: 'exhale' },
-    { emoji: '😳', key: 'stunned' },
     { emoji: '🙅', key: 'shake_no' },
-    { emoji: '🙆', key: 'nod_yes' }
+    { emoji: '🙆', key: 'nod_yes' },
+    { emoji: '😠', key: 'angry' },
+    { emoji: '😭', key: 'crying' }
   ];
   emotions.forEach(({ emoji, key }) => {
     const btn = el('button', { class: 'emoji-option' });
@@ -151,22 +143,44 @@ function _injectStyles() {
       max-width: 500px;
     }
     .emoji-option {
-      background: rgba(255,255,255,0.1);
-      border: none;
-      border-radius: 50%;
-      width: 44px;
-      height: 44px;
-      font-size: 24px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 14px;
+      width: 56px;
+      height: 56px;
+      font-size: 28px;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       pointer-events: all;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3),
+                  inset 0 1px 0 rgba(255,255,255,0.15);
+      position: relative;
+    }
+    .emoji-option::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.1), transparent);
+      border-radius: 14px;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
     .emoji-option:hover {
-      background: rgba(255,255,255,0.25);
-      transform: scale(1.1);
+      background: linear-gradient(145deg, rgba(255,255,255,0.3), rgba(255,255,255,0.15));
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4),
+                  inset 0 2px 0 rgba(255,255,255,0.25);
+    }
+    .emoji-option:hover::before {
+      opacity: 1;
     }
     .emoji-option:active {
-      transform: scale(0.95);
+      transform: translateY(0) scale(0.98);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3),
+                  inset 0 1px 2px rgba(0,0,0,0.2);
     }
     #hud-coin {
       background: rgba(10,8,22,0.88);
