@@ -77,6 +77,13 @@ io.on('connection', socket => {
     socket.emit('coinsUpdated', { coins });
   });
 
+  socket.on('cheatCoins', ({ amount }) => {
+    if (!uuid || typeof amount !== 'number' || amount <= 0) return;
+    const coins = adjustCoins(uuid, amount);
+    console.log(`[cheat] 💰 ${name} used cheat code → +${amount} coins → total: ${coins}`);
+    socket.emit('coinsUpdated', { coins });
+  });
+
   socket.on('disconnect', () => {
     delete state.players[socket.id];
     io.emit('playerLeft', { id: socket.id });
