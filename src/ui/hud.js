@@ -87,18 +87,23 @@ function toggleEmojiPicker() {
 }
 
 function selectEmotion(emotionKey) {
+  console.log('[hud] 😊 selectEmotion called:', emotionKey);
+
   const picker = document.getElementById('hud-emoji-picker');
   picker.style.opacity = '0';
   setTimeout(() => { picker.style.display = 'none'; }, 200);
 
   // Use new emoji system
   if (window.setPlayerEmoji) {
+    console.log('[hud] ✅ Calling window.setPlayerEmoji');
     window.setPlayerEmoji(emotionKey);
     setTimeout(() => {
       if (window.clearPlayerEmotion) {
         window.clearPlayerEmotion();
       }
     }, 5000);
+  } else {
+    console.warn('[hud] ⚠️ window.setPlayerEmoji not available!');
   }
 }
 
@@ -134,14 +139,16 @@ function _injectStyles() {
       left: 16px;
       display: flex;
       gap: 6px;
-      background: rgba(0,0,0,0.75);
+      background: rgba(0,0,0,0.85);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.2);
       border-radius: 20px;
       padding: 8px 12px;
       opacity: 0;
       transition: opacity 0.2s ease;
-      z-index: 100;
+      z-index: 9999;
+      flex-wrap: wrap;
+      max-width: 500px;
     }
     .emoji-option {
       background: rgba(255,255,255,0.1);

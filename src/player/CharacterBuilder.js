@@ -538,23 +538,6 @@ export function setCharacterEmotion(group, emotion) {
   }
 }
 
-export function clearCharacterEmotion(group) {
-  if (!group || !group.userData.parts || !group.userData.parts.headG) return;
-
-  const headG = group.userData.parts.headG;
-
-  headG.children = headG.children.filter(child => {
-    if (child.name?.startsWith('emo_')) return false;
-    return true;
-  });
-
-  headG.children.forEach(child => {
-    if (child.name === 'eyeL' || child.name === 'eyeR' || child.name === 'mouth') {
-      child.visible = true;
-    }
-  });
-}
-
 // Hats and Hand Items — UNCHANGED from the existing file, all positions still
 // reference values relative to headG/rArmG origins which remain valid since
 // the head/arm GROUP origins didn't move, only the geometry inside them.
@@ -931,12 +914,83 @@ export function attachWings(parts, wingType) {
   parts.torsoG.add(rWing);
 }
 
-// Emoji system stubs (for compatibility)
+// Emoji system - display emoji above character's head
+const EMOJI_MAP = {
+  'neutral': '😐',
+  'laugh_tears': '😂',
+  'melting': '🫠',
+  'wink': '😉',
+  'calm_smile': '😊',
+  'smile_tear': '🥲',
+  'yummy': '😋',
+  'peek': '🫣',
+  'shh': '🤫',
+  'thinking': '🤔',
+  'salute_face': '🫡',
+  'skeptical': '🤨',
+  'exhale': '😮‍💨',
+  'stunned': '😳',
+  'shake_no': '🙅',
+  'nod_yes': '🙆'
+};
+
 export function setCharacterEmoji(group, emojiKey) {
-  // Placeholder - emoji system not implemented in this version
-  console.log('[CharacterBuilder] setCharacterEmoji called:', emojiKey);
+  console.log('[CharacterBuilder] setCharacterEmoji:', emojiKey);
+
+  // Remove existing emoji if any
+  clearCharacterEmotion(group);
+
+  const emoji = EMOJI_MAP[emojiKey] || emojiKey;
+
+  // Create emoji sprite above head
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  // Clear and draw emoji
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.font = 'bold 96px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, 64, 64);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false
+  });
+
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(1.5, 1.5, 1);
+  sprite.position.set(0, 2.8, 0); // Above head
+  sprite.name = 'emoji-sprite';
+
+  group.add(sprite);
+  group.userData._emojiSprite = sprite;
+
+  console.log('[CharacterBuilder] ✅ Emoji sprite added:', emoji);
+}
+
+export function clearCharacterEmotion(group) {
+  if (group.userData._emojiSprite) {
+    group.remove(group.userData._emojiSprite);
+    if (group.userData._emojiSprite.material.map) {
+      group.userData._emojiSprite.material.map.dispose();
+    }
+    group.userData._emojiSprite.material.dispose();
+    group.userData._emojiSprite = null;
+    console.log('[CharacterBuilder] Emoji cleared');
+  }
 }
 
 export function updateCharacterEmoji(group, delta) {
-  // Placeholder - emoji system not implemented in this version
+  // Optional: add animation to emoji sprite
+  if (group.userData._emojiSprite) {
+    // Gentle bobbing animation
+    group.userData._emojiSprite.position.y = 2.8 + Math.sin(Date.now() * 0.003) * 0.1;
+  }
 }
