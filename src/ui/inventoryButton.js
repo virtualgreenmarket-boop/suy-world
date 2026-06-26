@@ -307,9 +307,14 @@ export function initInventoryButton() {
         pointer-events: none;
       }
 
-      .save-btn {
-        width: 100%;
-        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+      .customization-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .save-btn, .reset-btn {
+        flex: 1;
         border: none;
         color: white;
         padding: 12px 20px;
@@ -318,8 +323,11 @@ export function initInventoryButton() {
         transition: all 0.2s;
         font-size: 16px;
         font-weight: bold;
-        margin-top: 20px;
         font-family: inherit;
+      }
+
+      .save-btn {
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
       }
 
       .save-btn:hover {
@@ -328,6 +336,19 @@ export function initInventoryButton() {
       }
 
       .save-btn:active {
+        transform: scale(0.98);
+      }
+
+      .reset-btn {
+        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+      }
+
+      .reset-btn:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+      }
+
+      .reset-btn:active {
         transform: scale(0.98);
       }
 
@@ -412,7 +433,10 @@ export function initInventoryButton() {
             <span class="color-picker-label">נעליים</span>
             <div class="color-palette" id="palette-shoes"></div>
           </div>
-          <button class="save-btn" id="save-customization-btn">💾 שמור התאמה אישית</button>
+          <div class="customization-buttons">
+            <button class="reset-btn" id="reset-colors-btn">🔄 איפוס</button>
+            <button class="save-btn" id="save-customization-btn">💾 שמירה</button>
+          </div>
           <div class="save-feedback" id="save-feedback">✓ נשמר בהצלחה!</div>
         </div>
 
@@ -741,6 +765,70 @@ export function initInventoryButton() {
     }, 2000);
 
     console.log('[inventory] Customization saved:', customization);
+  });
+
+  // RESET button functionality
+  const resetBtn = document.getElementById('reset-colors-btn');
+
+  resetBtn.addEventListener('click', () => {
+    console.log('[inventory] 🔄 Resetting colors to defaults');
+
+    // Default colors
+    const defaultColors = {
+      skin: '#FFCC99',
+      shirt: '#2196F3',
+      pants: '#333333',
+      shoes: '#5D4037'
+    };
+
+    // Update selectedColors
+    selectedColors.skin = defaultColors.skin;
+    selectedColors.shirt = defaultColors.shirt;
+    selectedColors.pants = defaultColors.pants;
+    selectedColors.shoes = defaultColors.shoes;
+
+    // Update preview character
+    if (_previewCharacter && _previewScene) {
+      const currentType = _previewCharacter.userData._charType || 'boy';
+      const newPreview = buildCharacter(currentType, selectedColors);
+
+      // Scale and position for preview
+      const bbox = new THREE.Box3().setFromObject(newPreview);
+      const size = bbox.getSize(new THREE.Vector3());
+      if (size.y > 0) {
+        const scale = 2.0 / size.y;
+        newPreview.scale.setScalar(scale);
+      }
+
+      // Remove old preview
+      _previewScene.remove(_previewCharacter);
+
+      // Add new preview
+      _previewCharacter = newPreview;
+      _previewCharacter.userData._charType = currentType;
+      _previewScene.add(_previewCharacter);
+    }
+
+    // Update player
+    if (window.updatePlayerAppearance) {
+      window.updatePlayerAppearance(defaultColors);
+    }
+
+    // Update all color palette selections
+    paletteCategories.forEach(cat => {
+      const state = paletteStates[cat];
+      if (state && state.updateFn) state.updateFn();
+    });
+
+    // Show feedback
+    saveFeedback.textContent = '🔄 צבעים אופסו!';
+    saveFeedback.classList.add('show');
+    setTimeout(() => {
+      saveFeedback.classList.remove('show');
+      saveFeedback.textContent = '✓ נשמר בהצלחה!';
+    }, 2000);
+
+    console.log('[inventory] ✅ Colors reset to defaults');
   });
 
   function loadCustomization() {
