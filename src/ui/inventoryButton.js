@@ -418,10 +418,6 @@ export function initInventoryButton() {
         <!-- Clothes tab -->
         <div class="inventory-section active" data-section="clothes">
           <div class="color-picker-row">
-            <span class="color-picker-label">עור</span>
-            <div class="color-palette" id="palette-skin"></div>
-          </div>
-          <div class="color-picker-row">
             <span class="color-picker-label">חולצה</span>
             <div class="color-palette" id="palette-shirt"></div>
           </div>
@@ -612,7 +608,7 @@ export function initInventoryButton() {
   console.log('[inventory] Loaded equipped items:', equippedItems);
 
   // Create color palettes with slider (5 colors at a time)
-  const paletteCategories = ['skin', 'shirt', 'pants', 'shoes'];
+  const paletteCategories = ['shirt', 'pants', 'shoes'];
   const paletteStates = {}; // Track current offset for each palette
 
   console.log('[inventory] Creating color palettes...');
