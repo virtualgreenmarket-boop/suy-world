@@ -780,16 +780,54 @@ function buildFarRooms(group, hangarIndex) {
 async function _placeDoorModels() {
   const loader = new GLTFLoader();
   let gltf;
+  let template;
+
   try {
     gltf = await new Promise((resolve, reject) =>
       loader.load('/models/world/door.glb', resolve, undefined, reject)
     );
+    template = gltf.scene;
+    console.log('[hangars] Door GLB loaded successfully');
   } catch (err) {
-    console.error('[hangars] Door GLB failed to load:', err);
-    return;
+    console.warn('[hangars] Door GLB failed to load, using fallback geometry:', err.message);
+
+    // Create a simple door as fallback
+    const doorGroup = new THREE.Group();
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: 0x8B4513,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+
+    // Door panel
+    const panel = new THREE.Mesh(
+      new THREE.BoxGeometry(DOOR_T, DOOR_H, DOOR_W),
+      doorMat
+    );
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+
+    // Door handle
+    const handleMat = new THREE.MeshStandardMaterial({
+      color: 0x444444,
+      metalness: 0.8,
+      roughness: 0.2
+    });
+    const handle = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.3, 0.6),
+      handleMat
+    );
+    handle.position.set(DOOR_T / 2 + 0.05, 0, -DOOR_W / 3);
+
+    doorGroup.add(panel);
+    doorGroup.add(handle);
+    template = doorGroup;
   }
 
-  const template = gltf.scene;
+  if (!template) {
+    console.error('[hangars] No door template available');
+    return;
+  }
 
   // Measure model once at identity to get its natural proportions
   {
