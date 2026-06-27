@@ -64,6 +64,10 @@ export const CHARACTERS = {
   robot: { name:'R-7',   hebrew:'רובוט מהדור הבא. מדויק, חכם ובלתי ניתן לעצירה.',          height:'1.90m', personality:'מדויק',  skin:'#90A4AE', shirt:'#455A64', pants:'#37474F', shoes:'#263238', hair:'#78909C', hairStyle:'antenna',  eyeColor:'#00E5FF' },
 };
 
+// Character dimensions — Roblox-style rounded cube head
+const HEAD_SIZE = 1.1;
+const HEAD_ROUNDNESS = 0.42;
+
 export function buildCharacter(type, overrideColors = {}) {
   const ch = CHARACTERS[type] || CHARACTERS.boy;
   const c = {...ch, ...overrideColors};
@@ -74,21 +78,22 @@ export function buildCharacter(type, overrideColors = {}) {
   const group = new THREE.Group();
   const parts = {};
 
-  // HEAD — Roblox classic-head style rounded cube (REPLACES the previous egg
-  // shape). size/roundness confirmed via reference-image comparison earlier.
-  const HEAD_SIZE = 1.1;
-  const HEAD_ROUNDNESS = 0.42;
+  // HEAD — Egg/ellipsoid shape (SphereGeometry with non-uniform scale)
+  // Wider than tall with 1.2 width-to-height ratio, smoothly rounded everywhere
+  const HEAD_WIDTH = 1.2;  // X/Z dimension
+  const HEAD_HEIGHT = 1.0; // Y dimension (HEAD_WIDTH/HEAD_HEIGHT = 1.2 ratio)
 
   parts.headG = new THREE.Group();
   parts.headG.position.set(0, 2.42, 0);
 
-  const headGeo = roundedCubeGeometry(HEAD_SIZE, 6, HEAD_ROUNDNESS);
+  const headGeo = new THREE.SphereGeometry(HEAD_HEIGHT/2, 64, 48); // High segment count for smoothness
   const head = new THREE.Mesh(headGeo, skin);
+  head.scale.set(HEAD_WIDTH/HEAD_HEIGHT, 1, HEAD_WIDTH/HEAD_HEIGHT); // Scale to egg shape (1.2:1:1.2)
   head.castShadow = true;
   parts.headG.add(head);
 
-  parts.headG.userData.HEAD_SIZE = HEAD_SIZE;
-  parts.headG.userData.HEAD_ROUNDNESS = HEAD_ROUNDNESS;
+  parts.headG.userData.HEAD_WIDTH = HEAD_WIDTH;
+  parts.headG.userData.HEAD_HEIGHT = HEAD_HEIGHT;
 
   // Hair — recalculated attachment points for the rounded-cube head
   // (HEAD_SIZE=1.1), replacing the egg-specific BASE_RADIUS/SCALE_XZ/SCALE_Y
