@@ -42,11 +42,11 @@ export function initInventoryButton() {
     <style>
       #inventory-btn {
         background: rgba(0,0,0,0.50);
-        border: 1px solid rgba(255,255,255,0.18);
+        border: 1.5px solid rgba(255,255,255,0.18);
         color: #fff;
-        border-radius: 20px;
-        padding: 6px 14px;
-        font-size: 18px;
+        border-radius: 30px;
+        padding: 9px 21px;
+        font-size: 27px;
         cursor: pointer;
         pointer-events: all;
         transition: background 0.15s;
