@@ -334,10 +334,23 @@ export function resetPose(group) {
   P.lElbowG.rotation.set(0,0,0); P.rElbowG.rotation.set(0,0,0);
   P.lLegG.rotation.set(0,0,0); P.rLegG.rotation.set(0,0,0);
   P.lKneeG.rotation.set(0,0,0); P.rKneeG.rotation.set(0,0,0);
-  P.bodyG.rotation.set(0,0,0); P.headG.rotation.set(0,0,0);
+  P.bodyG.rotation.set(0,0,0);
+
+  // Don't reset head rotation if emoji animation is active
+  if (!P.headG.userData._shakeStartTime && !P.headG.userData._nodStartTime) {
+    P.headG.rotation.set(0,0,0);
+  }
+
   group.position.y = group.userData._groundY || 0;
-  P.lLegG.position.set(-0.22,1.05,0); P.rLegG.position.set(0.22,1.05,0);
-  P.bodyG.position.set(0,1.62,0); P.headG.position.set(0,2.42,0);
+
+  // Don't reset leg positions if stomp animation is active
+  if (!group.userData._stompStartTime) {
+    P.lLegG.position.set(-0.22,1.05,0);
+    P.rLegG.position.set(0.22,1.05,0);
+  }
+
+  P.bodyG.position.set(0,1.62,0);
+  P.headG.position.set(0,2.42,0);
 }
 
 // Helper function to add/remove dance smile
@@ -919,6 +932,8 @@ let _activeEmojiTimer = null;
 
 const EMOJI_BUILDERS = {
   laugh_tears: (headG) => {
+    console.log('[EMOJI_BUILDERS] Building laugh_tears');
+
     // Wide smile with C-shaped closed eyes and blue tears
     const eyeL = B(0.2,0.06,0.05,M('#111'));
     eyeL.name='emo_eyeL';
@@ -964,9 +979,13 @@ const EMOJI_BUILDERS = {
     mR.position.set(0.17,-0.2,0.56);
     mR.rotation.z=-0.5;
     headG.add(mR);
+
+    console.log('[EMOJI_BUILDERS] Added laugh_tears elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
   },
 
   wink: (headG) => {
+    console.log('[EMOJI_BUILDERS] Building wink');
+
     // One eye closed (straight line), other eye normal, light smile
     const eyeL = B(0.18,0.03,0.05,M('#111'));
     eyeL.name='emo_eyeL';
@@ -994,6 +1013,8 @@ const EMOJI_BUILDERS = {
     smileR.position.set(0.09,-0.19,0.56);
     smileR.rotation.z=-0.3;
     headG.add(smileR);
+
+    console.log('[EMOJI_BUILDERS] Added wink elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
   },
 
   yummy: (headG) => {
@@ -1057,6 +1078,8 @@ const EMOJI_BUILDERS = {
   },
 
   angry: (headG, group) => {
+    console.log('[EMOJI_BUILDERS] Building angry face');
+
     // Small eyes with angry diagonal brows, C-shaped frown mouth
     const browL = B(0.2,0.07,0.05,M('#8B0000'));
     browL.name='emo_browL';
@@ -1097,34 +1120,10 @@ const EMOJI_BUILDERS = {
     mouthR.rotation.z=-0.4;
     headG.add(mouthR);
 
-    // Leg stomp animation
-    let stompTime = 0;
-    const stompInterval = setInterval(() => {
-      stompTime += 0.05;
-      if (stompTime > 5) {
-        clearInterval(stompInterval);
-        if (group?.userData?.parts?.lLegG) {
-          group.userData.parts.lLegG.position.y = 0;
-        }
-        if (group?.userData?.parts?.rLegG) {
-          group.userData.parts.rLegG.position.y = 0;
-        }
-        return;
-      }
-      // Alternate leg stomp
-      const legOffset = Math.abs(Math.sin(stompTime * 25)) * 0.15;
-      if (group?.userData?.parts?.lLegG && group?.userData?.parts?.rLegG) {
-        if (Math.floor(stompTime * 12.5) % 2 === 0) {
-          group.userData.parts.lLegG.position.y = -legOffset;
-          group.userData.parts.rLegG.position.y = 0;
-        } else {
-          group.userData.parts.lLegG.position.y = 0;
-          group.userData.parts.rLegG.position.y = -legOffset;
-        }
-      }
-    }, 50);
+    console.log('[EMOJI_BUILDERS] Added angry face elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
 
-    headG.userData._stompInterval = stompInterval;
+    // Leg stomp animation - use timestamp instead of interval
+    group.userData._stompStartTime = Date.now();
   },
 
   crying: (headG) => {
@@ -1183,24 +1182,15 @@ export function setCharacterEmoji(group, emojiKey) {
     _activeEmojiTimer = null;
   }
 
-  // Clear any animation intervals and timers
-  if (headG.userData._shakeInterval) {
-    clearInterval(headG.userData._shakeInterval);
-    delete headG.userData._shakeInterval;
-  }
-  if (headG.userData._nodInterval) {
-    clearInterval(headG.userData._nodInterval);
-    delete headG.userData._nodInterval;
-  }
-  if (headG.userData._stompInterval) {
-    clearInterval(headG.userData._stompInterval);
-    delete headG.userData._stompInterval;
-  }
+  // Clear any animation timers
   if (headG.userData._shakeStartTime) {
     delete headG.userData._shakeStartTime;
   }
   if (headG.userData._nodStartTime) {
     delete headG.userData._nodStartTime;
+  }
+  if (group.userData._stompStartTime) {
+    delete group.userData._stompStartTime;
   }
 
   // Reset head rotation (in case previous emoji had animation)
@@ -1224,15 +1214,26 @@ export function setCharacterEmoji(group, emojiKey) {
   if (emojiKey !== 'neutral' && EMOJI_BUILDERS[emojiKey]) {
     console.log('[CharacterBuilder] Building emoji:', emojiKey);
 
+    // Debug: log current head children before hiding
+    const beforeHide = headG.children.filter(c => c.name === 'eyeL' || c.name === 'eyeR' || c.name === 'mouth');
+    console.log('[CharacterBuilder] Default face elements found:', beforeHide.map(c => c.name));
+
     // Hide default face elements
+    let hiddenCount = 0;
     headG.children.forEach(child => {
       if (child.name === 'eyeL' || child.name === 'eyeR' || child.name === 'mouth') {
         child.visible = false;
+        hiddenCount++;
       }
     });
+    console.log('[CharacterBuilder] Hidden', hiddenCount, 'default face elements');
 
     // Build emoji face
     EMOJI_BUILDERS[emojiKey](headG, group);
+
+    // Debug: log head children after building
+    const afterBuild = headG.children.filter(c => c.name?.startsWith('emo_'));
+    console.log('[CharacterBuilder] Emoji elements after build:', afterBuild.map(c => c.name));
 
     // Auto-revert to neutral after 5 seconds
     _activeEmojiTimer = setTimeout(() => {
@@ -1253,6 +1254,7 @@ export function updateCharacterEmoji(group, delta) {
   if (!group || !group.userData.parts || !group.userData.parts.headG) return;
 
   const headG = group.userData.parts.headG;
+  const parts = group.userData.parts;
   const now = Date.now();
 
   // Shake animation (left-right head rotation)
@@ -1278,6 +1280,30 @@ export function updateCharacterEmoji(group, delta) {
     } else {
       // Continuous nod
       headG.rotation.x = Math.sin(elapsed * 18) * 0.25;
+    }
+  }
+
+  // Stomp animation (leg movement for angry)
+  if (group.userData._stompStartTime) {
+    const elapsed = (now - group.userData._stompStartTime) / 1000; // seconds
+    if (elapsed >= 5) {
+      // Stop and reset
+      if (parts.lLegG) parts.lLegG.position.y = 1.05;
+      if (parts.rLegG) parts.rLegG.position.y = 1.05;
+      delete group.userData._stompStartTime;
+    } else {
+      // Continuous stomp - alternate legs
+      const legOffset = Math.abs(Math.sin(elapsed * 25)) * 0.15;
+      const whichLeg = Math.floor(elapsed * 12.5) % 2;
+      if (parts.lLegG && parts.rLegG) {
+        if (whichLeg === 0) {
+          parts.lLegG.position.y = 1.05 - legOffset;
+          parts.rLegG.position.y = 1.05;
+        } else {
+          parts.lLegG.position.y = 1.05;
+          parts.rLegG.position.y = 1.05 - legOffset;
+        }
+      }
     }
   }
 }
