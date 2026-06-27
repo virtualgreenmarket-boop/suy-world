@@ -43,6 +43,7 @@ import { initInventoryPanel, onEquipChange }             from './ui/inventoryPan
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
+import { initMinimap, updateMinimapPlayer, updateMinimapOnlineCount, renderMinimap } from './ui/minimap.js';
 
 // ── Wait for DOM to be ready ──────────────────────────────────────────
 
@@ -198,6 +199,7 @@ initPetSystem(scene);
 
 // ── UI (initialize early, before character loads) ─────────────────────
 initHud();
+initMinimap();
 initShopUI();
 initChatUI();
 bindSendChat(sendChat);
@@ -391,9 +393,17 @@ function animate() {
 
   // ── Every 3s: online count (pure DOM text, no need faster) ───────────
   if (_tUI >= 3) {
-    updateOnlineCount(1 + getRemotePlayerCount());
+    const onlineCount = 1 + getRemotePlayerCount();
+    updateOnlineCount(onlineCount);
+    updateMinimapOnlineCount(onlineCount);
     _tUI = 0;
   }
+
+  // ── Minimap updates every frame ───────────────────────────────────────
+  const playerPos = getLocalPlayerPosition();
+  const playerRotY = getLocalPlayerRotY();
+  updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY);
+  renderMinimap();
 
   composer.render();
 }

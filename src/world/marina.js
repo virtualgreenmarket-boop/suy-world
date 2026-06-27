@@ -4,6 +4,7 @@ import { registerBox } from '../systems/collision.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
+import { registerMapEntity } from '../ui/minimapRegistry.js';
 
 const HOUSE_URL = '/models/nature/marina/Medieval%20Village%20Houses%20GLB/Medieval%20Village%20Houses.glb';
 
@@ -447,6 +448,17 @@ function _loadFishermanNpc(group) {
       showNpcDialog(['ברוך הבא למרינה'], 'הדייג');
     });
 
+    // Register on minimap
+    registerMapEntity(
+      'marina_fisherman',
+      'npc',
+      () => {
+        const pos = new THREE.Vector3();
+        model.getWorldPosition(pos);
+        return { x: pos.x, z: pos.z };
+      }
+    );
+
   }, undefined, err => {
     console.error('[marina] Fisherman NPC load failed:', err?.message ?? err);
   });
@@ -515,6 +527,17 @@ function _loadSkylarNpc(group) {
     registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'Talk', 3, () => {
       showNpcDialog(['Welcome to the marina!'], 'Skylar');
     });
+
+    // Register on minimap
+    registerMapEntity(
+      'marina_skylar',
+      'npc',
+      () => {
+        const pos = new THREE.Vector3();
+        model.getWorldPosition(pos);
+        return { x: pos.x, z: pos.z };
+      }
+    );
 
   }, undefined, err => {
     console.error('[marina] Skylar NPC load failed:', err?.message ?? err);
