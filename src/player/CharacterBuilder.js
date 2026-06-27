@@ -78,22 +78,18 @@ export function buildCharacter(type, overrideColors = {}) {
   const group = new THREE.Group();
   const parts = {};
 
-  // HEAD — Egg/ellipsoid shape (SphereGeometry with non-uniform scale)
-  // Wider than tall with 1.2 width-to-height ratio, smoothly rounded everywhere
-  const HEAD_WIDTH = 1.2;  // X/Z dimension
-  const HEAD_HEIGHT = 1.0; // Y dimension (HEAD_WIDTH/HEAD_HEIGHT = 1.2 ratio)
-
+  // HEAD — Roblox classic-head style rounded cube (REPLACES the previous egg
+  // shape). size/roundness confirmed via reference-image comparison earlier.
   parts.headG = new THREE.Group();
   parts.headG.position.set(0, 2.42, 0);
 
-  const headGeo = new THREE.SphereGeometry(HEAD_HEIGHT/2, 64, 48); // High segment count for smoothness
+  const headGeo = roundedCubeGeometry(HEAD_SIZE, 6, HEAD_ROUNDNESS);
   const head = new THREE.Mesh(headGeo, skin);
-  head.scale.set(HEAD_WIDTH/HEAD_HEIGHT, 1, HEAD_WIDTH/HEAD_HEIGHT); // Scale to egg shape (1.2:1:1.2)
   head.castShadow = true;
   parts.headG.add(head);
 
-  parts.headG.userData.HEAD_WIDTH = HEAD_WIDTH;
-  parts.headG.userData.HEAD_HEIGHT = HEAD_HEIGHT;
+  parts.headG.userData.HEAD_SIZE = HEAD_SIZE;
+  parts.headG.userData.HEAD_ROUNDNESS = HEAD_ROUNDNESS;
 
   // Hair — recalculated attachment points for the rounded-cube head
   // (HEAD_SIZE=1.1), replacing the egg-specific BASE_RADIUS/SCALE_XZ/SCALE_Y
@@ -144,7 +140,7 @@ export function buildCharacter(type, overrideColors = {}) {
     parts.headG.add(topCap);
 
     const s1 = B(0.18, 0.25, 0.18, hairM);
-    s1.position.set(-0.25, HEAD_SIZE*0.57, 0.1);
+    s1.position.set(-0.25, HEAD_SIZE*faceZ+0.01, 0.1);
     s1.rotation.z = 0.3;
     parts.headG.add(s1);
 
@@ -244,7 +240,7 @@ export function buildCharacter(type, overrideColors = {}) {
   parts.bodyG = new THREE.Group();
   parts.bodyG.position.set(0, 1.62, 0);
   parts.bodyG.add(B(0.9,0.9,0.5,shirt));
-  parts.bodyG.add(P(B(0.88,0.22,0.48,pants), 0,-0.56,0));
+  parts.bodyG.add(P(B(0.88,0.22,0.48,pants), 0,-faceZ,0));
   if(type==='robot') {
     parts.bodyG.add(P(B(0.35,0.3,0.1,M('#546E7A')), 0,0.1,0.28));
     const led1=S(0.06,M('#00E5FF',0.3,0.9)); led1.position.set(-0.1,0.1,0.34); parts.bodyG.add(led1);
@@ -266,12 +262,12 @@ export function buildCharacter(type, overrideColors = {}) {
   }
 
   // LEFT ARM — same structure as before, with a small OUTWARD position
-  // offset (x moved from -0.55 to -0.58, a modest ~5% shift) so the arm
+  // offset (x moved from -0.55 to -faceZ+0.02, a modest ~5% shift) so the arm
   // doesn't read as pressed flush against the torso. Small, deliberate
   // adjustment — NOT a large change, learned from the earlier arm-pose
   // debugging in this project where overcorrecting caused new problems.
   parts.lArmG = new THREE.Group();
-  parts.lArmG.position.set(-0.58, 0.42, 0);
+  parts.lArmG.position.set(-faceZ+0.02, 0.42, 0);
   parts.lArmG.add(S(0.18, shirt));
   parts.lArmG.add(P(B(0.252,0.414,0.252,shirt), 0,-0.28,0));
   parts.lElbowG = new THREE.Group();
@@ -286,9 +282,9 @@ export function buildCharacter(type, overrideColors = {}) {
   parts.lArmG.add(parts.lElbowG);
   parts.bodyG.add(parts.lArmG);
 
-  // RIGHT ARM — mirrored outward offset (0.55 -> 0.58).
+  // RIGHT ARM — mirrored outward offset (0.55 -> faceZ+0.02).
   parts.rArmG = new THREE.Group();
-  parts.rArmG.position.set(0.58, 0.42, 0);
+  parts.rArmG.position.set(faceZ+0.02, 0.42, 0);
   parts.rArmG.add(S(0.18, shirt));
   parts.rArmG.add(P(B(0.252,0.414,0.252,shirt), 0,-0.28,0));
   parts.rElbowG = new THREE.Group();
@@ -375,18 +371,18 @@ function _setDanceSmile(headG, show) {
 
   const smileC = B(0.14,0.07,0.04,M('#cc3333'));
   smileC.name='dance_smile_C';
-  smileC.position.set(0,-0.22,0.56);
+  smileC.position.set(0,-0.22,faceZ);
   headG.add(smileC);
 
   const smileL = B(0.1,0.07,0.04,M('#cc3333'));
   smileL.name='dance_smile_L';
-  smileL.position.set(-0.11,-0.19,0.56);
+  smileL.position.set(-0.11,-0.19,faceZ);
   smileL.rotation.z=0.4;
   headG.add(smileL);
 
   const smileR = B(0.1,0.07,0.04,M('#cc3333'));
   smileR.name='dance_smile_R';
-  smileR.position.set(0.11,-0.19,0.56);
+  smileR.position.set(0.11,-0.19,faceZ);
   smileR.rotation.z=-0.4;
   headG.add(smileR);
 }
@@ -507,12 +503,12 @@ export function setCharacterEmotion(group, emotion) {
   }
 
   if (emotion === 'happy') {
-    const eyeL = B(0.09,0.09,0.06,M('#111')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,0.56); headG.add(eyeL);
-    const eyeR = B(0.09,0.09,0.06,M('#111')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,0.56); headG.add(eyeR);
-    const smileC = B(0.14,0.07,0.04,M('#cc3333')); smileC.name='emo_smileC'; smileC.position.set(0,-0.22,0.56); headG.add(smileC);
-    const smileL = B(0.1,0.07,0.04,M('#cc3333')); smileL.name='emo_smileL'; smileL.position.set(-0.11,-0.19,0.56); smileL.rotation.z=0.4; headG.add(smileL);
-    const smileR = B(0.1,0.07,0.04,M('#cc3333')); smileR.name='emo_smileR'; smileR.position.set(0.11,-0.19,0.56); smileR.rotation.z=-0.4; headG.add(smileR);
-    const teeth = B(0.22,0.06,0.04,M('#ffffff')); teeth.name='emo_teeth'; teeth.position.set(0,-0.16,0.56); headG.add(teeth);
+    const eyeL = B(0.09,0.09,0.06,M('#111')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,faceZ); headG.add(eyeL);
+    const eyeR = B(0.09,0.09,0.06,M('#111')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,faceZ); headG.add(eyeR);
+    const smileC = B(0.14,0.07,0.04,M('#cc3333')); smileC.name='emo_smileC'; smileC.position.set(0,-0.22,faceZ); headG.add(smileC);
+    const smileL = B(0.1,0.07,0.04,M('#cc3333')); smileL.name='emo_smileL'; smileL.position.set(-0.11,-0.19,faceZ); smileL.rotation.z=0.4; headG.add(smileL);
+    const smileR = B(0.1,0.07,0.04,M('#cc3333')); smileR.name='emo_smileR'; smileR.position.set(0.11,-0.19,faceZ); smileR.rotation.z=-0.4; headG.add(smileR);
+    const teeth = B(0.22,0.06,0.04,M('#ffffff')); teeth.name='emo_teeth'; teeth.position.set(0,-0.16,faceZ); headG.add(teeth);
   }
   else if (emotion === 'love') {
     function makeHeart(x) {
@@ -520,39 +516,39 @@ export function setCharacterEmotion(group, emotion) {
       const left  = B(0.1,0.14,0.05,M('#ff0000')); left.position.set(-0.05,0.02,0); left.rotation.z=0.4; g.add(left);
       const right = B(0.1,0.14,0.05,M('#ff0000')); right.position.set(0.05,0.02,0); right.rotation.z=-0.4; g.add(right);
       const bottom = B(0.08,0.1,0.05,M('#ff0000')); bottom.position.set(0,-0.08,0); bottom.rotation.z=0; g.add(bottom);
-      g.position.set(x,0.1,0.56);
+      g.position.set(x,0.1,faceZ);
       g.name = 'emo_heart';
       return g;
     }
     headG.add(makeHeart(-0.24));
     headG.add(makeHeart(0.24));
-    const smileC = B(0.14,0.07,0.04,M('#cc3333')); smileC.name='emo_smileC'; smileC.position.set(0,-0.22,0.56); headG.add(smileC);
-    const smileL = B(0.1,0.07,0.04,M('#cc3333')); smileL.name='emo_smileL'; smileL.position.set(-0.11,-0.19,0.56); smileL.rotation.z=0.4; headG.add(smileL);
-    const smileR = B(0.1,0.07,0.04,M('#cc3333')); smileR.name='emo_smileR'; smileR.position.set(0.11,-0.19,0.56); smileR.rotation.z=-0.4; headG.add(smileR);
+    const smileC = B(0.14,0.07,0.04,M('#cc3333')); smileC.name='emo_smileC'; smileC.position.set(0,-0.22,faceZ); headG.add(smileC);
+    const smileL = B(0.1,0.07,0.04,M('#cc3333')); smileL.name='emo_smileL'; smileL.position.set(-0.11,-0.19,faceZ); smileL.rotation.z=0.4; headG.add(smileL);
+    const smileR = B(0.1,0.07,0.04,M('#cc3333')); smileR.name='emo_smileR'; smileR.position.set(0.11,-0.19,faceZ); smileR.rotation.z=-0.4; headG.add(smileR);
   }
   else if (emotion === 'angry') {
-    const browL = B(0.2,0.07,0.05,M('#8B0000')); browL.name='emo_browL'; browL.position.set(-0.24,0.22,0.56); browL.rotation.z=-0.4; headG.add(browL);
-    const browR = B(0.2,0.07,0.05,M('#8B0000')); browR.name='emo_browR'; browR.position.set(0.24,0.22,0.56); browR.rotation.z=0.4; headG.add(browR);
-    const eyeL = B(0.18,0.06,0.05,M('#cc0000')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,0.56); headG.add(eyeL);
-    const eyeR = B(0.18,0.06,0.05,M('#cc0000')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,0.56); headG.add(eyeR);
-    const mouth = B(0.28,0.05,0.04,M('#333')); mouth.name='emo_mouth'; mouth.position.set(0,-0.22,0.56); headG.add(mouth);
+    const browL = B(0.2,0.07,0.05,M('#8B0000')); browL.name='emo_browL'; browL.position.set(-0.24,0.22,faceZ); browL.rotation.z=-0.4; headG.add(browL);
+    const browR = B(0.2,0.07,0.05,M('#8B0000')); browR.name='emo_browR'; browR.position.set(0.24,0.22,faceZ); browR.rotation.z=0.4; headG.add(browR);
+    const eyeL = B(0.18,0.06,0.05,M('#cc0000')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,faceZ); headG.add(eyeL);
+    const eyeR = B(0.18,0.06,0.05,M('#cc0000')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,faceZ); headG.add(eyeR);
+    const mouth = B(0.28,0.05,0.04,M('#333')); mouth.name='emo_mouth'; mouth.position.set(0,-0.22,faceZ); headG.add(mouth);
   }
   else if (emotion === 'sad') {
-    const browL = B(0.18,0.06,0.05,M('#5D4037')); browL.name='emo_browL'; browL.position.set(-0.24,0.22,0.56); browL.rotation.z=0.3; headG.add(browL);
-    const browR = B(0.18,0.06,0.05,M('#5D4037')); browR.name='emo_browR'; browR.position.set(0.24,0.22,0.56); browR.rotation.z=-0.3; headG.add(browR);
-    const eyeL = B(0.09,0.09,0.06,M('#111')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,0.56); headG.add(eyeL);
-    const eyeR = B(0.09,0.09,0.06,M('#111')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,0.56); headG.add(eyeR);
-    const mouthC = B(0.14,0.07,0.04,M('#555')); mouthC.name='emo_mouthC'; mouthC.position.set(0,-0.18,0.56); headG.add(mouthC);
-    const mouthL = B(0.1,0.07,0.04,M('#555')); mouthL.name='emo_mouthL'; mouthL.position.set(-0.11,-0.22,0.56); mouthL.rotation.z=-0.4; headG.add(mouthL);
-    const mouthR = B(0.1,0.07,0.04,M('#555')); mouthR.name='emo_mouthR'; mouthR.position.set(0.11,-0.22,0.56); mouthR.rotation.z=0.4; headG.add(mouthR);
+    const browL = B(0.18,0.06,0.05,M('#5D4037')); browL.name='emo_browL'; browL.position.set(-0.24,0.22,faceZ); browL.rotation.z=0.3; headG.add(browL);
+    const browR = B(0.18,0.06,0.05,M('#5D4037')); browR.name='emo_browR'; browR.position.set(0.24,0.22,faceZ); browR.rotation.z=-0.3; headG.add(browR);
+    const eyeL = B(0.09,0.09,0.06,M('#111')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,faceZ); headG.add(eyeL);
+    const eyeR = B(0.09,0.09,0.06,M('#111')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,faceZ); headG.add(eyeR);
+    const mouthC = B(0.14,0.07,0.04,M('#555')); mouthC.name='emo_mouthC'; mouthC.position.set(0,-0.18,faceZ); headG.add(mouthC);
+    const mouthL = B(0.1,0.07,0.04,M('#555')); mouthL.name='emo_mouthL'; mouthL.position.set(-0.11,-0.22,faceZ); mouthL.rotation.z=-0.4; headG.add(mouthL);
+    const mouthR = B(0.1,0.07,0.04,M('#555')); mouthR.name='emo_mouthR'; mouthR.position.set(0.11,-0.22,faceZ); mouthR.rotation.z=0.4; headG.add(mouthR);
   }
   else if (emotion === 'laugh') {
-    const eyeL = B(0.2,0.04,0.05,M('#111')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,0.56); headG.add(eyeL);
-    const eyeR = B(0.2,0.04,0.05,M('#111')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,0.56); headG.add(eyeR);
-    const mouthBg = B(0.34,0.16,0.05,M('#880000')); mouthBg.name='emo_mouthBg'; mouthBg.position.set(0,-0.2,0.56); headG.add(mouthBg);
-    const teeth = B(0.3,0.06,0.06,M('#ffffff')); teeth.name='emo_teeth'; teeth.position.set(0,-0.14,0.57); headG.add(teeth);
-    const mL = B(0.1,0.1,0.04,M('#880000')); mL.name='emo_mL'; mL.position.set(-0.17,-0.2,0.56); mL.rotation.z=0.5; headG.add(mL);
-    const mR = B(0.1,0.1,0.04,M('#880000')); mR.name='emo_mR'; mR.position.set(0.17,-0.2,0.56); mR.rotation.z=-0.5; headG.add(mR);
+    const eyeL = B(0.2,0.04,0.05,M('#111')); eyeL.name='emo_eyeL'; eyeL.position.set(-0.24,0.1,faceZ); headG.add(eyeL);
+    const eyeR = B(0.2,0.04,0.05,M('#111')); eyeR.name='emo_eyeR'; eyeR.position.set(0.24,0.1,faceZ); headG.add(eyeR);
+    const mouthBg = B(0.34,0.16,0.05,M('#880000')); mouthBg.name='emo_mouthBg'; mouthBg.position.set(0,-0.2,faceZ); headG.add(mouthBg);
+    const teeth = B(0.3,0.06,0.06,M('#ffffff')); teeth.name='emo_teeth'; teeth.position.set(0,-0.14,faceZ+0.01); headG.add(teeth);
+    const mL = B(0.1,0.1,0.04,M('#880000')); mL.name='emo_mL'; mL.position.set(-0.17,-0.2,faceZ); mL.rotation.z=0.5; headG.add(mL);
+    const mR = B(0.1,0.1,0.04,M('#880000')); mR.name='emo_mR'; mR.position.set(0.17,-0.2,faceZ); mR.rotation.z=-0.5; headG.add(mR);
   }
 }
 
@@ -610,7 +606,7 @@ export function attachHat(headG, hatType) {
   else if(hatType === 'cap') {
     const cap  = tag(B(0.86,0.24,0.86, M('#E53935'))); cap.position.set(0,0.55,0); headG.add(cap);
     const brim = tag(B(0.65,0.07,0.32, M('#E53935'))); brim.position.set(0,0.44,0.48); headG.add(brim);
-    const logo = tag(B(0.18,0.18,0.05, M('#ffffff'))); logo.position.set(0,0.57,0.44); headG.add(logo);
+    const logo = tag(B(0.18,0.18,0.05, M('#ffffff'))); logo.position.set(0,faceZ+0.01,0.44); headG.add(logo);
   }
   else if(hatType === 'crown') {
     const base = tag(B(0.9,0.14,0.9, M('#FFD700',0.4,0.6))); base.position.set(0,0.49,0); headG.add(base);
@@ -621,8 +617,8 @@ export function attachHat(headG, hatType) {
   }
   else if(hatType === 'tophat') {
     const brim = tag(B(1.18,0.08,1.18, M('#111'))); brim.position.set(0,0.47,0); headG.add(brim);
-    const top  = tag(B(0.62,0.58,0.62, M('#111'))); top.position.set(0,0.83,0); headG.add(top);
-    const band = tag(B(0.65,0.08,0.65, M('#CC0000'))); band.position.set(0,0.57,0); headG.add(band);
+    const top  = tag(B(0.62,faceZ+0.02,0.62, M('#111'))); top.position.set(0,0.83,0); headG.add(top);
+    const band = tag(B(0.65,0.08,0.65, M('#CC0000'))); band.position.set(0,faceZ+0.01,0); headG.add(band);
   }
   else if(hatType === 'farmer') {
     const shell = tag(new THREE.Mesh(new THREE.SphereGeometry(0.48,10,6, 0, Math.PI*2, 0, Math.PI*0.55), M('#FF8C00')));
@@ -635,7 +631,7 @@ export function attachHat(headG, hatType) {
     const band = tag(B(0.74,0.08,0.74, M('#654321'))); band.position.set(0,0.5,0); headG.add(band);
   }
   else if(hatType === 'beanie') {
-    const beanie = tag(B(0.82,0.35,0.82, M('#C62828'))); beanie.position.set(0,0.58,0); headG.add(beanie);
+    const beanie = tag(B(0.82,0.35,0.82, M('#C62828'))); beanie.position.set(0,faceZ+0.02,0); headG.add(beanie);
     const top = tag(B(0.5,0.12,0.5, M('#C62828'))); top.position.set(0,0.78,0); headG.add(top);
   }
   else if(hatType === 'helmet') {
@@ -651,7 +647,7 @@ export function attachHat(headG, hatType) {
     const bone2 = tag(B(0.25,0.04,0.04, M('#fff'))); bone2.position.set(0,0.6,0.42); bone2.rotation.z = -0.4; headG.add(bone2);
   }
   else if(hatType === 'viking') {
-    const helmet = tag(B(0.85,0.38,0.85, M('#9E9E9E'))); helmet.position.set(0,0.58,0); headG.add(helmet);
+    const helmet = tag(B(0.85,0.38,0.85, M('#9E9E9E'))); helmet.position.set(0,faceZ+0.02,0); headG.add(helmet);
     [-0.45, 0.45].forEach(x => {
       const horn = tag(new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.08,0.45,8), M('#D4C5A0')));
       horn.position.set(x,0.72,0); horn.rotation.z = x < 0 ? 0.5 : -0.5; headG.add(horn);
@@ -938,50 +934,51 @@ let _activeEmojiTimer = null;
 const EMOJI_BUILDERS = {
   laugh_tears: (headG) => {
     console.log('[EMOJI_BUILDERS] Building laugh_tears');
+    const faceZ = HEAD_SIZE/2 + 0.01;
 
     // Wide smile with C-shaped closed eyes and blue tears
     const eyeL = B(0.2,0.06,0.05,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.position.set(-0.24,0.1,faceZ);
     eyeL.rotation.z = 0.3; // Curved downward
     headG.add(eyeL);
 
     const eyeR = B(0.2,0.06,0.05,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.position.set(0.24,0.1,faceZ);
     eyeR.rotation.z = -0.3; // Curved downward
     headG.add(eyeR);
 
     const tearL = B(0.06,0.12,0.05,M('#4FC3F7'));
     tearL.name='emo_tearL';
-    tearL.position.set(-0.24,0.0,0.56);
+    tearL.position.set(-0.24,0.0,faceZ);
     headG.add(tearL);
 
     const tearR = B(0.06,0.12,0.05,M('#4FC3F7'));
     tearR.name='emo_tearR';
-    tearR.position.set(0.24,0.0,0.56);
+    tearR.position.set(0.24,0.0,faceZ);
     headG.add(tearR);
 
     // Wide smile
     const mouthBg = B(0.34,0.16,0.05,M('#880000'));
     mouthBg.name='emo_mouthBg';
-    mouthBg.position.set(0,-0.2,0.56);
+    mouthBg.position.set(0,-0.2,faceZ);
     headG.add(mouthBg);
 
     const teeth = B(0.3,0.06,0.06,M('#ffffff'));
     teeth.name='emo_teeth';
-    teeth.position.set(0,-0.14,0.57);
+    teeth.position.set(0,-0.14,faceZ+0.01);
     headG.add(teeth);
 
     const mL = B(0.1,0.1,0.04,M('#880000'));
     mL.name='emo_mL';
-    mL.position.set(-0.17,-0.2,0.56);
+    mL.position.set(-0.17,-0.2,faceZ);
     mL.rotation.z=0.5;
     headG.add(mL);
 
     const mR = B(0.1,0.1,0.04,M('#880000'));
     mR.name='emo_mR';
-    mR.position.set(0.17,-0.2,0.56);
+    mR.position.set(0.17,-0.2,faceZ);
     mR.rotation.z=-0.5;
     headG.add(mR);
 
@@ -990,32 +987,33 @@ const EMOJI_BUILDERS = {
 
   wink: (headG) => {
     console.log('[EMOJI_BUILDERS] Building wink');
+    const faceZ = HEAD_SIZE/2 + 0.01;
 
     // One eye closed (straight line), other eye normal, light smile
     const eyeL = B(0.18,0.03,0.05,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.position.set(-0.24,0.1,faceZ);
     headG.add(eyeL);
 
     const eyeR = B(0.09,0.09,0.06,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.position.set(0.24,0.1,faceZ);
     headG.add(eyeR);
 
     const smileC = B(0.12,0.06,0.04,M('#cc3333'));
     smileC.name='emo_smileC';
-    smileC.position.set(0,-0.22,0.56);
+    smileC.position.set(0,-0.22,faceZ);
     headG.add(smileC);
 
     const smileL = B(0.08,0.06,0.04,M('#cc3333'));
     smileL.name='emo_smileL';
-    smileL.position.set(-0.09,-0.19,0.56);
+    smileL.position.set(-0.09,-0.19,faceZ);
     smileL.rotation.z=0.3;
     headG.add(smileL);
 
     const smileR = B(0.08,0.06,0.04,M('#cc3333'));
     smileR.name='emo_smileR';
-    smileR.position.set(0.09,-0.19,0.56);
+    smileR.position.set(0.09,-0.19,faceZ);
     smileR.rotation.z=-0.3;
     headG.add(smileR);
 
@@ -1023,57 +1021,59 @@ const EMOJI_BUILDERS = {
   },
 
   yummy: (headG) => {
+    const faceZ = HEAD_SIZE/2 + 0.01;
     console.log('[EMOJI_BUILDERS] Building yummy');
 
     // Red tongue sticking out, C-shaped eyes
     const eyeL = B(0.2,0.08,0.05,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.position.set(-0.24,0.1,faceZ);
     eyeL.rotation.z=-0.15;
     headG.add(eyeL);
 
     const eyeR = B(0.2,0.08,0.05,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.position.set(0.24,0.1,faceZ);
     eyeR.rotation.z=0.15;
     headG.add(eyeR);
 
     const tongue = B(0.12,0.18,0.06,M('#E91E63'));
     tongue.name='emo_tongue';
-    tongue.position.set(0.08,-0.28,0.57);
+    tongue.position.set(0.08,-0.28,faceZ+0.01);
     tongue.rotation.z=-0.2;
     headG.add(tongue);
 
     const mouth = B(0.14,0.08,0.04,M('#880000'));
     mouth.name='emo_mouth';
-    mouth.position.set(0,-0.20,0.56);
+    mouth.position.set(0,-0.20,faceZ);
     headG.add(mouth);
 
     console.log('[EMOJI_BUILDERS] Added yummy elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
   },
 
   shh: (headG) => {
+    const faceZ = HEAD_SIZE/2 + 0.01;
     console.log('[EMOJI_BUILDERS] Building shh');
 
     // Small closed black circle mouth, hand near mouth
     const eyeL = B(0.09,0.09,0.06,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.position.set(-0.24,0.1,faceZ);
     headG.add(eyeL);
 
     const eyeR = B(0.09,0.09,0.06,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.position.set(0.24,0.1,faceZ);
     headG.add(eyeR);
 
     const mouth = B(0.08,0.08,0.06,M('#111'));
     mouth.name='emo_mouth';
-    mouth.position.set(0,-0.20,0.56);
+    mouth.position.set(0,-0.20,faceZ);
     headG.add(mouth);
 
     const hand = B(0.16,0.10,0.05,M('#FFCC99'));
     hand.name='emo_hand';
-    hand.position.set(0.22,-0.15,0.58);
+    hand.position.set(0.22,-0.15,faceZ+0.02);
     hand.rotation.z=-0.3;
     headG.add(hand);
 
@@ -1081,18 +1081,19 @@ const EMOJI_BUILDERS = {
   },
 
   shake_no: (headG, group) => {
+    const faceZ = HEAD_SIZE/2 + 0.01;
     console.log('[EMOJI_BUILDERS] Building shake_no');
 
     // Upward-curving arc eyes (pronounced smile-shaped C)
     const eyeL = B(0.2,0.06,0.05,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.position.set(-0.24,0.1,faceZ);
     eyeL.rotation.z = -0.3; // Curved upward
     headG.add(eyeL);
 
     const eyeR = B(0.2,0.06,0.05,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.position.set(0.24,0.1,faceZ);
     eyeR.rotation.z = 0.3; // Curved upward
     headG.add(eyeR);
 
@@ -1103,18 +1104,19 @@ const EMOJI_BUILDERS = {
   },
 
   nod_yes: (headG, group) => {
+    const faceZ = HEAD_SIZE/2 + 0.01;
     console.log('[EMOJI_BUILDERS] Building nod_yes');
 
     // Upward-curving arc eyes (pronounced smile-shaped C)
     const eyeL = B(0.2,0.06,0.05,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.position.set(-0.24,0.1,faceZ);
     eyeL.rotation.z = -0.3; // Curved upward
     headG.add(eyeL);
 
     const eyeR = B(0.2,0.06,0.05,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.position.set(0.24,0.1,faceZ);
     eyeR.rotation.z = 0.3; // Curved upward
     headG.add(eyeR);
 
@@ -1125,45 +1127,46 @@ const EMOJI_BUILDERS = {
   },
 
   angry: (headG, group) => {
+    const faceZ = HEAD_SIZE/2 + 0.01;
     console.log('[EMOJI_BUILDERS] Building angry face');
 
     // Small eyes with angry diagonal brows, C-shaped frown mouth
     const browL = B(0.2,0.07,0.05,M('#8B0000'));
     browL.name='emo_browL';
-    browL.position.set(-0.24,0.22,0.56);
+    browL.position.set(-0.24,0.22,faceZ);
     browL.rotation.z=-0.5;
     headG.add(browL);
 
     const browR = B(0.2,0.07,0.05,M('#8B0000'));
     browR.name='emo_browR';
-    browR.position.set(0.24,0.22,0.56);
+    browR.position.set(0.24,0.22,faceZ);
     browR.rotation.z=0.5;
     headG.add(browR);
 
     const eyeL = B(0.14,0.06,0.05,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.position.set(-0.24,0.1,faceZ);
     headG.add(eyeL);
 
     const eyeR = B(0.14,0.06,0.05,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.position.set(0.24,0.1,faceZ);
     headG.add(eyeR);
 
     const mouthC = B(0.14,0.07,0.04,M('#555'));
     mouthC.name='emo_mouthC';
-    mouthC.position.set(0,-0.26,0.56);
+    mouthC.position.set(0,-0.26,faceZ);
     headG.add(mouthC);
 
     const mouthL = B(0.1,0.07,0.04,M('#555'));
     mouthL.name='emo_mouthL';
-    mouthL.position.set(-0.11,-0.22,0.56);
+    mouthL.position.set(-0.11,-0.22,faceZ);
     mouthL.rotation.z=0.4;
     headG.add(mouthL);
 
     const mouthR = B(0.1,0.07,0.04,M('#555'));
     mouthR.name='emo_mouthR';
-    mouthR.position.set(0.11,-0.22,0.56);
+    mouthR.position.set(0.11,-0.22,faceZ);
     mouthR.rotation.z=-0.4;
     headG.add(mouthR);
 
@@ -1174,42 +1177,43 @@ const EMOJI_BUILDERS = {
   },
 
   crying: (headG) => {
+    const faceZ = HEAD_SIZE/2 + 0.01;
     console.log('[EMOJI_BUILDERS] Building crying');
 
     // Eyes lower/smaller, tears dripping, straight/down-curved mouth
     const eyeL = B(0.08,0.08,0.06,M('#111'));
     eyeL.name='emo_eyeL';
-    eyeL.position.set(-0.24,0.06,0.56);
+    eyeL.position.set(-0.24,0.06,faceZ);
     headG.add(eyeL);
 
     const eyeR = B(0.08,0.08,0.06,M('#111'));
     eyeR.name='emo_eyeR';
-    eyeR.position.set(0.24,0.06,0.56);
+    eyeR.position.set(0.24,0.06,faceZ);
     headG.add(eyeR);
 
     const tearL1 = B(0.05,0.14,0.05,M('#4FC3F7'));
     tearL1.name='emo_tearL1';
-    tearL1.position.set(-0.24,-0.02,0.56);
+    tearL1.position.set(-0.24,-0.02,faceZ);
     headG.add(tearL1);
 
     const tearR1 = B(0.05,0.14,0.05,M('#4FC3F7'));
     tearR1.name='emo_tearR1';
-    tearR1.position.set(0.24,-0.02,0.56);
+    tearR1.position.set(0.24,-0.02,faceZ);
     headG.add(tearR1);
 
     const tearL2 = B(0.04,0.1,0.05,M('#4FC3F7'));
     tearL2.name='emo_tearL2';
-    tearL2.position.set(-0.24,-0.18,0.56);
+    tearL2.position.set(-0.24,-0.18,faceZ);
     headG.add(tearL2);
 
     const tearR2 = B(0.04,0.1,0.05,M('#4FC3F7'));
     tearR2.name='emo_tearR2';
-    tearR2.position.set(0.24,-0.18,0.56);
+    tearR2.position.set(0.24,-0.18,faceZ);
     headG.add(tearR2);
 
     const mouth = B(0.22,0.05,0.04,M('#555'));
     mouth.name='emo_mouth';
-    mouth.position.set(0,-0.24,0.56);
+    mouth.position.set(0,-0.24,faceZ);
     mouth.rotation.z=0;
     headG.add(mouth);
 
