@@ -10,7 +10,7 @@ import { initPaths }                 from './world/paths.js';
 import { initHangars, updateHangars } from './world/hangars.js';
 import { initMarina, updateMarina }  from './world/marina.js';
 
-import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
+import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
 import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemotePlayerPosition }
   from './player/remotePlayer.js';
@@ -402,7 +402,8 @@ function animate() {
   // ── Minimap updates every frame ───────────────────────────────────────
   const playerPos = getLocalPlayerPosition();
   const playerRotY = getLocalPlayerRotY();
-  updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY);
+  const cameraYaw = getCameraYaw();
+  updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY, cameraYaw);
   renderMinimap();
 
   composer.render();

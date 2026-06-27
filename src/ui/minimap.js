@@ -1,13 +1,14 @@
 import { getAllMapEntities } from './minimapRegistry.js';
 import { HANGAR_DIMS, HANGAR_CONFIGS } from '../world/hangars.js';
 
-const MINIMAP_SIZE = 180;
+const MINIMAP_SIZE = 360; // Doubled from 180
 const MINIMAP_WORLD_RADIUS = 200; // How many world units to show
 const STORAGE_KEY_ROTATION = 'minimap_rotation_mode';
 
 let _canvas, _ctx, _container;
 let _playerPos = { x: 0, z: 0 };
 let _playerRotY = 0;
+let _cameraRotY = 0; // Camera rotation instead of player rotation
 let _rotationMode = 'camera'; // 'camera' or 'north'
 let _onlineCount = 1;
 
@@ -61,9 +62,12 @@ function _createMinimapUI() {
   _container.appendChild(countDisplay);
 }
 
-export function updateMinimapPlayer(x, z, rotY) {
+export function updateMinimapPlayer(x, z, rotY, cameraRotY) {
   _playerPos = { x, z };
   _playerRotY = rotY;
+  if (cameraRotY !== undefined) {
+    _cameraRotY = cameraRotY;
+  }
 }
 
 export function updateMinimapOnlineCount(count) {
@@ -89,7 +93,7 @@ export function renderMinimap() {
 
   // Apply rotation based on mode
   if (_rotationMode === 'camera') {
-    _ctx.rotate(-_playerRotY);
+    _ctx.rotate(-_cameraRotY);
   }
 
   // Draw world bounds circle

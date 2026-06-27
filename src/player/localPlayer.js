@@ -295,6 +295,7 @@ function syncCamera() {
 
 export function getLocalPlayerPosition() { return playerGroup?.position; }
 export function getLocalPlayerRotY() { return playerGroup?.rotation.y ?? 0; }
+export function getCameraYaw() { return cameraYaw; }
 
 export function equipLocalPlayerItem() {
   // No equipment system for now
