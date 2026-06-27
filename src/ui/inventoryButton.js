@@ -1279,8 +1279,8 @@ function updatePlayerAppearance(changes) {
     // Remove old preview character
     _previewScene.remove(_previewCharacter);
 
-    // Build new character with updated colors
-    _previewCharacter = buildCharacter('boy', _currentCustomization);
+    // Build new character with updated colors using actual character type
+    _previewCharacter = buildCharacter(_currentCharacterType, _currentCustomization);
 
     // Scale to fit in preview
     const bbox = new THREE.Box3().setFromObject(_previewCharacter);
