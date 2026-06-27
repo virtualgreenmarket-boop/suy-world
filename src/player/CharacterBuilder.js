@@ -235,18 +235,6 @@ export function buildCharacter(type, overrideColors = {}) {
   collar.position.set(0, neckY + neckHeight/2, 0);
   parts.headG.add(collar);
 
-  // Shirt collar - top part of shirt that rotates with head to prevent gaps
-  // This covers the dark void that appears when head tilts away from body
-  const shirtCollarHeight = 0.25;
-  const shirtCollarY = neckY - neckHeight/2 - shirtCollarHeight/2;
-  const shirtCollar = new THREE.Mesh(
-    new THREE.CylinderGeometry(neckBottomRadius + 0.05, neckBottomRadius + 0.15, shirtCollarHeight, 16),
-    shirt
-  );
-  shirtCollar.position.set(0, shirtCollarY, 0);
-  shirtCollar.castShadow = true;
-  parts.headG.add(shirtCollar);
-
   // Ears — positioned on sides of the rounded-cube head
   const earX = HEAD_SIZE/2 * 0.95;
   parts.headG.add(P(B(0.1,0.25,0.2,skin), -earX, 0, 0));
@@ -266,6 +254,16 @@ export function buildCharacter(type, overrideColors = {}) {
   parts.bodyG.position.set(0, 1.62, 0);
   parts.bodyG.add(B(0.9,0.9,0.5,shirt));
   parts.bodyG.add(P(B(0.88,0.22,0.48,pants), 0,-faceZ,0));
+
+  // Shirt collar/neck opening - stays fixed on torso, fills the gap when head rotates
+  // Positioned at top of torso to bridge the space between body and rotating head
+  const bodyCollar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.22, 0.35, 16),
+    shirt
+  );
+  bodyCollar.position.set(0, 0.62, 0); // Top of torso
+  bodyCollar.castShadow = true;
+  parts.bodyG.add(bodyCollar);
   if(type==='robot') {
     parts.bodyG.add(P(B(0.35,0.3,0.1,M('#546E7A')), 0,0.1,0.28));
     const led1=S(0.06,M('#00E5FF',0.3,0.9)); led1.position.set(-0.1,0.1,0.34); parts.bodyG.add(led1);
