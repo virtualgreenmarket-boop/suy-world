@@ -1018,6 +1018,8 @@ const EMOJI_BUILDERS = {
   },
 
   yummy: (headG) => {
+    console.log('[EMOJI_BUILDERS] Building yummy');
+
     // Red tongue sticking out, C-shaped eyes
     const eyeL = B(0.2,0.08,0.05,M('#111'));
     eyeL.name='emo_eyeL';
@@ -1041,9 +1043,13 @@ const EMOJI_BUILDERS = {
     mouth.name='emo_mouth';
     mouth.position.set(0,-0.20,0.56);
     headG.add(mouth);
+
+    console.log('[EMOJI_BUILDERS] Added yummy elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
   },
 
   shh: (headG) => {
+    console.log('[EMOJI_BUILDERS] Building shh');
+
     // Small closed black circle mouth, hand near mouth
     const eyeL = B(0.09,0.09,0.06,M('#111'));
     eyeL.name='emo_eyeL';
@@ -1065,15 +1071,51 @@ const EMOJI_BUILDERS = {
     hand.position.set(0.22,-0.15,0.58);
     hand.rotation.z=-0.3;
     headG.add(hand);
+
+    console.log('[EMOJI_BUILDERS] Added shh elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
   },
 
   shake_no: (headG, group) => {
-    // Head shake animation only - no text, no facial expression change
+    console.log('[EMOJI_BUILDERS] Building shake_no');
+
+    // Upward-curving arc eyes (pronounced smile-shaped C)
+    const eyeL = B(0.2,0.06,0.05,M('#111'));
+    eyeL.name='emo_eyeL';
+    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.rotation.z = -0.3; // Curved upward
+    headG.add(eyeL);
+
+    const eyeR = B(0.2,0.06,0.05,M('#111'));
+    eyeR.name='emo_eyeR';
+    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.rotation.z = 0.3; // Curved upward
+    headG.add(eyeR);
+
+    console.log('[EMOJI_BUILDERS] Added shake_no elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
+
+    // Head shake animation
     headG.userData._shakeStartTime = Date.now();
   },
 
   nod_yes: (headG, group) => {
-    // Head nod animation only - no text, no facial expression change
+    console.log('[EMOJI_BUILDERS] Building nod_yes');
+
+    // Upward-curving arc eyes (pronounced smile-shaped C)
+    const eyeL = B(0.2,0.06,0.05,M('#111'));
+    eyeL.name='emo_eyeL';
+    eyeL.position.set(-0.24,0.1,0.56);
+    eyeL.rotation.z = -0.3; // Curved upward
+    headG.add(eyeL);
+
+    const eyeR = B(0.2,0.06,0.05,M('#111'));
+    eyeR.name='emo_eyeR';
+    eyeR.position.set(0.24,0.1,0.56);
+    eyeR.rotation.z = 0.3; // Curved upward
+    headG.add(eyeR);
+
+    console.log('[EMOJI_BUILDERS] Added nod_yes elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
+
+    // Head nod animation
     headG.userData._nodStartTime = Date.now();
   },
 
@@ -1127,6 +1169,8 @@ const EMOJI_BUILDERS = {
   },
 
   crying: (headG) => {
+    console.log('[EMOJI_BUILDERS] Building crying');
+
     // Eyes lower/smaller, tears dripping, straight/down-curved mouth
     const eyeL = B(0.08,0.08,0.06,M('#111'));
     eyeL.name='emo_eyeL';
@@ -1163,6 +1207,8 @@ const EMOJI_BUILDERS = {
     mouth.position.set(0,-0.24,0.56);
     mouth.rotation.z=0;
     headG.add(mouth);
+
+    console.log('[EMOJI_BUILDERS] Added crying elements:', headG.children.filter(c => c.name?.startsWith('emo_')).length);
   }
 };
 
@@ -1262,11 +1308,17 @@ export function updateCharacterEmoji(group, delta) {
     const elapsed = (now - headG.userData._shakeStartTime) / 1000; // seconds
     if (elapsed >= 5) {
       // Stop and recenter
+      console.log('[updateCharacterEmoji] shake_no animation complete');
       headG.rotation.y = 0;
       delete headG.userData._shakeStartTime;
     } else {
       // Continuous shake
-      headG.rotation.y = Math.sin(elapsed * 20) * 0.3;
+      const rotation = Math.sin(elapsed * 20) * 0.3;
+      headG.rotation.y = rotation;
+      // Log first frame to confirm it's running
+      if (elapsed < 0.1) {
+        console.log('[updateCharacterEmoji] shake_no animation started, rotation.y =', rotation.toFixed(3));
+      }
     }
   }
 
@@ -1275,11 +1327,17 @@ export function updateCharacterEmoji(group, delta) {
     const elapsed = (now - headG.userData._nodStartTime) / 1000; // seconds
     if (elapsed >= 5) {
       // Stop and recenter
+      console.log('[updateCharacterEmoji] nod_yes animation complete');
       headG.rotation.x = 0;
       delete headG.userData._nodStartTime;
     } else {
       // Continuous nod
-      headG.rotation.x = Math.sin(elapsed * 18) * 0.25;
+      const rotation = Math.sin(elapsed * 18) * 0.25;
+      headG.rotation.x = rotation;
+      // Log first frame to confirm it's running
+      if (elapsed < 0.1) {
+        console.log('[updateCharacterEmoji] nod_yes animation started, rotation.x =', rotation.toFixed(3));
+      }
     }
   }
 
@@ -1288,6 +1346,7 @@ export function updateCharacterEmoji(group, delta) {
     const elapsed = (now - group.userData._stompStartTime) / 1000; // seconds
     if (elapsed >= 5) {
       // Stop and reset
+      console.log('[updateCharacterEmoji] angry stomp animation complete');
       if (parts.lLegG) parts.lLegG.position.y = 1.05;
       if (parts.rLegG) parts.rLegG.position.y = 1.05;
       delete group.userData._stompStartTime;
@@ -1302,6 +1361,10 @@ export function updateCharacterEmoji(group, delta) {
         } else {
           parts.lLegG.position.y = 1.05;
           parts.rLegG.position.y = 1.05 - legOffset;
+        }
+        // Log first frame to confirm it's running
+        if (elapsed < 0.1) {
+          console.log('[updateCharacterEmoji] angry stomp started, leg offset =', legOffset.toFixed(3));
         }
       }
     }
