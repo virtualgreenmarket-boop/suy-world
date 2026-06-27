@@ -561,12 +561,22 @@ export function initInventoryButton() {
     '#8B4513', '#800080', '#2F4F4F', '#DC143C' // Rich/Dark
   ];
 
-  // Get current character type
-  _currentCharacterType = 'boy'; // default
-  if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
+  // Get current character type from localStorage (authoritative source)
+  // selected_character stores 1-5, need to map to character type strings
+  const CHARACTER_TYPES = ['boy', 'girl', 'zombie', 'demon', 'robot'];
+  const savedCharacterId = localStorage.getItem('selected_character');
+
+  if (savedCharacterId) {
+    const charIndex = parseInt(savedCharacterId) - 1; // Convert 1-5 to 0-4
+    _currentCharacterType = CHARACTER_TYPES[charIndex] || 'boy';
+    console.log('[inventory] Current character type from localStorage:', _currentCharacterType, '(ID:', savedCharacterId, ')');
+  } else if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
     _currentCharacterType = window.localPlayer.userData._charType;
+    console.log('[inventory] Current character type from localPlayer:', _currentCharacterType);
+  } else {
+    _currentCharacterType = 'boy'; // fallback default
+    console.log('[inventory] Current character type defaulted to:', _currentCharacterType);
   }
-  console.log('[inventory] Current character type:', _currentCharacterType);
 
   // Set default colors based on character type
   const defaultColors = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
@@ -1175,11 +1185,8 @@ function initCharacterPreview() {
   fillLight.position.set(-2, 2, -1);
   _previewScene.add(fillLight);
 
-  // Create character - use player's actual character type
-  let playerType = 'boy';
-  if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
-    playerType = window.localPlayer.userData._charType;
-  }
+  // Create character - use current character type (already read from localStorage in initInventoryButton)
+  const playerType = _currentCharacterType;
   console.log('[inventory] Creating preview with character type:', playerType);
 
   _previewCharacter = buildCharacter(playerType, selectedColors);
