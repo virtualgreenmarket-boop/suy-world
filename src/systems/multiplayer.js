@@ -61,10 +61,9 @@ export function initMultiplayer(onReady) {
   });
 
   socket.on('coinsUpdated', ({ coins }) => {
-    console.log('[mp] 💰 Coins updated:', coins);
+    console.log('[mp] 💰 Coins updated from server:', coins);
+    // updateCoinDisplay handles window.playerCoins and localStorage
     updateCoinDisplay(coins);
-    window.playerCoins = coins;
-    localStorage.setItem('player_coins', coins.toString());
   });
 
   socket.on('serverFull', () => {

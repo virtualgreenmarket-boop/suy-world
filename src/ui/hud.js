@@ -265,6 +265,9 @@ export function updateCoinDisplay(n) {
   // Update window.playerCoins if value provided
   if (n != null) {
     window.playerCoins = n;
+    // Always sync to localStorage when coins are updated
+    localStorage.setItem('player_coins', n.toString());
+    console.log('[hud] updateCoinDisplay: coins =', n);
   }
 
   const v = coinEl?.querySelector('.hud-coin-val');
