@@ -140,7 +140,7 @@ export function buildCharacter(type, overrideColors = {}) {
     parts.headG.add(topCap);
 
     const s1 = B(0.18, 0.25, 0.18, hairM);
-    s1.position.set(-0.25, HEAD_SIZE*faceZ+0.01, 0.1);
+    s1.position.set(-0.25, HEAD_SIZE*0.57, 0.1);
     s1.rotation.z = 0.3;
     parts.headG.add(s1);
 
