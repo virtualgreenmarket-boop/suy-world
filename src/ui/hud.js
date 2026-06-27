@@ -47,8 +47,8 @@ export function initHud() {
     { emoji: '😉', key: 'wink' },
     { emoji: '😋', key: 'yummy' },
     { emoji: '🤫', key: 'shh' },
-    { emoji: '🙅', key: 'shake_no' },
-    { emoji: '🙆', key: 'nod_yes' },
+    { emoji: '[NO]', key: 'shake_no' },
+    { emoji: '[YES]', key: 'nod_yes' },
     { emoji: '😠', key: 'angry' },
     { emoji: '😭', key: 'crying' }
   ];

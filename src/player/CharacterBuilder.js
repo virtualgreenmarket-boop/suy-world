@@ -1047,77 +1047,13 @@ const EMOJI_BUILDERS = {
   },
 
   shake_no: (headG, group) => {
-    // "NO" text overlay, head shake animation
-    const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ff0000';
-    ctx.font = 'bold 48px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('NO', 64, 32);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture }));
-    sprite.scale.set(0.8, 0.4, 1);
-    sprite.position.set(0, 0.8, 0);
-    sprite.name = 'emo_text';
-    headG.add(sprite);
-
-    // Shake animation
-    let shakeTime = 0;
-    const shakeInterval = setInterval(() => {
-      shakeTime += 0.05;
-      if (shakeTime > 5) {
-        clearInterval(shakeInterval);
-        if (group?.userData?.parts?.headG) {
-          group.userData.parts.headG.rotation.y = 0;
-        }
-        return;
-      }
-      if (group?.userData?.parts?.headG) {
-        group.userData.parts.headG.rotation.y = Math.sin(shakeTime * 20) * 0.3;
-      }
-    }, 50);
-
-    headG.userData._shakeInterval = shakeInterval;
+    // Head shake animation only - no text, no facial expression change
+    headG.userData._shakeStartTime = Date.now();
   },
 
   nod_yes: (headG, group) => {
-    // "YES" text overlay, head nod animation
-    const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#00ff00';
-    ctx.font = 'bold 48px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('YES', 64, 32);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture }));
-    sprite.scale.set(0.8, 0.4, 1);
-    sprite.position.set(0, 0.8, 0);
-    sprite.name = 'emo_text';
-    headG.add(sprite);
-
-    // Nod animation
-    let nodTime = 0;
-    const nodInterval = setInterval(() => {
-      nodTime += 0.05;
-      if (nodTime > 5) {
-        clearInterval(nodInterval);
-        if (group?.userData?.parts?.headG) {
-          group.userData.parts.headG.rotation.x = 0;
-        }
-        return;
-      }
-      if (group?.userData?.parts?.headG) {
-        group.userData.parts.headG.rotation.x = Math.sin(nodTime * 18) * 0.25;
-      }
-    }, 50);
-
-    headG.userData._nodInterval = nodInterval;
+    // Head nod animation only - no text, no facial expression change
+    headG.userData._nodStartTime = Date.now();
   },
 
   angry: (headG, group) => {
@@ -1247,7 +1183,7 @@ export function setCharacterEmoji(group, emojiKey) {
     _activeEmojiTimer = null;
   }
 
-  // Clear any animation intervals
+  // Clear any animation intervals and timers
   if (headG.userData._shakeInterval) {
     clearInterval(headG.userData._shakeInterval);
     delete headG.userData._shakeInterval;
@@ -1259,6 +1195,12 @@ export function setCharacterEmoji(group, emojiKey) {
   if (headG.userData._stompInterval) {
     clearInterval(headG.userData._stompInterval);
     delete headG.userData._stompInterval;
+  }
+  if (headG.userData._shakeStartTime) {
+    delete headG.userData._shakeStartTime;
+  }
+  if (headG.userData._nodStartTime) {
+    delete headG.userData._nodStartTime;
   }
 
   // Reset head rotation (in case previous emoji had animation)
@@ -1308,5 +1250,34 @@ export function clearCharacterEmotion(group) {
 }
 
 export function updateCharacterEmoji(group, delta) {
-  // Animation handled by intervals in EMOJI_BUILDERS
+  if (!group || !group.userData.parts || !group.userData.parts.headG) return;
+
+  const headG = group.userData.parts.headG;
+  const now = Date.now();
+
+  // Shake animation (left-right head rotation)
+  if (headG.userData._shakeStartTime) {
+    const elapsed = (now - headG.userData._shakeStartTime) / 1000; // seconds
+    if (elapsed >= 5) {
+      // Stop and recenter
+      headG.rotation.y = 0;
+      delete headG.userData._shakeStartTime;
+    } else {
+      // Continuous shake
+      headG.rotation.y = Math.sin(elapsed * 20) * 0.3;
+    }
+  }
+
+  // Nod animation (up-down head rotation)
+  if (headG.userData._nodStartTime) {
+    const elapsed = (now - headG.userData._nodStartTime) / 1000; // seconds
+    if (elapsed >= 5) {
+      // Stop and recenter
+      headG.rotation.x = 0;
+      delete headG.userData._nodStartTime;
+    } else {
+      // Continuous nod
+      headG.rotation.x = Math.sin(elapsed * 18) * 0.25;
+    }
+  }
 }
