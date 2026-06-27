@@ -219,9 +219,21 @@ export function buildCharacter(type, overrideColors = {}) {
   }
 
   // Neck — positioned at bottom of the rounded-cube head
-  // Extended height and larger top radius to cover gaps during head rotation
-  const neckY = -HEAD_SIZE/2 - 0.08;
-  parts.headG.add(P(CY(0.18,0.15,0.24,skin), 0, neckY, 0));
+  // Extended with wider top radius to cover gaps during head rotation (nod/shake)
+  const neckY = -HEAD_SIZE/2 - 0.06;
+  const neckTopRadius = 0.35; // Extra wide to cover displacement when head rotates
+  const neckBottomRadius = 0.15;
+  const neckHeight = 0.28;
+  parts.headG.add(P(CY(neckTopRadius, neckBottomRadius, neckHeight, skin), 0, neckY, 0));
+
+  // Neck collar - additional skin-colored disc at neck base to seal gaps
+  const collar = new THREE.Mesh(
+    new THREE.CircleGeometry(neckTopRadius + 0.05, 32),
+    skin
+  );
+  collar.rotation.x = Math.PI / 2; // Face upward
+  collar.position.set(0, neckY + neckHeight/2, 0);
+  parts.headG.add(collar);
 
   // Ears — positioned on sides of the rounded-cube head
   const earX = HEAD_SIZE/2 * 0.95;
