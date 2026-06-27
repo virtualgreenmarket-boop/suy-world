@@ -235,6 +235,18 @@ export function buildCharacter(type, overrideColors = {}) {
   collar.position.set(0, neckY + neckHeight/2, 0);
   parts.headG.add(collar);
 
+  // Shirt collar - top part of shirt that rotates with head to prevent gaps
+  // This covers the dark void that appears when head tilts away from body
+  const shirtCollarHeight = 0.25;
+  const shirtCollarY = neckY - neckHeight/2 - shirtCollarHeight/2;
+  const shirtCollar = new THREE.Mesh(
+    new THREE.CylinderGeometry(neckBottomRadius + 0.05, neckBottomRadius + 0.15, shirtCollarHeight, 16),
+    shirt
+  );
+  shirtCollar.position.set(0, shirtCollarY, 0);
+  shirtCollar.castShadow = true;
+  parts.headG.add(shirtCollar);
+
   // Ears — positioned on sides of the rounded-cube head
   const earX = HEAD_SIZE/2 * 0.95;
   parts.headG.add(P(B(0.1,0.25,0.2,skin), -earX, 0, 0));
