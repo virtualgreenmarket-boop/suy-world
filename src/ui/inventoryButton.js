@@ -517,6 +517,59 @@ export function initInventoryButton() {
 
     if (isOpening) {
       console.log('[inventory] Opening bag panel');
+
+      // Update character type from localStorage every time bag opens
+      const CHARACTER_TYPES = ['boy', 'girl', 'zombie', 'demon', 'robot'];
+      const savedCharacterId = localStorage.getItem('selected_character');
+
+      if (savedCharacterId) {
+        const charIndex = parseInt(savedCharacterId) - 1; // Convert 1-5 to 0-4
+        const newCharType = CHARACTER_TYPES[charIndex] || 'boy';
+
+        // If character type changed, rebuild the preview
+        if (newCharType !== _currentCharacterType) {
+          console.log('[inventory] Character type changed from', _currentCharacterType, 'to', newCharType, '- rebuilding preview');
+          _currentCharacterType = newCharType;
+
+          // Rebuild preview character
+          if (_previewScene && _previewCharacter) {
+            _previewScene.remove(_previewCharacter);
+
+            // Get default colors for new character type
+            const charDefaults = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
+            selectedColors.skin = charDefaults.skin;
+            selectedColors.shirt = charDefaults.shirt;
+            selectedColors.pants = charDefaults.pants;
+            selectedColors.shoes = charDefaults.shoes;
+
+            // Load saved customization for this character type
+            const savedCustomization = loadCustomization();
+            if (savedCustomization) {
+              if (savedCustomization.shirt) selectedColors.shirt = savedCustomization.shirt;
+              if (savedCustomization.pants) selectedColors.pants = savedCustomization.pants;
+              if (savedCustomization.shoes) selectedColors.shoes = savedCustomization.shoes;
+            }
+
+            // Build new character
+            _previewCharacter = buildCharacter(_currentCharacterType, selectedColors);
+
+            // Scale to fit in preview
+            const bbox = new THREE.Box3().setFromObject(_previewCharacter);
+            const size = bbox.getSize(new THREE.Vector3());
+            const scale = 2.0 / size.y;
+            _previewCharacter.scale.setScalar(scale);
+
+            // Position at ground
+            _previewCharacter.updateMatrixWorld(true);
+            const bbox2 = new THREE.Box3().setFromObject(_previewCharacter);
+            _previewCharacter.position.y = -bbox2.min.y;
+
+            _previewScene.add(_previewCharacter);
+            console.log('[inventory] Preview rebuilt with character:', _currentCharacterType);
+          }
+        }
+      }
+
       startPreviewAnimation();
     } else {
       console.log('[inventory] Closing bag panel');
