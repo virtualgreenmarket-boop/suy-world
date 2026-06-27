@@ -526,6 +526,37 @@ function submitChat() {
     return;
   }
 
+  // Cheat code: "תביא הרבה כסף" gives 500 coins
+  if (msg === 'תביא הרבה כסף') {
+    console.log('[chat] 💰💰💰 Cheat code activated: +500 coins');
+
+    // Update coins locally immediately
+    const currentCoins = window.playerCoins || 0;
+    const newCoins = currentCoins + 500;
+
+    console.log('[chat] Current coins:', currentCoins, '→ New coins:', newCoins);
+
+    // Update display and persist
+    window.playerCoins = newCoins;
+    localStorage.setItem('player_coins', newCoins.toString());
+    updateCoinDisplay(newCoins);
+
+    // Also send to server if connected (for persistence)
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('cheatCoins', { amount: 500 });
+      console.log('[chat] Sent cheatCoins to server (500 coins)');
+    } else {
+      console.warn('[chat] Socket not available - coins updated locally only');
+    }
+
+    // Show local feedback
+    addSystemMessage('💰💰💰 קיבלת 500 מטבעות! 🎉🎉🎉');
+    inputEl.value = '';
+    collapseChat();
+    return;
+  }
+
   _sendChat(msg);
   showLocalSpeechBubble(msg);
   inputEl.value = '';
