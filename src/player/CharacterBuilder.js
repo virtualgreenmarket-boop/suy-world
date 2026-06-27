@@ -219,8 +219,9 @@ export function buildCharacter(type, overrideColors = {}) {
   }
 
   // Neck — positioned at bottom of the rounded-cube head
+  // Extended height and larger top radius to cover gaps during head rotation
   const neckY = -HEAD_SIZE/2 - 0.08;
-  parts.headG.add(P(CY(0.13,0.15,0.16,skin), 0, neckY, 0));
+  parts.headG.add(P(CY(0.18,0.15,0.24,skin), 0, neckY, 0));
 
   // Ears — positioned on sides of the rounded-cube head
   const earX = HEAD_SIZE/2 * 0.95;
