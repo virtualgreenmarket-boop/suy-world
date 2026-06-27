@@ -684,7 +684,7 @@ function stdMat(color, rough = 0.85, metal = 0.05) {
 function createConcreteFloorMat() {
   // SOLID PBR concrete floor material
   const loader = new THREE.TextureLoader();
-  const texPath = 'textures/Floors/broken_down_concrete1_bl/broken_down_concrete1_Roughness.png';
+  const texPath = 'textures/Floors/broken_down_concrete1_bl/broken_down_concrete1_Roughness.webp';
 
   const roughnessMap = loader.load(
     texPath,

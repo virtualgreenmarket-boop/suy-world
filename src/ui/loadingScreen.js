@@ -22,7 +22,7 @@ export function initLoadingScreen(onComplete) {
         left: 0;
         width: 100%;
         height: 100%;
-        background-image: url('/models/ui/pic/913ace22-ffad-4026-bfdd-4f53e9e272d2.png');
+        background-image: url('/models/ui/pic/913ace22-ffad-4026-bfdd-4f53e9e272d2.webp');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;

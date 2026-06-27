@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asset Loading Measurement</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #fff;
+    }
+    h1 { color: #4FC3F7; }
+    .result {
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border-left: 4px solid #4FC3F7;
+    }
+    .total {
+      font-size: 24px;
+      font-weight: bold;
+      color: #FFD54F;
+    }
+    button {
+      background: #4FC3F7;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #29B6F6;
+    }
+    #output {
+      margin-top: 20px;
+    }
+    .file-list {
+      max-height: 400px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .file-item {
+      padding: 5px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Asset Loading Measurement</h1>
+  <p>This tool measures the total network transfer size of assets loaded on this page, similar to browser DevTools but automated.</p>
+
+  <button onclick="measureAssets()">🔍 Measure Current Page Assets</button>
+  <button onclick="clearResults()">🗑️ Clear Results</button>
+
+  <div id="output"></div>
+
+  <script>
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function measureAssets() {
+      const resources = performance.getEntriesByType('resource');
+
+      const byType = {
+        glb: [],
+        png: [],
+        webp: [],
+        jpg: [],
+        js: [],
+        other: []
+      };
+
+      let totalBytes = 0;
+
+      resources.forEach(resource => {
+        const size = resource.transferSize || resource.encodedBodySize || 0;
+        const name = resource.name.split('/').pop() || resource.name;
+        const ext = name.split('.').pop().toLowerCase();
+
+        totalBytes += size;
+
+        const item = {
+          name: name,
+          url: resource.name,
+          size: size,
+          sizeFormatted: formatBytes(size)
+        };
+
+        if (ext === 'glb') byType.glb.push(item);
+        else if (ext === 'png') byType.png.push(item);
+        else if (ext === 'webp') byType.webp.push(item);
+        else if (ext === 'jpg' || ext === 'jpeg') byType.jpg.push(item);
+        else if (ext === 'js') byType.js.push(item);
+        else byType.other.push(item);
+      });
+
+      // Sort each category by size
+      for (const type in byType) {
+        byType[type].sort((a, b) => b.size - a.size);
+      }
+
+      // Calculate totals per type
+      const totals = {};
+      for (const type in byType) {
+        totals[type] = byType[type].reduce((sum, item) => sum + item.size, 0);
+      }
+
+      // Render results
+      const output = document.getElementById('output');
+
+      let html = `
+        <div class="result total">
+          Total Transfer Size: ${formatBytes(totalBytes)}
+        </div>
+
+        <div class="result">
+          <strong>GLB Models:</strong> ${byType.glb.length} files, ${formatBytes(totals.glb)}
+          <div class="file-list">
+            ${byType.glb.map(f => `<div class="file-item">${f.name} — ${f.sizeFormatted}</div>`).join('')}
+          </div>
+        </div>
+
+        <div class="result">
+          <strong>PNG Textures:</strong> ${byType.png.length} files, ${formatBytes(totals.png)}
+          <div class="file-list">
+            ${byType.png.map(f => `<div class="file-item">${f.name} — ${f.sizeFormatted}</div>`).join('')}
+          </div>
+        </div>
+
+        <div class="result">
+          <strong>WebP Textures:</strong> ${byType.webp.length} files, ${formatBytes(totals.webp)}
+          <div class="file-list">
+            ${byType.webp.map(f => `<div class="file-item">${f.name} — ${f.sizeFormatted}</div>`).join('')}
+          </div>
+        </div>
+
+        <div class="result">
+          <strong>JPG Images:</strong> ${byType.jpg.length} files, ${formatBytes(totals.jpg)}
+        </div>
+
+        <div class="result">
+          <strong>JavaScript:</strong> ${byType.js.length} files, ${formatBytes(totals.js)}
+        </div>
+
+        <div class="result">
+          <strong>Other:</strong> ${byType.other.length} files, ${formatBytes(totals.other)}
+        </div>
+
+        <div class="result">
+          <strong>Breakdown:</strong><br>
+          • 3D Assets (GLB): ${formatBytes(totals.glb)} (${((totals.glb / totalBytes) * 100).toFixed(1)}%)<br>
+          • Textures (PNG+WebP): ${formatBytes(totals.png + totals.webp)} (${(((totals.png + totals.webp) / totalBytes) * 100).toFixed(1)}%)<br>
+          • Code (JS): ${formatBytes(totals.js)} (${((totals.js / totalBytes) * 100).toFixed(1)}%)<br>
+          • Other: ${formatBytes(totals.other)} (${((totals.other / totalBytes) * 100).toFixed(1)}%)
+        </div>
+      `;
+
+      output.innerHTML = html;
+    }
+
+    function clearResults() {
+      document.getElementById('output').innerHTML = '';
+    }
+
+    // Auto-measure on load after a short delay
+    setTimeout(() => {
+      console.log('📊 Auto-measuring assets...');
+      measureAssets();
+    }, 1000);
+  </script>
+</body>
+</html>

@@ -99,14 +99,14 @@ export function spawnPlazaTree(scene) {
   const tl   = new THREE.TextureLoader();
   const BASE = '/models/nature/trees/plaza_tree/textures/';
 
-  const barkTex = tl.load(BASE + 'Trunk_D_Tiled2.png');
+  const barkTex = tl.load(BASE + 'Trunk_D_Tiled2.webp');
   barkTex.colorSpace = THREE.SRGBColorSpace;
   barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
   barkTex.anisotropy = 16;
 
   // Leaf texture — loaded explicitly so leaf meshes always get it even if FBX
   // auto-resolution via setResourcePath fails (common with renamed files).
-  const leafTex = tl.load(BASE + 'maplebranch.png');
+  const leafTex = tl.load(BASE + 'maplebranch.webp');
   leafTex.colorSpace = THREE.SRGBColorSpace;
   leafTex.anisotropy = 8;
 

@@ -4,3 +4,4 @@ server/*.db
 server/*.db-shm
 server/*.db-wal
 .superpowers/
+backup_original_assets/
