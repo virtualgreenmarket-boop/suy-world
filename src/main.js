@@ -232,39 +232,48 @@ const animalManager = new AnimalManager({
 // Pass animalManager to localPlayer for collision detection
 setGLBAnimalManager(animalManager);
 
-// Spawn scattered GLB animals ACROSS THE ENTIRE MAP (not just near center)
-// Multiple spawn zones for even distribution:
-console.log('[main] 🦌 Spawning GLB animals across entire map...');
+// ZONE-AWARE ANIMAL SPAWNING: Scatter animals across ENTIRE GRASS ZONE
+// Using randomGrassPosition from mapZones.js for natural, even distribution
+console.log('[main] 🦌 Spawning GLB animals across grass zone...');
 
-const animalSpawnZones = [
-  // Plaza/center area
-  { center: { x: 0, y: 0, z: 0 }, radius: 80, count: 8 },
-  // Southwest grass field (where user reported empty area)
-  { center: { x: -100, y: 0, z: -60 }, radius: 60, count: 6 },
-  // Northwest area (toward marina approach)
-  { center: { x: -150, y: 0, z: 40 }, radius: 70, count: 6 },
-  // Southeast area
-  { center: { x: 60, y: 0, z: -80 }, radius: 60, count: 5 },
-  // Northeast area
-  { center: { x: 80, y: 0, z: 60 }, radius: 60, count: 5 }
-];
+import('./world/mapZones.js').then(({ randomGrassPosition }) => {
+  const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'];
+  const totalAnimals = 40; // Increased from 30 to fill larger grass zone
+  const spawnPromises = [];
 
-Promise.all(
-  animalSpawnZones.map(zone =>
-    animalManager.spawnScattered(
-      ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'],
-      {
-        count: zone.count,
-        radius: zone.radius,
-        center: zone.center,
-        animations: ['idle', 'walk', 'walk'] // More walk than idle for visible movement
-      }
-    )
-  )
-).then(() => {
-  console.log('[main] ✅ GLB animals spawned successfully across entire map (30 total in 5 zones)');
+  for (let i = 0; i < totalAnimals; i++) {
+    // Get random valid position in grass zone
+    const pos = randomGrassPosition(100);
+    if (!pos) {
+      console.warn(`[main] Could not find valid grass position for animal ${i + 1}`);
+      continue;
+    }
+
+    // Random species, scale, rotation
+    const species = animalSpecies[Math.floor(Math.random() * animalSpecies.length)];
+    const scale = 0.9 + Math.random() * 0.25;
+    const rotationY = Math.random() * Math.PI * 2;
+    const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk'; // 1/3 idle, 2/3 walk
+
+    spawnPromises.push(
+      animalManager.spawn(species, { x: pos.x, y: 0, z: pos.z }, {
+        scale,
+        rotationY,
+        startAnimation,
+        wanderRadius: 30 + Math.random() * 20 // Wander 30-50 units from spawn
+      }).catch(err => {
+        console.error(`[main] Failed to spawn ${species}:`, err);
+      })
+    );
+  }
+
+  Promise.all(spawnPromises).then(() => {
+    console.log(`[main] ✅ GLB animals spawned successfully across grass zone (${spawnPromises.length} total)`);
+  }).catch(err => {
+    console.error('[main] ❌ Failed to spawn some animals:', err);
+  });
 }).catch(err => {
-  console.error('[main] ❌ Failed to spawn GLB animals:', err);
+  console.error('[main] ❌ Failed to load mapZones:', err);
 });
 
 // Preload selected character (no GLB loading, just store the type)

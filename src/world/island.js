@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { Water } from 'three/addons/objects/Water.js';
 import { spawnTree } from './trees.js';
+import { initPlants } from './plants.js';
 import { registerGround, getSurfaceY } from '../systems/terrain.js';
+import { randomGrassPosition } from './mapZones.js';
 
 let _water = null;
 
@@ -67,7 +69,8 @@ export function initIsland(scene, opts = {}) {
   addWater(scene);
   addShallowWater(scene);
   addShallowSeabed(scene);
-  addTrees(scene, opts.maxTrees ?? 62);
+  addTrees(scene, opts.maxTrees ?? 150);
+  initPlants(scene, opts.maxPlants ?? 200); // Add flowers, bushes, rocks
 }
 
 export function updateWater(delta) {
@@ -357,53 +360,34 @@ function _onPath(x, z) {
   return false;
 }
 
-function addTrees(scene, maxTrees = 120) { // Increased from 62 to cover larger area
-  const avoid = [
-    { x:   0, z: -162.6, r: 62 }, // N hangar (updated for elliptical island)
-    { x: 162.6, z:    0, r: 62 }, // E hangar (updated for elliptical island)
-    { x:   0, z:  162.6, r: 62 }, // S hangar (updated for elliptical island)
-    { x:-230, z:    0, r: 140 }, // marina (wide deck along shore)
-    { x:   0, z:    0, r: 54 }, // plaza
-  ];
-
+function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zone
   const rng = seededRng(17);
 
-  // IMPROVED: Spawn trees across ENTIRE playable map, not just center
-  // Define spawn zones to ensure even distribution including far areas
-  const spawnZones = [
-    // Original center ring (keep some trees here)
-    { xMin: -185, xMax: 185, zMin: -185, zMax: 185, count: 40, minDist: 65 }, // Center area
-    // Southwest grass field (where user reported empty)
-    { xMin: -180, xMax: -40, zMin: -120, zMax: -20, count: 25, minDist: 0 },
-    // Northwest area
-    { xMin: -180, xMax: -40, zMin: 20, zMax: 120, count: 20, minDist: 0 },
-    // Southeast area
-    { xMin: 40, xMax: 180, zMin: -120, zMax: -20, count: 20, minDist: 0 },
-    // Northeast area
-    { xMin: 40, xMax: 180, zMin: 20, zMax: 120, count: 15, minDist: 0 }
-  ];
+  // ZONE-AWARE DISTRIBUTION: Use randomGrassPosition from mapZones.js
+  // This ensures trees are scattered across the ENTIRE grass zone,
+  // respecting the asymmetric ellipse shape, avoiding paths and buildings.
 
-  for (const zone of spawnZones) {
-    for (let i = 0; i < zone.count; i++) {
-      let x, z, tries = 0;
-      do {
-        // Random position within zone bounds
-        x = zone.xMin + rng() * (zone.xMax - zone.xMin);
-        z = zone.zMin + rng() * (zone.zMax - zone.zMin);
-        tries++;
-      } while (tries < 100 && (
-        (zone.minDist > 0 && Math.hypot(x, z) < zone.minDist) || // Respect minimum distance from center if specified
-        Math.hypot(x, z) > 200 ||              // Don't spawn too far (water boundary)
-        avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r) ||
-        _onPath(x, z)
-      ));
+  let treesSpawned = 0;
+  let attempts = 0;
+  const maxAttempts = maxTrees * 10; // Allow multiple attempts per tree
 
-      if (tries >= 100) continue; // give up on this slot
+  while (treesSpawned < maxTrees && attempts < maxAttempts) {
+    attempts++;
 
-      const scale = 0.55 + rng() * 0.45;
-      const rotY  = rng() * Math.PI * 2;
-      const y     = getSurfaceY(x, z);
-      spawnTree(scene, x, z, y, scale, rotY);
-    }
+    // Get random valid position in grass zone
+    const pos = randomGrassPosition(50);
+    if (!pos) continue; // No valid position found
+
+    const { x, z } = pos;
+
+    // Random scale and rotation for natural variation
+    const scale = 0.55 + rng() * 0.45;
+    const rotY = rng() * Math.PI * 2;
+    const y = getSurfaceY(x, z);
+
+    spawnTree(scene, x, z, y, scale, rotY);
+    treesSpawned++;
   }
+
+  console.log(`[island] Spawned ${treesSpawned} trees across grass zone (attempted ${attempts} positions)`);
 }
