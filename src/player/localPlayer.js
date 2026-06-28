@@ -230,7 +230,9 @@ export function updateLocalPlayer(delta) {
       blockedByAnimal = true;
     }
 
-    if (!blockedByAnimal && rx * rx + rz * rz < ISLAND_R * ISLAND_R) {
+    // FIXED: Use asymmetric ellipse boundary instead of simple circle
+    // This allows players to swim/walk 20-50m into deep water around the entire island
+    if (!blockedByAnimal && isWithinPlayableBounds(rx, rz)) {
       const destGroundY = getSurfaceY(rx, rz);
       const stepDelta   = destGroundY - playerGroup.position.y;
       if (!_isJumping && stepDelta > 0 && stepDelta <= MAX_STEP) {
@@ -357,8 +359,10 @@ function updatePlayerAppearance(changes) {
 }
 
 function computeIslandRadius() {
-  const BASE_R = 396; // original world/terrain boundary (unrelated to hangars)
-  const MARGIN = 20;  // walking room past the farthest hangar corner
+  // DEPRECATED: Simple circular boundary is replaced by asymmetric ellipse check
+  // This function kept for backward compatibility but is no longer used
+  const BASE_R = 396;
+  const MARGIN = 20;
 
   let maxCornerDist = 0;
   HANGAR_CONFIGS.forEach(({ x, z }, i) => {
@@ -369,6 +373,28 @@ function computeIslandRadius() {
   });
 
   return Math.max(BASE_R, maxCornerDist + MARGIN);
+}
+
+/**
+ * Tests if position (x, z) is within playable bounds.
+ * Uses asymmetric ellipse shape matching the actual island geometry.
+ * Boundary is positioned 20-50m into deep water for swimming/boating room.
+ */
+function isWithinPlayableBounds(x, z) {
+  // Island expansion factors (from island.js)
+  const EAST_EXPANSION = 1.4;
+  const NORTH_SOUTH_EXPANSION = 2.38;
+
+  // Playable boundary: extends well into deep water (beyond beach + shallow water)
+  // Beach ends at ~350, shallow water ~500, so boundary at 550 gives 50m of deep water
+  const PLAYABLE_RADIUS = 550;
+
+  // Normalize coordinates for asymmetric ellipse
+  const normalizedX = x > 0 ? x / EAST_EXPANSION : x;
+  const normalizedZ = z / NORTH_SOUTH_EXPANSION;
+  const distance = Math.hypot(normalizedX, normalizedZ);
+
+  return distance <= PLAYABLE_RADIUS;
 }
 
 function _loadSpawn() {

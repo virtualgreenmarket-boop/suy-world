@@ -169,24 +169,38 @@ function _drawZoneBoundaries(mapRadius, scale) {
   const beachScreenRadius = (BEACH_RADIUS / MINIMAP_WORLD_RADIUS) * mapRadius;
   const shallowWaterScreenRadius = (SHALLOW_WATER_RADIUS / MINIMAP_WORLD_RADIUS) * mapRadius;
 
+  // IMPORTANT: Set up clipping to prevent lines from extending beyond minimap circle
+  _ctx.save();
+  _ctx.beginPath();
+  _ctx.arc(0, 0, mapRadius, 0, Math.PI * 2);
+  _ctx.clip(); // Clip all drawing to minimap circle
+
   // Draw grass boundary (green line)
-  _ctx.strokeStyle = 'rgba(76, 175, 80, 0.6)'; // Green
-  _ctx.lineWidth = 2 * scale;
-  _drawAsymmetricEllipse(grassScreenRadius, EAST_EXPANSION, NS_EXPANSION);
+  _ctx.strokeStyle = 'rgba(76, 175, 80, 0.4)'; // Reduced opacity from 0.6 to 0.4
+  _ctx.lineWidth = 1.5 * scale; // Thinner lines
+  _drawAsymmetricEllipse(grassScreenRadius, EAST_EXPANSION, NS_EXPANSION, mapRadius);
 
   // Draw beach boundary (yellow line)
-  _ctx.strokeStyle = 'rgba(255, 235, 59, 0.6)'; // Yellow
-  _ctx.lineWidth = 2 * scale;
-  _drawAsymmetricEllipse(beachScreenRadius, EAST_EXPANSION, NS_EXPANSION);
-
-  // Draw shallow water boundary (cyan line)
-  _ctx.strokeStyle = 'rgba(0, 188, 212, 0.5)'; // Cyan
+  _ctx.strokeStyle = 'rgba(255, 235, 59, 0.4)'; // Reduced opacity
   _ctx.lineWidth = 1.5 * scale;
-  _drawAsymmetricEllipse(shallowWaterScreenRadius, EAST_EXPANSION, NS_EXPANSION);
+  _drawAsymmetricEllipse(beachScreenRadius, EAST_EXPANSION, NS_EXPANSION, mapRadius);
+
+  // Draw shallow water boundary (cyan line) - ONLY if it fits within minimap
+  if (shallowWaterScreenRadius < mapRadius * 0.95) { // Only draw if reasonably inside
+    _ctx.strokeStyle = 'rgba(0, 188, 212, 0.3)'; // Reduced opacity
+    _ctx.lineWidth = 1 * scale;
+    _drawAsymmetricEllipse(shallowWaterScreenRadius, EAST_EXPANSION, NS_EXPANSION, mapRadius);
+  }
+
+  _ctx.restore(); // Remove clipping
 }
 
-function _drawAsymmetricEllipse(baseRadius, eastExpansion, nsExpansion) {
+function _drawAsymmetricEllipse(baseRadius, eastExpansion, nsExpansion, mapRadius) {
   // Draw asymmetric ellipse by sampling points around the perimeter
+  // Skip drawing if ellipse would extend far beyond minimap bounds
+  const maxExtent = baseRadius * Math.max(eastExpansion, nsExpansion);
+  if (maxExtent > mapRadius * 1.5) return; // Don't draw if too large
+
   _ctx.beginPath();
   const segments = 128;
   for (let i = 0; i <= segments; i++) {
