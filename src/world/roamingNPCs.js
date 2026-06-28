@@ -17,6 +17,32 @@ let _npcs = [];
 let _scene = null;
 let _animalSystem = null;
 
+// Helper function to create name tag - EXACT copy from remotePlayer.js
+function createNameTag(name) {
+  const canvas = document.createElement('canvas');
+  canvas.width  = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.roundRect(4, 8, 248, 48, 10);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 26px "Segoe UI", Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name, 128, 34);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(2.6, 0.65, 1);
+  sprite.position.y = 2.9; // just above 2.5m model head
+  return sprite;
+}
+
 class RoamingNPC {
   constructor(type, name, startPos, scene) {
     this.type = type;
@@ -47,6 +73,10 @@ class RoamingNPC {
     }
 
     scene.add(this.group);
+
+    // Add name tag above head - using exact same styling as remotePlayer.js
+    const nameTag = createNameTag(this.name);
+    this.group.add(nameTag);
 
     // Register on minimap with white color (different from GLB NPCs)
     registerMapEntity(
