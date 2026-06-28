@@ -31,7 +31,23 @@ class RoamingNPC {
 
     // Build actual character model
     const charModel = buildCharacter(type);
-    charModel.position.y = 0; // Position at group origin
+
+    // Scale to 2.5 units (same as localPlayer)
+    const bbox = new THREE.Box3().setFromObject(charModel);
+    const size = bbox.getSize(new THREE.Vector3());
+    const currentHeight = size.y;
+    if (currentHeight > 0) {
+      const scale = 2.5 / currentHeight;
+      charModel.scale.setScalar(scale);
+      charModel.updateMatrixWorld(true);
+    }
+
+    // Position at Y=0 (feet on ground) - same as localPlayer
+    const bbox2 = new THREE.Box3().setFromObject(charModel);
+    const offset = -bbox2.min.y;
+    charModel.position.y = offset;
+    charModel.userData._groundY = offset;
+
     this.group.add(charModel);
 
     // Set up userData like localPlayer
