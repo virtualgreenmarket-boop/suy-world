@@ -39,26 +39,18 @@ export function initHud() {
 
   document.body.appendChild(topLeft);
 
-  // Emoji picker (hidden by default) - 15 emoji options
+  // Emoji picker (hidden by default) - 8 custom emoji expressions
   const emojiPicker = el('div', { id: 'hud-emoji-picker' });
   emojiPicker.style.display = 'none';
   const emotions = [
-    { emoji: '😐', key: 'neutral' },
     { emoji: '😂', key: 'laugh_tears' },
-    { emoji: '🫠', key: 'melting' },
     { emoji: '😉', key: 'wink' },
-    { emoji: '😊', key: 'calm_smile' },
-    { emoji: '🥲', key: 'smile_tear' },
     { emoji: '😋', key: 'yummy' },
-    { emoji: '🫣', key: 'peek' },
     { emoji: '🤫', key: 'shh' },
-    { emoji: '🤔', key: 'thinking' },
-    { emoji: '🫡', key: 'salute_face' },
-    { emoji: '🤨', key: 'skeptical' },
-    { emoji: '😮‍💨', key: 'exhale' },
-    { emoji: '😳', key: 'stunned' },
-    { emoji: '🙅', key: 'shake_no' },
-    { emoji: '🙆', key: 'nod_yes' }
+    { emoji: '[NO]', key: 'shake_no' },
+    { emoji: '[YES]', key: 'nod_yes' },
+    { emoji: '😠', key: 'angry' },
+    { emoji: '😭', key: 'crying' }
   ];
   emotions.forEach(({ emoji, key }) => {
     const btn = el('button', { class: 'emoji-option' });
@@ -87,18 +79,23 @@ function toggleEmojiPicker() {
 }
 
 function selectEmotion(emotionKey) {
+  console.log('[hud] 😊 selectEmotion called:', emotionKey);
+
   const picker = document.getElementById('hud-emoji-picker');
   picker.style.opacity = '0';
   setTimeout(() => { picker.style.display = 'none'; }, 200);
 
   // Use new emoji system
   if (window.setPlayerEmoji) {
+    console.log('[hud] ✅ Calling window.setPlayerEmoji');
     window.setPlayerEmoji(emotionKey);
     setTimeout(() => {
       if (window.clearPlayerEmotion) {
         window.clearPlayerEmotion();
       }
     }, 5000);
+  } else {
+    console.warn('[hud] ⚠️ window.setPlayerEmoji not available!');
   }
 }
 
@@ -114,13 +111,13 @@ function _injectStyles() {
     }
     #hud-topleft {
       position: fixed; top: 16px; left: 16px;
-      display: flex; gap: 8px; z-index: 100;
+      display: flex; gap: 12px; z-index: 100;
     }
     #hud-emoji, #hud-gear {
       background: rgba(0,0,0,0.50);
-      border: 1px solid rgba(255,255,255,0.18);
-      color: #fff; border-radius: 20px;
-      padding: 6px 14px; font-size: 18px;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: #fff; border-radius: 30px;
+      padding: 9px 21px; font-size: 27px;
       cursor: pointer; pointer-events: all;
       transition: background 0.15s;
       font-family: system-ui;
@@ -130,52 +127,76 @@ function _injectStyles() {
     }
     #hud-emoji-picker {
       position: fixed;
-      top: 60px;
+      top: 90px;
       left: 16px;
       display: flex;
-      gap: 6px;
-      background: rgba(0,0,0,0.75);
+      gap: 10px;
+      background: rgba(0,0,0,0.85);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 20px;
-      padding: 8px 12px;
+      border: 1.75px solid rgba(255,255,255,0.2);
+      border-radius: 35px;
+      padding: 14px 21px;
       opacity: 0;
       transition: opacity 0.2s ease;
-      z-index: 100;
+      z-index: 9999;
+      flex-wrap: wrap;
+      max-width: 875px;
     }
     .emoji-option {
-      background: rgba(255,255,255,0.1);
-      border: none;
-      border-radius: 50%;
-      width: 44px;
-      height: 44px;
-      font-size: 24px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+      border: 3.5px solid rgba(255,255,255,0.2);
+      border-radius: 25px;
+      width: 98px;
+      height: 98px;
+      font-size: 49px;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       pointer-events: all;
+      box-shadow: 0 7px 21px rgba(0,0,0,0.3),
+                  inset 0 1.75px 0 rgba(255,255,255,0.15);
+      position: relative;
+    }
+    .emoji-option::before {
+      content: '';
+      position: absolute;
+      top: -3.5px;
+      left: -3.5px;
+      right: -3.5px;
+      bottom: -3.5px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.1), transparent);
+      border-radius: 25px;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
     .emoji-option:hover {
-      background: rgba(255,255,255,0.25);
-      transform: scale(1.1);
+      background: linear-gradient(145deg, rgba(255,255,255,0.3), rgba(255,255,255,0.15));
+      transform: translateY(-3.5px) scale(1.05);
+      box-shadow: 0 10.5px 31.5px rgba(0,0,0,0.4),
+                  inset 0 3.5px 0 rgba(255,255,255,0.25);
+    }
+    .emoji-option:hover::before {
+      opacity: 1;
     }
     .emoji-option:active {
-      transform: scale(0.95);
+      transform: translateY(0) scale(0.98);
+      box-shadow: 0 3.5px 14px rgba(0,0,0,0.3),
+                  inset 0 1.75px 3.5px rgba(0,0,0,0.2);
     }
     #hud-coin {
       background: rgba(10,8,22,0.88);
-      border: 1.5px solid rgba(255,200,50,0.35);
-      border-radius: 24px;
-      padding: 8px 18px 8px 14px;
-      display: flex; align-items: center; gap: 8px;
+      border: 2.25px solid rgba(255,200,50,0.35);
+      border-radius: 36px;
+      padding: 12px 27px 12px 21px;
+      display: flex; align-items: center; gap: 12px;
       backdrop-filter: blur(10px);
-      box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+      box-shadow: 0 6px 27px rgba(0,0,0,0.45);
       pointer-events: none; user-select: none;
     }
-    .hud-coin-icon { font-size: 20px; line-height: 1; }
+    .hud-coin-icon { font-size: 30px; line-height: 1; }
     .hud-coin-val  {
-      font: 700 16px 'Segoe UI', Arial, sans-serif;
-      color: #FFD54F; letter-spacing: 0.5px;
-      min-width: 28px; text-align: right;
+      font: 700 24px 'Segoe UI', Arial, sans-serif;
+      color: #FFD54F; letter-spacing: 0.75px;
+      min-width: 42px; text-align: right;
     }
     #hud-slot {
       position: fixed; bottom: 28%; left: 50%;
@@ -244,6 +265,9 @@ export function updateCoinDisplay(n) {
   // Update window.playerCoins if value provided
   if (n != null) {
     window.playerCoins = n;
+    // Always sync to localStorage when coins are updated
+    localStorage.setItem('player_coins', n.toString());
+    console.log('[hud] updateCoinDisplay: coins =', n);
   }
 
   const v = coinEl?.querySelector('.hud-coin-val');

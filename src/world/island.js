@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { Water } from 'three/addons/objects/Water.js';
 import { spawnTree } from './trees.js';
+import { initPlants } from './plants.js';
 import { registerGround, getSurfaceY } from '../systems/terrain.js';
+import { randomGrassPosition } from './mapZones.js';
 
 let _water = null;
 
@@ -68,7 +70,8 @@ export function initIsland(scene, opts = {}) {
   addWater(scene);
   addShallowWater(scene);
   addShallowSeabed(scene);
-  addTrees(scene, opts.maxTrees ?? 62);
+  addTrees(scene, opts.maxTrees ?? 150);
+  initPlants(scene, opts.maxPlants ?? 200); // Add flowers, bushes, rocks
 }
 
 export function updateWater(delta) {
@@ -163,10 +166,10 @@ function addTerrain(scene) {
   bottom.position.y = -8;
   scene.add(bottom);
 
-  // Grass disc — inner island (r < 197), realistic PBR grass
-  // East expansion: 1.4x (197 → 276m), North/South: 2.38x (197 → 469m), West stays 197m
+  // Grass disc — inner island (reduced to make room for beach)
+  // FIXED: Grass ends at 255 (base), beach starts at 255, NO GAP
   const grassMesh = new THREE.Mesh(
-    createAsymmetricEllipse(278.56, 1.4, 2.38, 128),
+    createAsymmetricEllipse(255, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({
       map:          grassColor,
       normalMap:    grassNormal,
@@ -180,10 +183,10 @@ function addTerrain(scene) {
   grassMesh.receiveShadow = true;
   scene.add(grassMesh);
 
-  // Sand ring — beach zone (r 191–246 → asymmetric)
-  // East: 246 → 344m, North/South: 246 → 585m (138% expansion), West stays 246m
+  // Sand ring — beach zone (FIXED: continuous with grass, wider beach)
+  // Starts at 255 (where grass ends), extends to 350 for proper beach width
   const sandMesh = new THREE.Mesh(
-    createAsymmetricRing(270.07, 347.84, 1.4, 2.38, 128),
+    createAsymmetricRing(255, 350, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95, metalness: 0.0 })
   );
   sandMesh.rotation.x = -Math.PI / 2;
@@ -358,35 +361,34 @@ function _onPath(x, z) {
   return false;
 }
 
-function addTrees(scene, maxTrees = 62) {
-  const avoid = [
-    { x:   0, z: -162.6, r: 62 }, // N hangar (updated for elliptical island)
-    { x: 162.6, z:    0, r: 62 }, // E hangar (updated for elliptical island)
-    { x:   0, z:  162.6, r: 62 }, // S hangar (updated for elliptical island)
-    { x:-230, z:    0, r: 140 }, // marina (wide deck along shore)
-    { x:   0, z:    0, r: 54 }, // plaza
-  ];
-
+function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zone
   const rng = seededRng(17);
 
-  for (let i = 0; i < maxTrees; i++) {
-    let x, z, tries = 0;
-    do {
-      const a = rng() * Math.PI * 2;
-      const r = 65 + rng() * 120; // grass zone only: r 65–185
-      x = Math.cos(a) * r; z = Math.sin(a) * r;
-      tries++;
-    } while (tries < 80 && (
-      Math.hypot(x, z) > 183 ||              // outside grass zone
-      avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r) ||
-      _onPath(x, z)
-    ));
+  // ZONE-AWARE DISTRIBUTION: Use randomGrassPosition from mapZones.js
+  // This ensures trees are scattered across the ENTIRE grass zone,
+  // respecting the asymmetric ellipse shape, avoiding paths and buildings.
 
-    if (Math.hypot(x, z) > 183) continue;   // give up on this slot
+  let treesSpawned = 0;
+  let attempts = 0;
+  const maxAttempts = maxTrees * 10; // Allow multiple attempts per tree
 
+  while (treesSpawned < maxTrees && attempts < maxAttempts) {
+    attempts++;
+
+    // Get random valid position in grass zone
+    const pos = randomGrassPosition(50);
+    if (!pos) continue; // No valid position found
+
+    const { x, z } = pos;
+
+    // Random scale and rotation for natural variation
     const scale = 0.55 + rng() * 0.45;
-    const rotY  = rng() * Math.PI * 2;
-    const y     = getSurfaceY(x, z);
+    const rotY = rng() * Math.PI * 2;
+    const y = getSurfaceY(x, z);
+
     spawnTree(scene, x, z, y, scale, rotY);
+    treesSpawned++;
   }
+
+  console.log(`[island] Spawned ${treesSpawned} trees across grass zone (attempted ${attempts} positions)`);
 }

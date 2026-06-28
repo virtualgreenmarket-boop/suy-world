@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCharacter, attachHat, attachHandItem, attachShoes, attachGloves, attachWings, HATS, HAND_ITEMS, SHOES, GLOVES, WINGS } from '../player/CharacterBuilder.js';
+import { buildCharacter, attachHat, attachHandItem, attachShoes, attachGloves, attachWings, HATS, HAND_ITEMS, SHOES, GLOVES, WINGS, CHARACTERS } from '../player/CharacterBuilder.js';
 
 let _previewScene = null;
 let _previewCamera = null;
@@ -8,12 +8,16 @@ let _previewCharacter = null;
 let _animationFrame = null;
 
 // Module-level so both initInventoryButton and initCharacterPreview can access it
+// Default to 'boy' colors, will be overridden with actual character type colors
 let selectedColors = {
   skin:  '#FFCC99',
   shirt: '#2196F3',
   pants: '#333333',
   shoes: '#5D4037'
 };
+
+// Current character type (set during init)
+let _currentCharacterType = 'boy';
 
 export function initInventoryButton() {
   console.log('[inventory] Initializing inventory button...');
@@ -38,11 +42,11 @@ export function initInventoryButton() {
     <style>
       #inventory-btn {
         background: rgba(0,0,0,0.50);
-        border: 1px solid rgba(255,255,255,0.18);
+        border: 1.5px solid rgba(255,255,255,0.18);
         color: #fff;
-        border-radius: 20px;
-        padding: 6px 14px;
-        font-size: 18px;
+        border-radius: 30px;
+        padding: 9px 21px;
+        font-size: 27px;
         cursor: pointer;
         pointer-events: all;
         transition: background 0.15s;
@@ -307,9 +311,14 @@ export function initInventoryButton() {
         pointer-events: none;
       }
 
-      .save-btn {
-        width: 100%;
-        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+      .customization-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .save-btn, .reset-btn {
+        flex: 1;
         border: none;
         color: white;
         padding: 12px 20px;
@@ -318,8 +327,11 @@ export function initInventoryButton() {
         transition: all 0.2s;
         font-size: 16px;
         font-weight: bold;
-        margin-top: 20px;
         font-family: inherit;
+      }
+
+      .save-btn {
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
       }
 
       .save-btn:hover {
@@ -328,6 +340,19 @@ export function initInventoryButton() {
       }
 
       .save-btn:active {
+        transform: scale(0.98);
+      }
+
+      .reset-btn {
+        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+      }
+
+      .reset-btn:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+      }
+
+      .reset-btn:active {
         transform: scale(0.98);
       }
 
@@ -397,10 +422,6 @@ export function initInventoryButton() {
         <!-- Clothes tab -->
         <div class="inventory-section active" data-section="clothes">
           <div class="color-picker-row">
-            <span class="color-picker-label">עור</span>
-            <div class="color-palette" id="palette-skin"></div>
-          </div>
-          <div class="color-picker-row">
             <span class="color-picker-label">חולצה</span>
             <div class="color-palette" id="palette-shirt"></div>
           </div>
@@ -412,7 +433,10 @@ export function initInventoryButton() {
             <span class="color-picker-label">נעליים</span>
             <div class="color-palette" id="palette-shoes"></div>
           </div>
-          <button class="save-btn" id="save-customization-btn">💾 שמור התאמה אישית</button>
+          <div class="customization-buttons">
+            <button class="reset-btn" id="reset-colors-btn">🔄 איפוס</button>
+            <button class="save-btn" id="save-customization-btn">💾 שמירה</button>
+          </div>
           <div class="save-feedback" id="save-feedback">✓ נשמר בהצלחה!</div>
         </div>
 
@@ -493,6 +517,59 @@ export function initInventoryButton() {
 
     if (isOpening) {
       console.log('[inventory] Opening bag panel');
+
+      // Update character type from localStorage every time bag opens
+      const CHARACTER_TYPES = ['boy', 'girl', 'zombie', 'demon', 'robot'];
+      const savedCharacterId = localStorage.getItem('selected_character');
+
+      if (savedCharacterId) {
+        const charIndex = parseInt(savedCharacterId) - 1; // Convert 1-5 to 0-4
+        const newCharType = CHARACTER_TYPES[charIndex] || 'boy';
+
+        // If character type changed, rebuild the preview
+        if (newCharType !== _currentCharacterType) {
+          console.log('[inventory] Character type changed from', _currentCharacterType, 'to', newCharType, '- rebuilding preview');
+          _currentCharacterType = newCharType;
+
+          // Rebuild preview character
+          if (_previewScene && _previewCharacter) {
+            _previewScene.remove(_previewCharacter);
+
+            // Get default colors for new character type
+            const charDefaults = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
+            selectedColors.skin = charDefaults.skin;
+            selectedColors.shirt = charDefaults.shirt;
+            selectedColors.pants = charDefaults.pants;
+            selectedColors.shoes = charDefaults.shoes;
+
+            // Load saved customization for this character type
+            const savedCustomization = loadCustomization();
+            if (savedCustomization) {
+              if (savedCustomization.shirt) selectedColors.shirt = savedCustomization.shirt;
+              if (savedCustomization.pants) selectedColors.pants = savedCustomization.pants;
+              if (savedCustomization.shoes) selectedColors.shoes = savedCustomization.shoes;
+            }
+
+            // Build new character
+            _previewCharacter = buildCharacter(_currentCharacterType, selectedColors);
+
+            // Scale to fit in preview
+            const bbox = new THREE.Box3().setFromObject(_previewCharacter);
+            const size = bbox.getSize(new THREE.Vector3());
+            const scale = 2.0 / size.y;
+            _previewCharacter.scale.setScalar(scale);
+
+            // Position at ground
+            _previewCharacter.updateMatrixWorld(true);
+            const bbox2 = new THREE.Box3().setFromObject(_previewCharacter);
+            _previewCharacter.position.y = -bbox2.min.y;
+
+            _previewScene.add(_previewCharacter);
+            console.log('[inventory] Preview rebuilt with character:', _currentCharacterType);
+          }
+        }
+      }
+
       startPreviewAnimation();
     } else {
       console.log('[inventory] Closing bag panel');
@@ -537,20 +614,46 @@ export function initInventoryButton() {
     '#8B4513', '#800080', '#2F4F4F', '#DC143C' // Rich/Dark
   ];
 
-  // selectedColors is declared at module scope (shared with initCharacterPreview)
+  // Get current character type from localStorage (authoritative source)
+  // selected_character stores 1-5, need to map to character type strings
+  const CHARACTER_TYPES = ['boy', 'girl', 'zombie', 'demon', 'robot'];
+  const savedCharacterId = localStorage.getItem('selected_character');
 
-  // Load saved customization from localStorage
-  const CUSTOMIZATION_KEY = 'suy_character_customization';
+  if (savedCharacterId) {
+    const charIndex = parseInt(savedCharacterId) - 1; // Convert 1-5 to 0-4
+    _currentCharacterType = CHARACTER_TYPES[charIndex] || 'boy';
+    console.log('[inventory] Current character type from localStorage:', _currentCharacterType, '(ID:', savedCharacterId, ')');
+  } else if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
+    _currentCharacterType = window.localPlayer.userData._charType;
+    console.log('[inventory] Current character type from localPlayer:', _currentCharacterType);
+  } else {
+    _currentCharacterType = 'boy'; // fallback default
+    console.log('[inventory] Current character type defaulted to:', _currentCharacterType);
+  }
+
+  // Set default colors based on character type
+  const defaultColors = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
+  selectedColors.skin = defaultColors.skin;
+  selectedColors.shirt = defaultColors.shirt;
+  selectedColors.pants = defaultColors.pants;
+  selectedColors.shoes = defaultColors.shoes;
+  console.log('[inventory] Default colors for', _currentCharacterType, ':', selectedColors);
+
+  // Load saved customization from localStorage (per character type)
+  const CUSTOMIZATION_KEY = `suy_character_customization_${_currentCharacterType}`;
   const savedCustomization = loadCustomization();
   if (savedCustomization) {
-    if (savedCustomization.skin) selectedColors.skin = savedCustomization.skin;
+    console.log('[inventory] Loading saved customization for', _currentCharacterType, ':', savedCustomization);
+    // Only apply shirt, pants, shoes (not skin - it's fixed per character type)
     if (savedCustomization.shirt) selectedColors.shirt = savedCustomization.shirt;
     if (savedCustomization.pants) selectedColors.pants = savedCustomization.pants;
     if (savedCustomization.shoes) selectedColors.shoes = savedCustomization.shoes;
     // Apply saved colors when player is ready
     if (window.updatePlayerAppearance) {
-      window.updatePlayerAppearance(savedCustomization);
+      window.updatePlayerAppearance(selectedColors);
     }
+  } else {
+    console.log('[inventory] No saved customization for', _currentCharacterType, '- using defaults');
   }
 
   // Equipped items state management
@@ -588,7 +691,7 @@ export function initInventoryButton() {
   console.log('[inventory] Loaded equipped items:', equippedItems);
 
   // Create color palettes with slider (5 colors at a time)
-  const paletteCategories = ['skin', 'shirt', 'pants', 'shoes'];
+  const paletteCategories = ['shirt', 'pants', 'shoes'];
   const paletteStates = {}; // Track current offset for each palette
 
   console.log('[inventory] Creating color palettes...');
@@ -741,6 +844,71 @@ export function initInventoryButton() {
     }, 2000);
 
     console.log('[inventory] Customization saved:', customization);
+  });
+
+  // RESET button functionality
+  const resetBtn = document.getElementById('reset-colors-btn');
+
+  resetBtn.addEventListener('click', () => {
+    console.log('[inventory] 🔄 Resetting colors to defaults for', _currentCharacterType);
+
+    // Get default colors for current character type
+    const charDefaults = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
+    const defaultColors = {
+      skin: charDefaults.skin,
+      shirt: charDefaults.shirt,
+      pants: charDefaults.pants,
+      shoes: charDefaults.shoes
+    };
+
+    // Update selectedColors
+    selectedColors.skin = defaultColors.skin;
+    selectedColors.shirt = defaultColors.shirt;
+    selectedColors.pants = defaultColors.pants;
+    selectedColors.shoes = defaultColors.shoes;
+
+    // Update preview character
+    if (_previewCharacter && _previewScene) {
+      const currentType = _previewCharacter.userData._charType || 'boy';
+      const newPreview = buildCharacter(currentType, selectedColors);
+
+      // Scale and position for preview
+      const bbox = new THREE.Box3().setFromObject(newPreview);
+      const size = bbox.getSize(new THREE.Vector3());
+      if (size.y > 0) {
+        const scale = 2.0 / size.y;
+        newPreview.scale.setScalar(scale);
+      }
+
+      // Remove old preview
+      _previewScene.remove(_previewCharacter);
+
+      // Add new preview
+      _previewCharacter = newPreview;
+      _previewCharacter.userData._charType = currentType;
+      _previewScene.add(_previewCharacter);
+    }
+
+    // Update player
+    if (window.updatePlayerAppearance) {
+      window.updatePlayerAppearance(defaultColors);
+    }
+
+    // Update all color palette selections
+    paletteCategories.forEach(cat => {
+      const state = paletteStates[cat];
+      if (state && state.updateFn) state.updateFn();
+    });
+
+    // Show feedback
+    saveFeedback.textContent = '🔄 צבעים אופסו!';
+    saveFeedback.classList.add('show');
+    setTimeout(() => {
+      saveFeedback.classList.remove('show');
+      saveFeedback.textContent = '✓ נשמר בהצלחה!';
+    }, 2000);
+
+    console.log('[inventory] ✅ Colors reset to defaults');
   });
 
   function loadCustomization() {
@@ -1070,11 +1238,8 @@ function initCharacterPreview() {
   fillLight.position.set(-2, 2, -1);
   _previewScene.add(fillLight);
 
-  // Create character - use player's actual character type
-  let playerType = 'boy';
-  if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
-    playerType = window.localPlayer.userData._charType;
-  }
+  // Create character - use current character type (already read from localStorage in initInventoryButton)
+  const playerType = _currentCharacterType;
   console.log('[inventory] Creating preview with character type:', playerType);
 
   _previewCharacter = buildCharacter(playerType, selectedColors);
@@ -1174,8 +1339,8 @@ function updatePlayerAppearance(changes) {
     // Remove old preview character
     _previewScene.remove(_previewCharacter);
 
-    // Build new character with updated colors
-    _previewCharacter = buildCharacter('boy', _currentCustomization);
+    // Build new character with updated colors using actual character type
+    _previewCharacter = buildCharacter(_currentCharacterType, _currentCustomization);
 
     // Scale to fit in preview
     const bbox = new THREE.Box3().setFromObject(_previewCharacter);

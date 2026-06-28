@@ -4,6 +4,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { registerInteraction } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
+import { registerMapEntity } from '../ui/minimapRegistry.js';
 
 // ── NPC catalogue ─────────────────────────────────────────────────────
 // All GLB files in public/models/characters/npcs/.
@@ -475,6 +476,15 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     mode = 'procedural';
   }
 
+  const npcId = `npc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Register on minimap
+  registerMapEntity(
+    npcId,
+    'npc',
+    () => ({ x: clone.position.x, z: clone.position.z })
+  );
+
   return {
     mixer, group: clone, mode,
     idleAction, walkAction, sitAction,
@@ -488,6 +498,7 @@ async function _spawnFromEntry(scene, entry, x, z, rotY) {
     walkState: 'idle',
     walkTimer: 0,
     canWalk: false,
+    _minimapId: npcId,
   };
 }
 

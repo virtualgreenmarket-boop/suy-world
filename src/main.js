@@ -10,7 +10,7 @@ import { initPaths }                 from './world/paths.js';
 import { initHangars, updateHangars } from './world/hangars.js';
 import { initMarina, updateMarina }  from './world/marina.js';
 
-import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
+import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
 import { initRemotePlayers, updateRemotePlayers, getRemotePlayerCount, getRemotePlayerPosition }
   from './player/remotePlayer.js';
@@ -33,6 +33,7 @@ import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
 import { AnimalManager } from './world/AnimalLoader.js';
+import { initRoamingNPCs, updateRoamingNPCs } from './world/roamingNPCs.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initShopUI } from './ui/ShopUI.js';
@@ -43,6 +44,7 @@ import { initInventoryPanel, onEquipChange }             from './ui/inventoryPan
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
+import { initMinimap, updateMinimapPlayer, updateMinimapOnlineCount, renderMinimap } from './ui/minimap.js';
 
 // ── Wait for DOM to be ready ──────────────────────────────────────────
 
@@ -198,6 +200,7 @@ initPetSystem(scene);
 
 // ── UI (initialize early, before character loads) ─────────────────────
 initHud();
+initMinimap();
 initShopUI();
 initChatUI();
 bindSendChat(sendChat);
@@ -229,20 +232,48 @@ const animalManager = new AnimalManager({
 // Pass animalManager to localPlayer for collision detection
 setGLBAnimalManager(animalManager);
 
-// Spawn scattered GLB animals on grass areas (avoid plaza center and paths)
-console.log('[main] 🦌 Spawning GLB animals...');
-animalManager.spawnScattered(
-  ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'],
-  {
-    count: 18,
-    radius: 120,
-    center: { x: 0, y: 0, z: 0 },
-    animations: ['idle', 'walk', 'walk'] // More walk than idle for visible movement
+// ZONE-AWARE ANIMAL SPAWNING: Scatter animals across ENTIRE GRASS ZONE
+// Using randomGrassPosition from mapZones.js for natural, even distribution
+console.log('[main] 🦌 Spawning GLB animals across grass zone...');
+
+import('./world/mapZones.js').then(({ randomGrassPosition }) => {
+  const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'];
+  const totalAnimals = 40; // Increased from 30 to fill larger grass zone
+  const spawnPromises = [];
+
+  for (let i = 0; i < totalAnimals; i++) {
+    // Get random valid position in grass zone
+    const pos = randomGrassPosition(100);
+    if (!pos) {
+      console.warn(`[main] Could not find valid grass position for animal ${i + 1}`);
+      continue;
+    }
+
+    // Random species, scale, rotation
+    const species = animalSpecies[Math.floor(Math.random() * animalSpecies.length)];
+    const scale = 0.9 + Math.random() * 0.25;
+    const rotationY = Math.random() * Math.PI * 2;
+    const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk'; // 1/3 idle, 2/3 walk
+
+    spawnPromises.push(
+      animalManager.spawn(species, { x: pos.x, y: 0, z: pos.z }, {
+        scale,
+        rotationY,
+        startAnimation,
+        wanderRadius: 30 + Math.random() * 20 // Wander 30-50 units from spawn
+      }).catch(err => {
+        console.error(`[main] Failed to spawn ${species}:`, err);
+      })
+    );
   }
-).then(() => {
-  console.log('[main] ✅ GLB animals spawned successfully');
+
+  Promise.all(spawnPromises).then(() => {
+    console.log(`[main] ✅ GLB animals spawned successfully across grass zone (${spawnPromises.length} total)`);
+  }).catch(err => {
+    console.error('[main] ❌ Failed to spawn some animals:', err);
+  });
 }).catch(err => {
-  console.error('[main] ❌ Failed to spawn GLB animals:', err);
+  console.error('[main] ❌ Failed to load mapZones:', err);
 });
 
 // Preload selected character (no GLB loading, just store the type)
@@ -267,9 +298,12 @@ preloadPlayerCharacter(selectedCharacterId)
       setTimeout(() => {
         const playerGroup = scene.children.find(c => c.userData._charModel);
         if (playerGroup) {
-          initAnimalSystem(scene, playerGroup);
+          const animalSys = initAnimalSystem(scene, playerGroup);
           // Expose player group globally for shop and pet systems
           window._localPlayerGroup = playerGroup;
+
+          // Initialize roaming NPCs after animals are ready
+          initRoamingNPCs(scene, animalSys);
         }
       }, 1000);
     });
@@ -288,9 +322,12 @@ preloadPlayerCharacter(selectedCharacterId)
       setTimeout(() => {
         const playerGroup = scene.children.find(c => c.userData._charModel);
         if (playerGroup) {
-          initAnimalSystem(scene, playerGroup);
+          const animalSys = initAnimalSystem(scene, playerGroup);
           // Expose player group globally for shop and pet systems
           window._localPlayerGroup = playerGroup;
+
+          // Initialize roaming NPCs after animals are ready
+          initRoamingNPCs(scene, animalSys);
         }
       }, 1000);
     });
@@ -347,6 +384,7 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateAnimalSystem(delta);
+  updateRoamingNPCs(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
   }
@@ -391,9 +429,18 @@ function animate() {
 
   // ── Every 3s: online count (pure DOM text, no need faster) ───────────
   if (_tUI >= 3) {
-    updateOnlineCount(1 + getRemotePlayerCount());
+    const onlineCount = 1 + getRemotePlayerCount();
+    updateOnlineCount(onlineCount);
+    updateMinimapOnlineCount(onlineCount);
     _tUI = 0;
   }
+
+  // ── Minimap updates every frame ───────────────────────────────────────
+  const playerPos = getLocalPlayerPosition();
+  const playerRotY = getLocalPlayerRotY();
+  const cameraYaw = getCameraYaw();
+  updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY, cameraYaw);
+  renderMinimap();
 
   composer.render();
 }

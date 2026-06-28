@@ -1,4 +1,5 @@
 import { isChatOpen } from './chatUI.js';
+import { setMinimapRotationMode, getMinimapRotationMode } from './minimap.js';
 
 const STORAGE_KEY = 'suy_settings';
 
@@ -34,6 +35,7 @@ const _defaults = {
   autoSave:       true,
   vibration:      true,
   showPlayerNames: true,
+  minimapRotation: 'camera', // 'camera' or 'north'
 };
 
 let _settings = _load();
@@ -912,6 +914,39 @@ function _selectRow(label, key, options, current) {
   return row;
 }
 
+function _minimapRotationRow() {
+  const row = document.createElement('div');
+  row.className = 'sp-row';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'sp-row-label';
+  lbl.textContent = 'Minimap Rotation';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'sp-select-wrap';
+
+  const sel = document.createElement('select');
+  sel.className = 'sp-select';
+  [
+    { value: 'camera', label: 'Camera Direction' },
+    { value: 'north', label: 'North Fixed' }
+  ].forEach(({ value, label }) => {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    if (value === _settings.minimapRotation) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => {
+    _settings.minimapRotation = sel.value;
+    setMinimapRotationMode(sel.value);
+    _save();
+  });
+  wrap.appendChild(sel);
+  row.append(lbl, wrap);
+  return row;
+}
+
 function _discRow(label, onClick) {
   const btn = document.createElement('button');
   btn.className = 'sp-disc';
@@ -1116,6 +1151,9 @@ function _buildNavSheets() {
         _toggleRow('Auto Save',         'autoSave',        _settings.autoSave),
         _toggleRow('Vibration',         'vibration',       _settings.vibration),
         _toggleRow('Show Player Names', 'showPlayerNames', _settings.showPlayerNames),
+      ]));
+      body.append(_card([
+        _minimapRotationRow(),
       ]));
     },
     footer => footer.appendChild(_saveBtnEl('sp-gameplay'))

@@ -22,7 +22,7 @@ export function initLoadingScreen(onComplete) {
         left: 0;
         width: 100%;
         height: 100%;
-        background-image: url('/models/ui/pic/913ace22-ffad-4026-bfdd-4f53e9e272d2.png');
+        background-image: url('/models/ui/pic/913ace22-ffad-4026-bfdd-4f53e9e272d2.webp');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -180,15 +180,6 @@ async function startRealLoading() {
       console.log('[loading] ✅ NPCs loaded');
     } catch (err) {
       console.log('[loading] NPCs failed (optional):', err.message);
-    }
-
-    // Preload Eisha FBX
-    const { preloadEisha } = await import('../world/eishaLoader.js');
-    try {
-      await preloadEisha();
-      console.log('[loading] ✅ Eisha loaded');
-    } catch (err) {
-      console.log('[loading] Eisha failed (optional):', err.message);
     }
 
     updateProgress(70, 'Loading furniture...');

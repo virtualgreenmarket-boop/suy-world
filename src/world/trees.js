@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
 import { attachLabel, createLabel } from '../ui/labels.js';
+import { registerMapEntity } from '../ui/minimapRegistry.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
@@ -98,14 +99,14 @@ export function spawnPlazaTree(scene) {
   const tl   = new THREE.TextureLoader();
   const BASE = '/models/nature/trees/plaza_tree/textures/';
 
-  const barkTex = tl.load(BASE + 'Trunk_D_Tiled2.png');
+  const barkTex = tl.load(BASE + 'Trunk_D_Tiled2.webp');
   barkTex.colorSpace = THREE.SRGBColorSpace;
   barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
   barkTex.anisotropy = 16;
 
   // Leaf texture — loaded explicitly so leaf meshes always get it even if FBX
   // auto-resolution via setResourcePath fails (common with renamed files).
-  const leafTex = tl.load(BASE + 'maplebranch.png');
+  const leafTex = tl.load(BASE + 'maplebranch.webp');
   leafTex.colorSpace = THREE.SRGBColorSpace;
   leafTex.anisotropy = 8;
 
@@ -251,6 +252,12 @@ export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
     if (scale > 0) {
       _treeCount++;
       attachLabel(tree, `TREE ${_treeCount}`, 17);
+      // Register on minimap
+      registerMapEntity(
+        `tree_${_treeCount}`,
+        'tree',
+        () => ({ x: tree.position.x, z: tree.position.z })
+      );
     }
   };
 

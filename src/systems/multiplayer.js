@@ -5,7 +5,7 @@ import {
   removeRemotePlayer,
 } from '../player/remotePlayer.js';
 import { addChatMessage, addSpeechBubble, addPlayerJoinedMessage } from '../ui/chatUI.js';
-import { updateOnlineCount } from '../ui/hud.js';
+import { updateOnlineCount, updateCoinDisplay } from '../ui/hud.js';
 import { getUuid } from './economy.js';
 
 const MOVE_THROTTLE_MS = 50;
@@ -58,6 +58,12 @@ export function initMultiplayer(onReady) {
   socket.on('chatMessage', msg => {
     addChatMessage(msg);
     addSpeechBubble(msg.id, msg.message);
+  });
+
+  socket.on('coinsUpdated', ({ coins }) => {
+    console.log('[mp] 💰 Coins updated from server:', coins);
+    // updateCoinDisplay handles window.playerCoins and localStorage
+    updateCoinDisplay(coins);
   });
 
   socket.on('serverFull', () => {
