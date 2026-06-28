@@ -32,6 +32,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { isValidGrassPosition } from './mapZones.js';
 
 // ----------------------------------------------------------------
 // Animal pack filenames -> .glb on disk. Edit this map if your
@@ -317,19 +318,10 @@ const FORBIDDEN_ZONES = [
  * (not in forbidden zones, not too close to island edge)
  */
 function isPositionValid(x, z) {
-  // Must be within island radius but not near beach edge
-  const distFromCenter = Math.sqrt(x * x + z * z);
-  if (distFromCenter < 70 || distFromCenter > 200) return false;
-
-  // Must not be in any forbidden zone
-  for (const zone of FORBIDDEN_ZONES) {
-    const dx = x - zone.x;
-    const dz = z - zone.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist < zone.radius) return false;
-  }
-
-  return true;
+  // FIXED: Use zone-aware validation from mapZones.js
+  // This ensures animals NEVER spawn in water (beach/shallow/deep zones)
+  // and respects the asymmetric ellipse island shape
+  return isValidGrassPosition(x, z);
 }
 
 export class AnimalManager {

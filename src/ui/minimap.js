@@ -108,6 +108,9 @@ export function renderMinimap() {
   // Draw grid
   _drawGrid(mapRadius, scale);
 
+  // Draw zone boundaries (grass/beach/shallow water)
+  _drawZoneBoundaries(mapRadius, scale);
+
   // Draw buildings (hangars)
   _drawHangars(scale);
 
@@ -149,6 +152,60 @@ export function renderMinimap() {
   _ctx.translate(centerX, centerY);
   _drawPlayer(0, 0, scale);
   _ctx.restore();
+}
+
+function _drawZoneBoundaries(mapRadius, scale) {
+  // Zone radii (from mapZones.js)
+  const GRASS_RADIUS = 255;
+  const BEACH_RADIUS = 350;
+  const SHALLOW_WATER_RADIUS = 500;
+
+  // Asymmetric expansion factors (from island.js)
+  const EAST_EXPANSION = 1.4;
+  const NS_EXPANSION = 2.38;
+
+  // Convert world radii to minimap screen radii
+  const grassScreenRadius = (GRASS_RADIUS / MINIMAP_WORLD_RADIUS) * mapRadius;
+  const beachScreenRadius = (BEACH_RADIUS / MINIMAP_WORLD_RADIUS) * mapRadius;
+  const shallowWaterScreenRadius = (SHALLOW_WATER_RADIUS / MINIMAP_WORLD_RADIUS) * mapRadius;
+
+  // Draw grass boundary (green line)
+  _ctx.strokeStyle = 'rgba(76, 175, 80, 0.6)'; // Green
+  _ctx.lineWidth = 2 * scale;
+  _drawAsymmetricEllipse(grassScreenRadius, EAST_EXPANSION, NS_EXPANSION);
+
+  // Draw beach boundary (yellow line)
+  _ctx.strokeStyle = 'rgba(255, 235, 59, 0.6)'; // Yellow
+  _ctx.lineWidth = 2 * scale;
+  _drawAsymmetricEllipse(beachScreenRadius, EAST_EXPANSION, NS_EXPANSION);
+
+  // Draw shallow water boundary (cyan line)
+  _ctx.strokeStyle = 'rgba(0, 188, 212, 0.5)'; // Cyan
+  _ctx.lineWidth = 1.5 * scale;
+  _drawAsymmetricEllipse(shallowWaterScreenRadius, EAST_EXPANSION, NS_EXPANSION);
+}
+
+function _drawAsymmetricEllipse(baseRadius, eastExpansion, nsExpansion) {
+  // Draw asymmetric ellipse by sampling points around the perimeter
+  _ctx.beginPath();
+  const segments = 128;
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    let x = Math.cos(angle) * baseRadius;
+    let y = Math.sin(angle) * baseRadius;
+
+    // Apply asymmetric expansions
+    if (x > 0) x *= eastExpansion;
+    y *= nsExpansion;
+
+    if (i === 0) {
+      _ctx.moveTo(x, y);
+    } else {
+      _ctx.lineTo(x, y);
+    }
+  }
+  _ctx.closePath();
+  _ctx.stroke();
 }
 
 function _drawGrid(mapRadius, scale) {

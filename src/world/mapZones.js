@@ -8,13 +8,13 @@
 const EAST_EXPANSION = 1.4;        // East side expands 40%
 const NORTH_SOUTH_EXPANSION = 2.38; // North/South expands 138%
 
-// Zone boundaries (radii before expansion)
+// Zone boundaries (radii before expansion) - UPDATED to match island.js
 const GRASS_INNER_RADIUS = 0;
-const GRASS_OUTER_RADIUS = 278.56;  // From island.js grassMesh
-const BEACH_INNER_RADIUS = 270.07;  // From island.js sandMesh inner
-const BEACH_OUTER_RADIUS = 347.84;  // From island.js sandMesh outer
+const GRASS_OUTER_RADIUS = 255;     // FIXED: Matches island.js grassMesh (reduced from 278.56)
+const BEACH_INNER_RADIUS = 255;     // FIXED: Starts where grass ends (was 270.07, had gap!)
+const BEACH_OUTER_RADIUS = 350;     // FIXED: Matches island.js sandMesh outer (was 347.84)
 const SHALLOW_WATER_INNER_RADIUS = BEACH_OUTER_RADIUS;
-const SHALLOW_WATER_OUTER_RADIUS = 450; // Reasonable shallow water extent
+const SHALLOW_WATER_OUTER_RADIUS = 500; // Reasonable shallow water extent (increased from 450)
 
 // Obstacle avoidance zones (buildings, paths, etc.)
 const AVOID_ZONES = [
@@ -113,7 +113,7 @@ export function isValidShallowWaterPosition(x, z) {
 
 /**
  * Generates a random position within the GRASS zone.
- * Tries multiple times to find a valid position, avoiding paths and buildings.
+ * Tries multiple times to find a valid position, avoiding paths, buildings, and water.
  * Returns { x, z } or null if no valid position found after maxAttempts.
  */
 export function randomGrassPosition(maxAttempts = 100) {
@@ -122,7 +122,9 @@ export function randomGrassPosition(maxAttempts = 100) {
     const angle = Math.random() * Math.PI * 2;
 
     // Generate random radius within grass zone (use sqrt for uniform distribution)
-    const radius = Math.sqrt(Math.random()) * GRASS_OUTER_RADIUS;
+    // CRITICAL: Use BEACH_INNER_RADIUS as outer limit to stay WELL INSIDE land
+    // This ensures we never spawn in the beach/water transition zone
+    const radius = Math.sqrt(Math.random()) * BEACH_INNER_RADIUS * 0.95; // 95% to add safety margin
 
     // Calculate base position
     let x = Math.cos(angle) * radius;
@@ -132,7 +134,7 @@ export function randomGrassPosition(maxAttempts = 100) {
     if (x > 0) x *= EAST_EXPANSION;
     z *= NORTH_SOUTH_EXPANSION;
 
-    // Check if valid
+    // Check if valid (on land, not on path/building)
     if (isValidGrassPosition(x, z)) {
       return { x, z };
     }

@@ -165,10 +165,10 @@ function addTerrain(scene) {
   bottom.position.y = -8;
   scene.add(bottom);
 
-  // Grass disc — inner island (r < 197), realistic PBR grass
-  // East expansion: 1.4x (197 → 276m), North/South: 2.38x (197 → 469m), West stays 197m
+  // Grass disc — inner island (reduced to make room for beach)
+  // FIXED: Grass ends at 255 (base), beach starts at 255, NO GAP
   const grassMesh = new THREE.Mesh(
-    createAsymmetricEllipse(278.56, 1.4, 2.38, 128),
+    createAsymmetricEllipse(255, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({
       map:          grassColor,
       normalMap:    grassNormal,
@@ -182,10 +182,10 @@ function addTerrain(scene) {
   grassMesh.receiveShadow = true;
   scene.add(grassMesh);
 
-  // Sand ring — beach zone (r 191–246 → asymmetric)
-  // East: 246 → 344m, North/South: 246 → 585m (138% expansion), West stays 246m
+  // Sand ring — beach zone (FIXED: continuous with grass, wider beach)
+  // Starts at 255 (where grass ends), extends to 350 for proper beach width
   const sandMesh = new THREE.Mesh(
-    createAsymmetricRing(270.07, 347.84, 1.4, 2.38, 128),
+    createAsymmetricRing(255, 350, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95, metalness: 0.0 })
   );
   sandMesh.rotation.x = -Math.PI / 2;
