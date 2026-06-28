@@ -357,7 +357,7 @@ function _onPath(x, z) {
   return false;
 }
 
-function addTrees(scene, maxTrees = 62) {
+function addTrees(scene, maxTrees = 120) { // Increased from 62 to cover larger area
   const avoid = [
     { x:   0, z: -162.6, r: 62 }, // N hangar (updated for elliptical island)
     { x: 162.6, z:    0, r: 62 }, // E hangar (updated for elliptical island)
@@ -368,24 +368,42 @@ function addTrees(scene, maxTrees = 62) {
 
   const rng = seededRng(17);
 
-  for (let i = 0; i < maxTrees; i++) {
-    let x, z, tries = 0;
-    do {
-      const a = rng() * Math.PI * 2;
-      const r = 65 + rng() * 120; // grass zone only: r 65–185
-      x = Math.cos(a) * r; z = Math.sin(a) * r;
-      tries++;
-    } while (tries < 80 && (
-      Math.hypot(x, z) > 183 ||              // outside grass zone
-      avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r) ||
-      _onPath(x, z)
-    ));
+  // IMPROVED: Spawn trees across ENTIRE playable map, not just center
+  // Define spawn zones to ensure even distribution including far areas
+  const spawnZones = [
+    // Original center ring (keep some trees here)
+    { xMin: -185, xMax: 185, zMin: -185, zMax: 185, count: 40, minDist: 65 }, // Center area
+    // Southwest grass field (where user reported empty)
+    { xMin: -180, xMax: -40, zMin: -120, zMax: -20, count: 25, minDist: 0 },
+    // Northwest area
+    { xMin: -180, xMax: -40, zMin: 20, zMax: 120, count: 20, minDist: 0 },
+    // Southeast area
+    { xMin: 40, xMax: 180, zMin: -120, zMax: -20, count: 20, minDist: 0 },
+    // Northeast area
+    { xMin: 40, xMax: 180, zMin: 20, zMax: 120, count: 15, minDist: 0 }
+  ];
 
-    if (Math.hypot(x, z) > 183) continue;   // give up on this slot
+  for (const zone of spawnZones) {
+    for (let i = 0; i < zone.count; i++) {
+      let x, z, tries = 0;
+      do {
+        // Random position within zone bounds
+        x = zone.xMin + rng() * (zone.xMax - zone.xMin);
+        z = zone.zMin + rng() * (zone.zMax - zone.zMin);
+        tries++;
+      } while (tries < 100 && (
+        (zone.minDist > 0 && Math.hypot(x, z) < zone.minDist) || // Respect minimum distance from center if specified
+        Math.hypot(x, z) > 200 ||              // Don't spawn too far (water boundary)
+        avoid.some(av => Math.hypot(av.x - x, av.z - z) < av.r) ||
+        _onPath(x, z)
+      ));
 
-    const scale = 0.55 + rng() * 0.45;
-    const rotY  = rng() * Math.PI * 2;
-    const y     = getSurfaceY(x, z);
-    spawnTree(scene, x, z, y, scale, rotY);
+      if (tries >= 100) continue; // give up on this slot
+
+      const scale = 0.55 + rng() * 0.45;
+      const rotY  = rng() * Math.PI * 2;
+      const y     = getSurfaceY(x, z);
+      spawnTree(scene, x, z, y, scale, rotY);
+    }
   }
 }

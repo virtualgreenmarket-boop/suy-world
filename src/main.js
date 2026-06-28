@@ -232,18 +232,37 @@ const animalManager = new AnimalManager({
 // Pass animalManager to localPlayer for collision detection
 setGLBAnimalManager(animalManager);
 
-// Spawn scattered GLB animals on grass areas (avoid plaza center and paths)
-console.log('[main] 🦌 Spawning GLB animals...');
-animalManager.spawnScattered(
-  ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'],
-  {
-    count: 18,
-    radius: 120,
-    center: { x: 0, y: 0, z: 0 },
-    animations: ['idle', 'walk', 'walk'] // More walk than idle for visible movement
-  }
+// Spawn scattered GLB animals ACROSS THE ENTIRE MAP (not just near center)
+// Multiple spawn zones for even distribution:
+console.log('[main] 🦌 Spawning GLB animals across entire map...');
+
+const animalSpawnZones = [
+  // Plaza/center area
+  { center: { x: 0, y: 0, z: 0 }, radius: 80, count: 8 },
+  // Southwest grass field (where user reported empty area)
+  { center: { x: -100, y: 0, z: -60 }, radius: 60, count: 6 },
+  // Northwest area (toward marina approach)
+  { center: { x: -150, y: 0, z: 40 }, radius: 70, count: 6 },
+  // Southeast area
+  { center: { x: 60, y: 0, z: -80 }, radius: 60, count: 5 },
+  // Northeast area
+  { center: { x: 80, y: 0, z: 60 }, radius: 60, count: 5 }
+];
+
+Promise.all(
+  animalSpawnZones.map(zone =>
+    animalManager.spawnScattered(
+      ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'],
+      {
+        count: zone.count,
+        radius: zone.radius,
+        center: zone.center,
+        animations: ['idle', 'walk', 'walk'] // More walk than idle for visible movement
+      }
+    )
+  )
 ).then(() => {
-  console.log('[main] ✅ GLB animals spawned successfully');
+  console.log('[main] ✅ GLB animals spawned successfully across entire map (30 total in 5 zones)');
 }).catch(err => {
   console.error('[main] ❌ Failed to spawn GLB animals:', err);
 });
