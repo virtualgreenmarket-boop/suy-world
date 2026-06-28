@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildCharacter, setCharacterEmotion, animateCharacter } from '../player/CharacterBuilder.js';
 import { getSurfaceY } from '../systems/terrain.js';
+import { registerMapEntity, unregisterMapEntity } from '../ui/minimapRegistry.js';
 
 // NPC instances
 const NPCS = [
@@ -21,6 +22,7 @@ class RoamingNPC {
     this.type = type;
     this.name = name;
     this.scene = scene;
+    this.mapEntityId = `roaming_npc_${name}_${Date.now()}`;
 
     // Build character - create wrapper group like localPlayer
     this.group = new THREE.Group();
@@ -46,8 +48,13 @@ class RoamingNPC {
 
     scene.add(this.group);
 
-    // Add name label above head
-    this._createNameLabel();
+    // Register on minimap with white color (different from GLB NPCs)
+    registerMapEntity(
+      this.mapEntityId,
+      'roaming_npc',
+      () => ({ x: this.group.position.x, z: this.group.position.z }),
+      { name: this.name }
+    );
 
     // State
     this.state = 'idle';
@@ -65,32 +72,6 @@ class RoamingNPC {
     this.direction = new THREE.Vector3();
 
     console.log(`[RoamingNPC] Created ${name} (${type}) at`, startPos);
-  }
-
-  _createNameLabel() {
-    // Create name label above head (simple text sprite)
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
-
-    context.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    context.font = 'bold 32px Arial';
-    context.fillStyle = '#FFFFFF';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(this.name, 128, 32);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(spriteMaterial);
-    sprite.scale.set(2, 0.5, 1);
-    sprite.position.set(0, 3.2, 0); // Above head
-    sprite.renderOrder = 1000;
-
-    this.group.add(sprite);
   }
 
   _randomTime(min, max) {
@@ -137,6 +118,7 @@ class RoamingNPC {
         this.state = 'idle';
         this.targetPos = null;
         this.speed = 0;
+        this.velocity.set(0, 0, 0); // Zero out velocity to stop movement
         this.nextStateChange = this._randomTime(2, 6);
         break;
 
@@ -226,7 +208,7 @@ class RoamingNPC {
       this._pickNewBehavior();
     }
 
-    // Movement logic
+    // Movement logic - ONLY move if not idle/facing
     if (this.state === 'walking' || this.state === 'running') {
       if (this.targetPos) {
         this.direction.copy(this.targetPos).sub(this.group.position);
@@ -235,6 +217,7 @@ class RoamingNPC {
 
         if (dist < 1.0) {
           // Reached destination
+          this.velocity.set(0, 0, 0); // Stop movement
           this._pickNewBehavior();
         } else {
           this.direction.normalize();
@@ -256,6 +239,7 @@ class RoamingNPC {
           // Stop and face
           this.state = 'facing_npc';
           this.speed = 0;
+          this.velocity.set(0, 0, 0); // Stop movement
           const angle = Math.atan2(this.direction.x, this.direction.z);
           this.group.rotation.y = angle;
           this.nextStateChange = this._randomTime(3, 6);
@@ -281,6 +265,7 @@ class RoamingNPC {
           // Stop near animal
           this.state = 'idle';
           this.speed = 0;
+          this.velocity.set(0, 0, 0); // Stop movement
           this.nextStateChange = this._randomTime(3, 6);
           this.stateTimer = 0;
         } else {
@@ -296,14 +281,20 @@ class RoamingNPC {
       }
     }
 
-    // Animate character
-    const animState = this.state === 'running' ? 'running' :
-                      (this.state === 'walking' || this.state === 'approaching_npc' || this.state === 'approaching_animal') ? 'walking' :
+    // Animate character - call on charModel itself with correct signature
+    const animState = this.state === 'running' ? 'run' :
+                      (this.state === 'walking' || this.state === 'approaching_npc' || this.state === 'approaching_animal') ? 'walk' :
                       'idle';
 
-    if (this.group.userData._charModel) {
-      this.group.userData._charModel.userData._animState = animState;
-      animateCharacter(this.group, delta);
+    const charModel = this.group.userData._charModel;
+    if (charModel && charModel.userData) {
+      // Update animation timer
+      if (!charModel.userData._animT) charModel.userData._animT = 0;
+      charModel.userData._animT += delta;
+
+      // animateCharacter signature: (group, animType, t, delta)
+      // Call on charModel (which has userData.parts), not wrapper group
+      animateCharacter(charModel, animState, charModel.userData._animT, delta);
     }
 
     // Ground height - use terrain system
@@ -331,4 +322,14 @@ export function updateRoamingNPCs(delta) {
 
 export function getRoamingNPCs() {
   return _npcs;
+}
+
+export function cleanupRoamingNPCs() {
+  _npcs.forEach(npc => {
+    unregisterMapEntity(npc.mapEntityId);
+    if (npc.group) {
+      _scene.remove(npc.group);
+    }
+  });
+  _npcs = [];
 }

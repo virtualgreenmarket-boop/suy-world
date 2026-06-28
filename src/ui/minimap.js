@@ -127,6 +127,9 @@ export function renderMinimap() {
       case 'npc':
         _drawNpc(screenX, screenY, scale);
         break;
+      case 'roaming_npc':
+        _drawRoamingNpc(screenX, screenY, scale);
+        break;
       case 'tree':
         _drawTree(screenX, screenY, scale);
         break;
@@ -206,6 +209,18 @@ function _drawPlayer(x, y, scale) {
 }
 
 function _drawNpc(x, y, scale) {
+  _ctx.beginPath();
+  _ctx.arc(x, y, 3 * scale, 0, Math.PI * 2);
+  _ctx.fillStyle = '#ffffff';
+  _ctx.fill();
+  _ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+  _ctx.lineWidth = 1 * scale;
+  _ctx.stroke();
+}
+
+function _drawRoamingNpc(x, y, scale) {
+  // White dot for roaming NPCs (Alex, Maya, Sam, Dana)
+  // No surrounding ring - that's only for the player
   _ctx.beginPath();
   _ctx.arc(x, y, 3 * scale, 0, Math.PI * 2);
   _ctx.fillStyle = '#ffffff';
