@@ -121,10 +121,11 @@ export function randomGrassPosition(maxAttempts = 100) {
     // Generate random angle
     const angle = Math.random() * Math.PI * 2;
 
-    // Generate random radius within grass zone (use sqrt for uniform distribution)
-    // CRITICAL: Use BEACH_INNER_RADIUS as outer limit to stay WELL INSIDE land
-    // This ensures we never spawn in the beach/water transition zone
-    const radius = Math.sqrt(Math.random()) * BEACH_INNER_RADIUS * 0.95; // 95% to add safety margin
+    // CRITICAL FIX: Generate radius MUCH smaller to account for expansion
+    // After expansion, positions can extend far beyond base radius
+    // Using 180 base radius: East 180*1.4=252, NS 180*2.38=428
+    // This keeps us safely inside grass zone (255 inner) even after expansion
+    const radius = Math.sqrt(Math.random()) * 180;
 
     // Calculate base position
     let x = Math.cos(angle) * radius;
@@ -134,7 +135,8 @@ export function randomGrassPosition(maxAttempts = 100) {
     if (x > 0) x *= EAST_EXPANSION;
     z *= NORTH_SOUTH_EXPANSION;
 
-    // Check if valid (on land, not on path/building)
+    // CRITICAL: Check if valid AFTER expansion
+    // Position may have been pushed into beach/water by expansion
     if (isValidGrassPosition(x, z)) {
       return { x, z };
     }

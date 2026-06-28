@@ -236,6 +236,15 @@ setGLBAnimalManager(animalManager);
 // Using randomGrassPosition from mapZones.js for natural, even distribution
 console.log('[main] 🦌 Spawning GLB animals across grass zone...');
 
+// CRITICAL: Clear all existing animals first (removes old spawns in water)
+animalManager.instances.forEach((instance, id) => {
+  if (instance.root && instance.root.parent) {
+    instance.root.parent.remove(instance.root);
+  }
+});
+animalManager.instances.clear();
+console.log('[main] Cleared all existing animals for re-spawn');
+
 import('./world/mapZones.js').then(({ randomGrassPosition }) => {
   const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'];
   const totalAnimals = 40; // Increased from 30 to fill larger grass zone

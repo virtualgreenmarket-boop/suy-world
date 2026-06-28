@@ -69,8 +69,46 @@ export function initIsland(scene, opts = {}) {
   addWater(scene);
   addShallowWater(scene);
   addShallowSeabed(scene);
+
+  // CRITICAL: Clear any existing trees/plants from previous sessions
+  // This ensures old spawns in water are removed
+  clearExistingTrees(scene);
+  clearExistingPlants(scene);
+
   addTrees(scene, opts.maxTrees ?? 150);
   initPlants(scene, opts.maxPlants ?? 200); // Add flowers, bushes, rocks
+}
+
+function clearExistingTrees(scene) {
+  // Remove all objects with 'TREE' label or tree-like userData
+  const toRemove = [];
+  scene.traverse(obj => {
+    if (obj.userData && obj.userData._isTree) {
+      toRemove.push(obj);
+    }
+    // Also check for tree labels
+    if (obj.name && obj.name.includes('tree')) {
+      toRemove.push(obj);
+    }
+  });
+  toRemove.forEach(obj => {
+    if (obj.parent) obj.parent.remove(obj);
+  });
+  console.log(`[island] Cleared ${toRemove.length} existing trees`);
+}
+
+function clearExistingPlants(scene) {
+  // Remove all plant objects
+  const toRemove = [];
+  scene.traverse(obj => {
+    if (obj.userData && obj.userData._isPlant) {
+      toRemove.push(obj);
+    }
+  });
+  toRemove.forEach(obj => {
+    if (obj.parent) obj.parent.remove(obj);
+  });
+  console.log(`[island] Cleared ${toRemove.length} existing plants`);
 }
 
 export function updateWater(delta) {

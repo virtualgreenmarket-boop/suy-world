@@ -248,6 +248,7 @@ export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
     tree.position.set(x, y, z);
     tree.scale.setScalar(scale);
     tree.rotation.y = (rotY !== undefined) ? rotY : Math.random() * Math.PI * 2;
+    tree.userData._isTree = true; // Mark for identification/cleanup
     scene.add(tree);
     if (scale > 0) {
       _treeCount++;
