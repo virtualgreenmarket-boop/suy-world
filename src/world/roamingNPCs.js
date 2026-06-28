@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildCharacter, setCharacterEmotion, animateCharacter } from '../player/CharacterBuilder.js';
+import { getSurfaceY } from '../systems/terrain.js';
 
 // NPC instances
 const NPCS = [
@@ -21,12 +22,32 @@ class RoamingNPC {
     this.name = name;
     this.scene = scene;
 
-    // Build character
-    this.group = buildCharacter(type);
+    // Build character - create wrapper group like localPlayer
+    this.group = new THREE.Group();
     this.group.position.set(startPos.x, 0, startPos.z);
+
+    // Build actual character model
+    const charModel = buildCharacter(type);
+    charModel.position.y = 0; // Position at group origin
+    this.group.add(charModel);
+
+    // Set up userData like localPlayer
+    this.group.userData._charModel = charModel;
+    this.group.userData._charType = type;
     this.group.userData._npcName = name;
     this.group.userData._isRoamingNPC = true;
+    this.group.userData._groundY = 0;
+
+    // Initialize animation state
+    if (charModel.userData) {
+      charModel.userData._animState = 'idle';
+      charModel.userData._animT = 0;
+    }
+
     scene.add(this.group);
+
+    // Add name label above head
+    this._createNameLabel();
 
     // State
     this.state = 'idle';
@@ -44,6 +65,32 @@ class RoamingNPC {
     this.direction = new THREE.Vector3();
 
     console.log(`[RoamingNPC] Created ${name} (${type}) at`, startPos);
+  }
+
+  _createNameLabel() {
+    // Create name label above head (simple text sprite)
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 64;
+
+    context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    context.font = 'bold 32px Arial';
+    context.fillStyle = '#FFFFFF';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(this.name, 128, 32);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(2, 0.5, 1);
+    sprite.position.set(0, 3.2, 0); // Above head
+    sprite.renderOrder = 1000;
+
+    this.group.add(sprite);
   }
 
   _randomTime(min, max) {
@@ -259,8 +306,10 @@ class RoamingNPC {
       animateCharacter(this.group, delta);
     }
 
-    // Ground height (simple for now)
-    this.group.position.y = 0;
+    // Ground height - use terrain system
+    const surfaceY = getSurfaceY(this.group.position.x, this.group.position.z);
+    this.group.position.y = surfaceY;
+    this.group.userData._groundY = surfaceY;
   }
 }
 
