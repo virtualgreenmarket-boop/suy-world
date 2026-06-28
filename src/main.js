@@ -33,6 +33,7 @@ import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
 import { AnimalManager } from './world/AnimalLoader.js';
+import { initRoamingNPCs, updateRoamingNPCs } from './world/roamingNPCs.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initShopUI } from './ui/ShopUI.js';
@@ -269,9 +270,12 @@ preloadPlayerCharacter(selectedCharacterId)
       setTimeout(() => {
         const playerGroup = scene.children.find(c => c.userData._charModel);
         if (playerGroup) {
-          initAnimalSystem(scene, playerGroup);
+          const animalSys = initAnimalSystem(scene, playerGroup);
           // Expose player group globally for shop and pet systems
           window._localPlayerGroup = playerGroup;
+
+          // Initialize roaming NPCs after animals are ready
+          initRoamingNPCs(scene, animalSys);
         }
       }, 1000);
     });
@@ -290,9 +294,12 @@ preloadPlayerCharacter(selectedCharacterId)
       setTimeout(() => {
         const playerGroup = scene.children.find(c => c.userData._charModel);
         if (playerGroup) {
-          initAnimalSystem(scene, playerGroup);
+          const animalSys = initAnimalSystem(scene, playerGroup);
           // Expose player group globally for shop and pet systems
           window._localPlayerGroup = playerGroup;
+
+          // Initialize roaming NPCs after animals are ready
+          initRoamingNPCs(scene, animalSys);
         }
       }, 1000);
     });
@@ -349,6 +356,7 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateAnimalSystem(delta);
+  updateRoamingNPCs(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
   }
