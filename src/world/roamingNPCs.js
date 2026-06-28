@@ -115,8 +115,19 @@ class RoamingNPC {
     return new THREE.Vector3(area.x(), 0, area.z());
   }
 
+  _pickSeaDestination() {
+    // Water's edge near marina - multiple points along the shoreline
+    const seaPoints = [
+      new THREE.Vector3(-280, 0, -15),  // North shoreline
+      new THREE.Vector3(-290, 0, -5),   // Central shoreline
+      new THREE.Vector3(-285, 0, 5),    // South shoreline
+      new THREE.Vector3(-295, 0, 0),    // Direct west point
+    ];
+    return seaPoints[Math.floor(Math.random() * seaPoints.length)];
+  }
+
   _pickNewBehavior() {
-    const behaviors = ['walk', 'run', 'idle', 'walk', 'walk', 'approach_npc', 'approach_animal'];
+    const behaviors = ['walk', 'run', 'idle', 'walk', 'walk', 'approach_npc', 'approach_animal', 'sea_trip'];
     const choice = behaviors[Math.floor(Math.random() * behaviors.length)];
 
     switch (choice) {
@@ -143,13 +154,35 @@ class RoamingNPC {
         break;
 
       case 'approach_npc':
-        // Pick another NPC
+        // FEATURE 1: Deliberate long-distance NPC targeting
+        // Pick ANY other NPC (near or far) - 60% chance of deliberate choice, 40% nearby-only
         const otherNPCs = _npcs.filter(npc => npc !== this);
         if (otherNPCs.length > 0) {
-          this.targetNPC = otherNPCs[Math.floor(Math.random() * otherNPCs.length)];
-          this.state = 'approaching_npc';
-          this.speed = 2.5;
-          this.nextStateChange = this._randomTime(5, 10);
+          if (Math.random() < 0.6) {
+            // Deliberate: pick ANY NPC regardless of distance
+            this.targetNPC = otherNPCs[Math.floor(Math.random() * otherNPCs.length)];
+            this.state = 'approaching_npc';
+            this.speed = 3.5; // Slightly faster for long-distance travel
+            this.nextStateChange = this._randomTime(15, 30); // Longer timeout for cross-map travel
+          } else {
+            // Legacy: pick nearby NPC only
+            const nearbyNPCs = otherNPCs.filter(npc => {
+              const dist = this.group.position.distanceTo(npc.group.position);
+              return dist < 50;
+            });
+            if (nearbyNPCs.length > 0) {
+              this.targetNPC = nearbyNPCs[Math.floor(Math.random() * nearbyNPCs.length)];
+              this.state = 'approaching_npc';
+              this.speed = 2.5;
+              this.nextStateChange = this._randomTime(5, 10);
+            } else {
+              // No nearby NPCs, pick random anyway
+              this.targetNPC = otherNPCs[Math.floor(Math.random() * otherNPCs.length)];
+              this.state = 'approaching_npc';
+              this.speed = 3.5;
+              this.nextStateChange = this._randomTime(15, 30);
+            }
+          }
         } else {
           this._pickNewBehavior(); // Fallback
         }
@@ -178,6 +211,16 @@ class RoamingNPC {
         } else {
           this._pickNewBehavior(); // Animal system not ready
         }
+        break;
+
+      case 'sea_trip':
+        // FEATURE 3: Sea round trip
+        // Phase 1: Run to sea
+        this.state = 'running_to_sea';
+        this.targetPos = this._pickSeaDestination();
+        this.speed = 5.0; // Run to sea
+        this.seaIdleDuration = this._randomTime(5, 10); // Random 5-10 seconds at sea
+        this.nextStateChange = this._randomTime(20, 40); // Max time for entire sea trip
         break;
     }
   }
@@ -225,20 +268,47 @@ class RoamingNPC {
     // State timeout
     if (this.stateTimer >= this.nextStateChange) {
       this.stateTimer = 0;
-      this._pickNewBehavior();
+
+      // FEATURE 3: Special handling for sea trip timeout
+      if (this.state === 'idle_at_sea') {
+        // Time to return from sea
+        this.state = 'returning_from_sea';
+        // Pick random point in plaza/map center
+        this.targetPos = new THREE.Vector3(
+          -20 + Math.random() * 40,
+          0,
+          -20 + Math.random() * 40
+        );
+        this.speed = Math.random() < 0.5 ? 3.0 : 5.0; // Mix of walk and run back
+        this.nextStateChange = this._randomTime(10, 20);
+      } else {
+        this._pickNewBehavior();
+      }
     }
 
     // Movement logic - ONLY move if not idle/facing
-    if (this.state === 'walking' || this.state === 'running') {
+    if (this.state === 'walking' || this.state === 'running' || this.state === 'running_to_sea') {
       if (this.targetPos) {
         this.direction.copy(this.targetPos).sub(this.group.position);
         this.direction.y = 0;
         const dist = this.direction.length();
 
-        if (dist < 1.0) {
+        // FEATURE 2: Improved arrival threshold - larger radius prevents getting stuck "almost there"
+        const arrivalThreshold = this.state === 'running_to_sea' ? 2.0 : 1.5;
+
+        if (dist < arrivalThreshold) {
           // Reached destination
           this.velocity.set(0, 0, 0); // Stop movement
-          this._pickNewBehavior();
+
+          // FEATURE 3: Sea trip - transition to idle at sea
+          if (this.state === 'running_to_sea') {
+            this.state = 'idle_at_sea';
+            this.speed = 0;
+            this.nextStateChange = this.seaIdleDuration || 7; // Use randomized duration
+            this.stateTimer = 0;
+          } else {
+            this._pickNewBehavior();
+          }
         } else {
           this.direction.normalize();
           this.velocity.copy(this.direction).multiplyScalar(this.speed * delta);
@@ -249,13 +319,38 @@ class RoamingNPC {
           this.group.rotation.y = angle;
         }
       }
+    } else if (this.state === 'idle_at_sea') {
+      // FEATURE 3: Standing at sea - do nothing, wait for timeout
+      // Timeout will trigger return journey
+      this.velocity.set(0, 0, 0);
+    } else if (this.state === 'returning_from_sea') {
+      // FEATURE 3: Return from sea - walk/run back to map center
+      if (this.targetPos) {
+        this.direction.copy(this.targetPos).sub(this.group.position);
+        this.direction.y = 0;
+        const dist = this.direction.length();
+
+        if (dist < 2.0) {
+          // Back to map - resume normal behavior
+          this.velocity.set(0, 0, 0);
+          this._pickNewBehavior();
+        } else {
+          this.direction.normalize();
+          this.velocity.copy(this.direction).multiplyScalar(this.speed * delta);
+          this.group.position.add(this.velocity);
+
+          const angle = Math.atan2(this.direction.x, this.direction.z);
+          this.group.rotation.y = angle;
+        }
+      }
     } else if (this.state === 'approaching_npc') {
       if (this.targetNPC && this.targetNPC.group) {
         this.direction.copy(this.targetNPC.group.position).sub(this.group.position);
         this.direction.y = 0;
         const dist = this.direction.length();
 
-        if (dist < 2.5) {
+        // FEATURE 2: Larger arrival threshold (3.0 instead of 2.5) prevents getting stuck
+        if (dist < 3.0) {
           // Stop and face
           this.state = 'facing_npc';
           this.speed = 0;
@@ -281,7 +376,8 @@ class RoamingNPC {
         this.direction.y = 0;
         const dist = this.direction.length();
 
-        if (dist < 3.0) {
+        // FEATURE 2: Larger arrival threshold (3.5 instead of 3.0) prevents getting stuck
+        if (dist < 3.5) {
           // Stop near animal
           this.state = 'idle';
           this.speed = 0;
@@ -302,7 +398,7 @@ class RoamingNPC {
     }
 
     // Animate character - call on charModel itself with correct signature
-    const animState = this.state === 'running' ? 'run' :
+    const animState = (this.state === 'running' || this.state === 'running_to_sea' || this.state === 'returning_from_sea') ? 'run' :
                       (this.state === 'walking' || this.state === 'approaching_npc' || this.state === 'approaching_animal') ? 'walk' :
                       'idle';
 
