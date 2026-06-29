@@ -20,6 +20,9 @@ let selectedColors = {
 let _currentCharacterType = 'boy';
 
 export function initInventoryButton() {
+  console.log('[inventory] ═══════════════════════════════════════════════════════');
+  console.log('[inventory] initInventoryButton() called - VERSION 2026-06-29-DEBUG');
+  console.log('[inventory] ═══════════════════════════════════════════════════════');
   console.log('[inventory] Initializing inventory button...');
 
   try {
@@ -118,6 +121,30 @@ export function initInventoryButton() {
         margin-bottom: 25px;
         border-bottom: 2px solid rgba(255,255,255,0.2);
         padding-bottom: 10px;
+        overflow-x: auto; /* Allow horizontal scrolling */
+        overflow-y: hidden;
+        /* Smooth scrolling on touch devices */
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+      }
+
+      /* Hide scrollbar but keep functionality */
+      .inventory-tabs::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .inventory-tabs::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 3px;
+      }
+
+      .inventory-tabs::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 3px;
+      }
+
+      .inventory-tabs::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.3);
       }
 
       .inventory-tab {
@@ -517,6 +544,9 @@ export function initInventoryButton() {
 
     if (isOpening) {
       console.log('[inventory] Opening bag panel');
+      console.log('[inventory] DEBUG: All localStorage keys:', Object.keys(localStorage));
+      console.log('[inventory] DEBUG: selected_character =', localStorage.getItem('selected_character'));
+      console.log('[inventory] DEBUG: selectedCharacter =', localStorage.getItem('selectedCharacter'));
 
       // Update character type from localStorage every time bag opens
       const CHARACTER_TYPES = ['boy', 'girl', 'zombie', 'demon', 'robot'];
@@ -526,14 +556,19 @@ export function initInventoryButton() {
         const charIndex = parseInt(savedCharacterId) - 1; // Convert 1-5 to 0-4
         const newCharType = CHARACTER_TYPES[charIndex] || 'boy';
 
-        // If character type changed, rebuild the preview
+        // ALWAYS rebuild preview to ensure it matches (handles cached/stale preview)
         if (newCharType !== _currentCharacterType) {
           console.log('[inventory] Character type changed from', _currentCharacterType, 'to', newCharType, '- rebuilding preview');
-          _currentCharacterType = newCharType;
+        } else {
+          console.log('[inventory] Character type confirmed as', newCharType, '- verifying preview matches');
+        }
 
+        // Force rebuild even if type seems same (handles initialization issues)
+        _currentCharacterType = newCharType;
+
+        if (_previewScene && _previewCharacter) {
           // Rebuild preview character
-          if (_previewScene && _previewCharacter) {
-            _previewScene.remove(_previewCharacter);
+          _previewScene.remove(_previewCharacter);
 
             // Get default colors for new character type
             const charDefaults = CHARACTERS[_currentCharacterType] || CHARACTERS.boy;
@@ -566,7 +601,8 @@ export function initInventoryButton() {
 
             _previewScene.add(_previewCharacter);
             console.log('[inventory] Preview rebuilt with character:', _currentCharacterType);
-          }
+        } else {
+          console.warn('[inventory] Cannot rebuild preview - scene or character missing');
         }
       }
 
@@ -619,16 +655,19 @@ export function initInventoryButton() {
   const CHARACTER_TYPES = ['boy', 'girl', 'zombie', 'demon', 'robot'];
   const savedCharacterId = localStorage.getItem('selected_character');
 
+  console.log('[inventory] INIT DEBUG: savedCharacterId =', savedCharacterId, 'type:', typeof savedCharacterId);
+
   if (savedCharacterId) {
     const charIndex = parseInt(savedCharacterId) - 1; // Convert 1-5 to 0-4
+    console.log('[inventory] INIT DEBUG: charIndex =', charIndex, 'mapped to:', CHARACTER_TYPES[charIndex]);
     _currentCharacterType = CHARACTER_TYPES[charIndex] || 'boy';
-    console.log('[inventory] Current character type from localStorage:', _currentCharacterType, '(ID:', savedCharacterId, ')');
+    console.log('[inventory] ✓ Current character type from localStorage:', _currentCharacterType, '(ID:', savedCharacterId, ')');
   } else if (window.localPlayer && window.localPlayer.userData && window.localPlayer.userData._charType) {
     _currentCharacterType = window.localPlayer.userData._charType;
-    console.log('[inventory] Current character type from localPlayer:', _currentCharacterType);
+    console.log('[inventory] ✓ Current character type from localPlayer:', _currentCharacterType);
   } else {
     _currentCharacterType = 'boy'; // fallback default
-    console.log('[inventory] Current character type defaulted to:', _currentCharacterType);
+    console.log('[inventory] ✓ Current character type defaulted to:', _currentCharacterType);
   }
 
   // Set default colors based on character type
