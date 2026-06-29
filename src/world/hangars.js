@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
@@ -54,7 +54,7 @@ function enhanceModelQuality(model) {
 // ── GLB NPC loader (North hangar) ────────────────────────────────────
 
 async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 model with embedded animation
 
   return new Promise((resolve, reject) => {
@@ -108,7 +108,7 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
 // ── GLB NPC loader (Center hangar - Skylar Breeze) ───────────────────
 
 async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 (same as north)
 
   return new Promise((resolve, reject) => {
@@ -158,7 +158,7 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
 // ── GLB NPC loader (South hangar - starfish necklace) ────────────────
 
 async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 (same as north)
 
   return new Promise((resolve, reject) => {

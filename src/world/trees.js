@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
 import { attachLabel, createLabel } from '../ui/labels.js';
 import { registerMapEntity } from '../ui/minimapRegistry.js';
@@ -8,7 +8,7 @@ const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
 const TEX_BASE = '/models/nature/trees/HighPoly%20Tree%20Model/Textures/';
 
-const _loader    = new GLTFLoader();
+const _loader    = createGLTFLoader();
 const _texLoader = new THREE.TextureLoader();
 let   _template  = null;
 let   _promise   = null;

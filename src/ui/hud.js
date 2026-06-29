@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { toggleSettingsPanel }  from './settingsPanel.js';
 
 let countEl, slotEl, coinEl;
@@ -237,7 +237,7 @@ function _init3DCoin(iconEl) {
   fill.position.set(-2, 1, -2);
   coinScene.add(fill);
 
-  new GLTFLoader().load('/models/ui/coin.glb', gltf => {
+  createGLTFLoader().load('/models/ui/coin.glb', gltf => {
     const coin = gltf.scene;
     const box  = new THREE.Box3().setFromObject(coin);
     const ctr  = box.getCenter(new THREE.Vector3());

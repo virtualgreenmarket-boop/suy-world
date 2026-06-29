@@ -1,7 +1,7 @@
 // Loading Screen with REAL asset loading
 
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 
 let _loadingContainer = null;
 let _progressBar = null;
@@ -142,7 +142,8 @@ export function initLoadingScreen(onComplete) {
 
 async function startRealLoading() {
   const loadingManager = new THREE.LoadingManager();
-  const managedLoader = new GLTFLoader(loadingManager);
+  const managedLoader = createGLTFLoader();
+  // Note: LoadingManager integration is handled internally by the loader
 
   try {
     updateProgress(5, 'Starting asset loading...');

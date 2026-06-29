@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { getSurfaceY } from '../systems/terrain.js';
 import { registerInteraction } from '../ui/interactionUI.js';
@@ -24,7 +24,7 @@ const _templates = []; // { scene, floorY, hasSkel, builtinClips, hasWalk }
 let _allLoaded   = false;
 let _loadPromise = null;
 
-const _loader = new GLTFLoader();
+const _loader = createGLTFLoader();
 
 // ── Preload ───────────────────────────────────────────────────────────
 

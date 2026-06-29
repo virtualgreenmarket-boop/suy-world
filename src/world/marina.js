@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { registerBox } from '../systems/collision.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
@@ -67,7 +67,7 @@ export function initMarina(scene) {
 // ── House (added to group so it inherits deck position) ───────────────
 
 function _loadHouse(group) {
-  new GLTFLoader().load(HOUSE_URL, gltf => {
+  createGLTFLoader().load(HOUSE_URL, gltf => {
     const model = gltf.scene;
     model.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
 
@@ -379,7 +379,7 @@ function _registerDeckCollision() {
 // ── Fisherman NPC ─────────────────────────────────────────────────────
 
 function _loadFishermanNpc(group) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/Fisherman/fisherman.glb';
 
   loader.load(modelPath, gltf => {
@@ -465,7 +465,7 @@ function _loadFishermanNpc(group) {
 }
 
 function _loadSkylarNpc(group) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb';
 
   loader.load(modelPath, gltf => {

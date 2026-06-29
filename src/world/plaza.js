@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { buildNpcCharacter } from './npc.js';
 import { spawnAllPlazaNpcs, updateAllPlazaNpcs, registerSitBenches } from './npcGlb.js';
 import { registerGround } from '../systems/terrain.js';
@@ -69,7 +69,7 @@ export function updatePlaza(delta, time) {
 // ── Bench GLB loading + placement ─────────────────────────────────────
 
 function _loadBenches(scene) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   loader.load(BENCH_URL, gltf => {
     const tmpl = gltf.scene;
     tmpl.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
