@@ -818,7 +818,7 @@ function buildKiosks(group, hangarIndex) {
     addKiosk(x, 0, entranceZ, Math.PI, 'entrance-west');
   }
 
-  // Rear wall (full 190m, 16 kiosks)
+  // Rear wall (full 190m, 16 kiosks) - face SOUTH toward center
   const rearZ = -D/2 + KIOSK_DEPTH/2 + 0.5;
   const rearStart = -W/2;
   const rearEnd = W/2;
@@ -826,10 +826,10 @@ function buildKiosks(group, hangarIndex) {
   const rearSpacing = rearSpan / 16;
   for (let i = 0; i < 16; i++) {
     const x = rearStart + rearSpacing * (i + 0.5);
-    addKiosk(x, 0, rearZ, 0, 'rear');
+    addKiosk(x, 0, rearZ, Math.PI, 'rear');
   }
 
-  // East side wall (11 kiosks)
+  // East side wall (11 kiosks) - face WEST toward center
   const eastX = W/2 - KIOSK_DEPTH/2 - 0.5;
   const sideStart = -D/2;
   const sideEnd = D/2;
@@ -837,15 +837,15 @@ function buildKiosks(group, hangarIndex) {
   const eastSpacing = sideSpan / 11;
   for (let i = 0; i < 11; i++) {
     const z = sideStart + eastSpacing * (i + 0.5);
-    addKiosk(eastX, 0, z, -Math.PI/2, 'east');
+    addKiosk(eastX, 0, z, Math.PI/2, 'east');
   }
 
-  // West side wall (11 kiosks)
+  // West side wall (11 kiosks) - face EAST toward center
   const westX = -W/2 + KIOSK_DEPTH/2 + 0.5;
   const westSpacing = sideSpan / 11;
   for (let i = 0; i < 11; i++) {
     const z = sideStart + westSpacing * (i + 0.5);
-    addKiosk(westX, 0, z, Math.PI/2, 'west');
+    addKiosk(westX, 0, z, -Math.PI/2, 'west');
   }
 
   console.log('[hangars] North hangar: Built', kioskNumber, 'market kiosks');
