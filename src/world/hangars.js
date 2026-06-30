@@ -5,7 +5,6 @@ import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { registerGround } from '../systems/terrain.js';
-import { registerBox } from '../systems/collision.js';
 
 // ── Enhance model quality helper ─────────────────────────────────────
 
@@ -407,11 +406,9 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   const slotSignMat = stdMat(0xBDBDBD, 0.82); // default: available (gray)
   const counterMat  = stdMat(0x90A4AE, 0.88);
 
-  // North hangar (index 0): 50 market kiosks along all 4 walls
-  if (hangarIndex === 0) {
-    buildKiosks(group, hangarIndex);
-  } else {
-    // East/Center and South hangars: original far wall slots
+  // North hangar (index 0): Empty for now - no shop slots
+  // East/Center and South hangars: far wall slots
+  if (hangarIndex !== 0) {
     buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
   }
 
@@ -700,218 +697,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
 
 // ── Market Kiosks (North Hangar only) — 50 open-front stalls ─────────
 
-function buildKiosks(group, hangarIndex) {
-  const { W, D, H } = HANGAR_DIMS[hangarIndex];
-
-  // Kiosk design constants
-  const KIOSK_WIDTH = 10;
-  const KIOSK_DEPTH = 8;
-  const KIOSK_HEIGHT = 4.5;
-  const POST_RADIUS = 0.25;
-  const WALL_THICKNESS = 0.15;
-  const WALL_CLEARANCE = 1.5; // Min clearance from hangar wall (prevents trapping)
-
-  // Curated roof color palette (6 colors, alternating)
-  const ROOF_COLORS = [
-    0xE67E22, // Warm orange
-    0x16A085, // Turquoise
-    0xC0392B, // Brick red
-    0x2980B9, // Ocean blue
-    0x8E44AD, // Purple
-    0x27AE60, // Green
-  ];
-
-  // Materials - created ONCE and shared across all kiosks
-  // Using MeshLambertMaterial instead of MeshStandardMaterial to avoid
-  // roughness/metalness uniform resolution issues with EffectComposer
-  const postMat = new THREE.MeshLambertMaterial({
-    color: 0x8B6914
-  });
-
-  const wallMat = new THREE.MeshLambertMaterial({
-    color: 0xF5F5DC
-  });
-
-  const counterMat = new THREE.MeshLambertMaterial({
-    color: 0xA0826D
-  });
-
-  // Create one roof material per color (6 total, shared across all kiosks)
-  const roofMaterials = ROOF_COLORS.map(color =>
-    new THREE.MeshLambertMaterial({ color })
-  );
-
-  let kioskNumber = 0;
-
-  // Helper to build one kiosk
-  function addKiosk(x, y, z, rotY, facingDir) {
-    kioskNumber++;
-    const colorIndex = (kioskNumber - 1) % ROOF_COLORS.length;
-    const roofMat = roofMaterials[colorIndex]; // Reuse shared material
-
-    const kiosk = new THREE.Group();
-    kiosk.position.set(x, y, z);
-    kiosk.rotation.y = rotY;
-
-    // 4 corner posts (wood columns)
-    const postGeo = new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, KIOSK_HEIGHT, 8);
-    [
-      [-KIOSK_WIDTH/2, -KIOSK_DEPTH/2],
-      [KIOSK_WIDTH/2, -KIOSK_DEPTH/2],
-      [-KIOSK_WIDTH/2, KIOSK_DEPTH/2],
-      [KIOSK_WIDTH/2, KIOSK_DEPTH/2],
-    ].forEach(([px, pz]) => {
-      const post = new THREE.Mesh(postGeo, postMat);
-      post.position.set(px, KIOSK_HEIGHT/2, pz);
-      post.castShadow = true;
-      kiosk.add(post);
-    });
-
-    // Back wall (solid)
-    const backWall = new THREE.Mesh(
-      new THREE.BoxGeometry(KIOSK_WIDTH, KIOSK_HEIGHT, WALL_THICKNESS),
-      wallMat
-    );
-    backWall.position.set(0, KIOSK_HEIGHT/2, KIOSK_DEPTH/2);
-    backWall.castShadow = true;
-    backWall.receiveShadow = true;
-    kiosk.add(backWall);
-
-    // Side walls (left and right)
-    const sideWallGeo = new THREE.BoxGeometry(WALL_THICKNESS, KIOSK_HEIGHT, KIOSK_DEPTH);
-    [-KIOSK_WIDTH/2, KIOSK_WIDTH/2].forEach(sx => {
-      const sideWall = new THREE.Mesh(sideWallGeo, wallMat);
-      sideWall.position.set(sx, KIOSK_HEIGHT/2, 0);
-      sideWall.castShadow = true;
-      sideWall.receiveShadow = true;
-      kiosk.add(sideWall);
-    });
-
-    // Sloped roof (slight 5° angle)
-    const roofGroup = new THREE.Group();
-    const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(KIOSK_WIDTH + 0.5, 0.2, KIOSK_DEPTH + 0.5),
-      roofMat
-    );
-    roof.position.set(0, KIOSK_HEIGHT, 0);
-    roof.rotation.x = Math.PI / 36; // 5° slope
-    roof.castShadow = true;
-    kiosk.add(roof);
-
-    // Display counter at front (open side)
-    const counter = new THREE.Mesh(
-      new THREE.BoxGeometry(KIOSK_WIDTH - 1, 1.0, 1.2),
-      counterMat
-    );
-    counter.position.set(0, 0.5, -KIOSK_DEPTH/2 + 0.6);
-    counter.castShadow = true;
-    counter.receiveShadow = true;
-    kiosk.add(counter);
-
-    // Number sign above entrance
-    const numSign = _buildRoomNumberSign(kioskNumber);
-    numSign.position.set(0, KIOSK_HEIGHT - 0.5, -KIOSK_DEPTH/2 - 0.1);
-    kiosk.add(numSign);
-
-    group.add(kiosk);
-
-    // Register single collision box for entire kiosk (prevents corner-post trapping)
-    // Shrink box slightly to match actual visual geometry (posts are only 0.25m radius)
-    const worldX = x;
-    const worldZ = z;
-    const c = Math.cos(rotY);
-    const s = Math.sin(rotY);
-
-    // Calculate rotated bounding box corners in world space
-    // Shrink by 0.3m on each side to account for open front and thin posts
-    const hw = (KIOSK_WIDTH / 2) - 0.3;  // 5m → 4.7m
-    const hd = (KIOSK_DEPTH / 2) - 0.3;  // 4m → 3.7m
-    const corners = [
-      [worldX + c * -hw - s * -hd, worldZ + s * -hw + c * -hd],
-      [worldX + c *  hw - s * -hd, worldZ + s *  hw + c * -hd],
-      [worldX + c * -hw - s *  hd, worldZ + s * -hw + c *  hd],
-      [worldX + c *  hw - s *  hd, worldZ + s *  hw + c *  hd],
-    ];
-
-    const minX = Math.min(...corners.map(p => p[0]));
-    const maxX = Math.max(...corners.map(p => p[0]));
-    const minZ = Math.min(...corners.map(p => p[1]));
-    const maxZ = Math.max(...corners.map(p => p[1]));
-
-    registerBox(minX, maxX, minZ, maxZ);
-
-    // Register slot
-    const slotId = allSlots.length;
-    allSlots.push({
-      id: slotId,
-      hangarIndex,
-      wall: facingDir,
-      slotIndex: kioskNumber - 1,
-      localPos: new THREE.Vector3(x, 0, z),
-      signMesh: numSign,
-      status: 'available',
-      worldPos: new THREE.Vector3(),
-    });
-  }
-
-  // Entrance wall - East segment (X=-39.5 to X=+45, 84.5m, 6 kiosks)
-  // 1.5m clearance from wall prevents player from entering gap
-  const entranceZ = D/2 - KIOSK_DEPTH/2 - WALL_CLEARANCE;
-  const entranceEastStart = -39.5;
-  const entranceEastEnd = 45;
-  const entranceEastSpan = entranceEastEnd - entranceEastStart;
-  const entranceEastSpacing = entranceEastSpan / 6;
-  for (let i = 0; i < 6; i++) {
-    const x = entranceEastStart + entranceEastSpacing * (i + 0.5);
-    addKiosk(x, 0, entranceZ, Math.PI, 'entrance-east');
-  }
-
-  // Entrance wall - West segment (X=-145 to X=-60.5, 84.5m, 6 kiosks)
-  const entranceWestStart = -145;
-  const entranceWestEnd = -60.5;
-  const entranceWestSpan = entranceWestEnd - entranceWestStart;
-  const entranceWestSpacing = entranceWestSpan / 6;
-  for (let i = 0; i < 6; i++) {
-    const x = entranceWestStart + entranceWestSpacing * (i + 0.5);
-    addKiosk(x, 0, entranceZ, Math.PI, 'entrance-west');
-  }
-
-  // Rear wall (full 190m, 15 kiosks instead of 16) - face SOUTH toward center
-  // Reduced from 16 to 15 to ensure 2m+ gap between kiosks (prevents trapping)
-  // 190m / 15 = 12.67m spacing → 2.67m gap (safe)
-  const rearZ = -D/2 + KIOSK_DEPTH/2 + WALL_CLEARANCE;
-  const rearStart = -W/2;
-  const rearEnd = W/2;
-  const rearSpan = rearEnd - rearStart;
-  const rearCount = 15; // Reduced from 16
-  const rearSpacing = rearSpan / rearCount;
-  for (let i = 0; i < rearCount; i++) {
-    const x = rearStart + rearSpacing * (i + 0.5);
-    addKiosk(x, 0, rearZ, Math.PI, 'rear');
-  }
-
-  // East side wall (11 kiosks) - face WEST toward center
-  // 143.85m / 11 = 13.08m spacing → 3.08m gap (safe)
-  const eastX = W/2 - KIOSK_DEPTH/2 - WALL_CLEARANCE;
-  const sideStart = -D/2;
-  const sideEnd = D/2;
-  const sideSpan = sideEnd - sideStart;
-  const eastSpacing = sideSpan / 11;
-  for (let i = 0; i < 11; i++) {
-    const z = sideStart + eastSpacing * (i + 0.5);
-    addKiosk(eastX, 0, z, Math.PI/2, 'east');
-  }
-
-  // West side wall (11 kiosks) - face EAST toward center
-  const westX = -W/2 + KIOSK_DEPTH/2 + WALL_CLEARANCE;
-  const westSpacing = sideSpan / 11;
-  for (let i = 0; i < 11; i++) {
-    const z = sideStart + westSpacing * (i + 0.5);
-    addKiosk(westX, 0, z, -Math.PI/2, 'west');
-  }
-
-  console.log('[hangars] North hangar: Built', kioskNumber, 'market kiosks');
-}
+// buildKiosks() removed - North hangar is now empty
 
 function finaliseSlotPositions(group, hangarIndex) {
   group.updateMatrixWorld(true);
