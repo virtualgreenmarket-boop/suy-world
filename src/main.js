@@ -445,10 +445,13 @@ function animate() {
   }
 
   // ── Minimap updates every frame ───────────────────────────────────────
+  // Only update minimap if player exists (avoid race condition during startup)
   const playerPos = getLocalPlayerPosition();
-  const playerRotY = getLocalPlayerRotY();
-  const cameraYaw = getCameraYaw();
-  updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY, cameraYaw);
+  if (playerPos) {
+    const playerRotY = getLocalPlayerRotY();
+    const cameraYaw = getCameraYaw();
+    updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY, cameraYaw);
+  }
   renderMinimap();
 
   composer.render();
