@@ -524,6 +524,13 @@ function _buildRoomNumberSign(number) {
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
 
+  // Null-safety check - verify canvas is valid
+  if (!ctx || canvas.width === 0 || canvas.height === 0) {
+    console.warn('[hangars] Invalid canvas for sign', number);
+    // Return empty mesh with no material
+    return new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+  }
+
   // Background
   ctx.fillStyle = '#2C2C2C';
   ctx.beginPath();
@@ -544,16 +551,22 @@ function _buildRoomNumberSign(number) {
   ctx.textBaseline = 'middle';
   ctx.fillText(String(number), 128, 128);
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  tex.needsUpdate = true; // Explicitly mark as ready
-
+  // CRITICAL: Create material with map: null first, assign texture AFTER drawing is complete
   const mat = new THREE.MeshBasicMaterial({
-    map: tex,
+    map: null,  // Start with null
     side: THREE.DoubleSide,
     transparent: true
   });
+
+  // Now create texture AFTER all drawing is done
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+
+  // Assign texture to material AFTER it's created
+  mat.map = tex;
+  mat.needsUpdate = true; // Mark material for update
+  tex.needsUpdate = true; // Mark texture for upload
 
   // Cache the material
   _signMaterialCache.set(number, mat);
