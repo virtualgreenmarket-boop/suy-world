@@ -291,23 +291,23 @@ function getBrickMat() {
 
 // ── Dimensions ────────────────────────────────────────────────────────
 // Per-hangar exterior dimensions: [North, East/Center, South].
-// North PHASE 2: 190m wide (centered on X=0, ±95m) × 143.85m deep (Z:-99.15 to Z:-243), 17.5m walls, 1.5m roof.
+// ALL HANGARS: 190m wide × 143.85m deep × 17.5m tall (unified dimensions)
 export const HANGAR_DIMS = [
-  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - PHASE 2: 190m width, centered
-  { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
-  { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - centered at X=0
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // East/Center - centered at X=162.6, Z=0
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // South - centered at X=0, Z=162.6
 ];
 
 // ── Positions ─────────────────────────────────────────────────────────
-// Hangar positions - moved 20% further from plaza for elliptical island
-// (135.5 × 1.2 = 162.6m from center).
-// North hangar PHASE 1: entrance fixed at z=-99.15, far end at z=-243.
-// Center = (-99.15 + -243) / 2 = -171.075
+// ALL HANGARS: Unified 190m × 143.85m × 17.5m dimensions, each centered at their position.
+// North: entrance at z=-99.15, extends to z=-243
+// East/Center: rotated 90°, entrance faces west (toward plaza)
+// South: rotated 180°, entrance faces north (toward plaza)
 // Exported so collision.js can build wall colliders that always match the real geometry.
 export const HANGAR_CONFIGS = [
-  { x:   0, z: -171.075, rotY: 0,           name: 'North Hangar' }, // entrance at z=-99.15, far end at z=-243
-  { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },
-  { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },
+  { x:   0,     z: -171.075, rotY: 0,           name: 'North Hangar' }, // center at z=-171.075 (entrance z=-99.15, far z=-243)
+  { x: 162.6,   z: 0,        rotY: -Math.PI / 2, name: 'East Hangar'  }, // center at x=162.6, z=0
+  { x:   0,     z: 162.6,    rotY: Math.PI,      name: 'South Hangar' }, // center at x=0, z=162.6
 ];
 
 // ── Room constants (15 rooms per side, 30 total — North hangar only) ──
