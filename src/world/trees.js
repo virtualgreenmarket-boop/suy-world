@@ -165,9 +165,9 @@ export function spawnPlazaTree(scene) {
     const h    = Math.max(box1.max.y - box1.min.y, 0.01);
     fbx.scale.setScalar(27.5 / h);
 
-    // Seat on ground
+    // Seat on ground at plaza location
     const box2 = new THREE.Box3().setFromObject(fbx);
-    fbx.position.set(0, -box2.min.y, 0);
+    fbx.position.set(-50, -box2.min.y, 0); // Plaza offset: -50m toward marina
     scene.add(fbx);
 
     // Procedural leaf canopy — guarantees visible foliage regardless of FBX mesh names
@@ -175,7 +175,7 @@ export function spawnPlazaTree(scene) {
 
     _treeCount++;
     const plazaLabel = createLabel(`TREE ${_treeCount}`);
-    plazaLabel.position.set(0, 32.5, 0); // 26 * 1.25 = 32.5 (adjusted for 25% larger tree)
+    plazaLabel.position.set(-50, 32.5, 0); // Plaza offset + tree height
     scene.add(plazaLabel);
 
     // Ground AO shadow decal
@@ -190,7 +190,7 @@ export function spawnPlazaTree(scene) {
       })
     );
     aoDecal.rotation.x = -Math.PI / 2;
-    aoDecal.position.set(0, 0.03, 0);
+    aoDecal.position.set(-50, 0.03, 0); // Plaza offset
     scene.add(aoDecal);
 
     console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 27.5 m (25% larger)');
@@ -226,7 +226,7 @@ function _addPlazaLeafCanopy(scene, leafTex) {
       const w    = (2.8 + rng() * 2.8) * 1.25;  // 3.5–7 m card width (25% larger)
       const card = new THREE.Mesh(new THREE.PlaneGeometry(w, w), mat);
       card.position.set(
-        Math.cos(angle) * radius + (rng() - 0.5) * 2.0,
+        -50 + Math.cos(angle) * radius + (rng() - 0.5) * 2.0, // Plaza offset X
         baseH            + (rng() - 0.5) * 2.5,
         Math.sin(angle) * radius + (rng() - 0.5) * 2.0
       );

@@ -300,14 +300,15 @@ export const HANGAR_DIMS = [
 
 // ── Positions ─────────────────────────────────────────────────────────
 // ALL HANGARS: Unified 190m × 143.85m × 17.5m dimensions, each centered at their position.
+// Plaza moved -50m (toward marina), North and South hangars follow.
 // North: entrance at z=-99.15, extends to z=-243
-// East/Center: rotated 90°, entrance faces west (toward plaza)
-// South: rotated 180°, entrance faces north (toward plaza)
+// East/Center: rotated 90°, entrance faces west (toward plaza at x=-50)
+// South: rotated 180°, entrance faces north (toward plaza at x=-50)
 // Exported so collision.js can build wall colliders that always match the real geometry.
 export const HANGAR_CONFIGS = [
-  { x:   0,     z: -171.075, rotY: 0,           name: 'North Hangar' }, // center at z=-171.075 (entrance z=-99.15, far z=-243)
-  { x: 162.6,   z: 0,        rotY: -Math.PI / 2, name: 'East Hangar'  }, // center at x=162.6, z=0
-  { x:   0,     z: 162.6,    rotY: Math.PI,      name: 'South Hangar' }, // center at x=0, z=162.6
+  { x:  -50,    z: -171.075, rotY: 0,           name: 'North Hangar' }, // moved -50m with plaza
+  { x: 162.6,   z: 0,        rotY: -Math.PI / 2, name: 'East Hangar'  }, // unchanged - perpendicular to plaza movement
+  { x:  -50,    z: 162.6,    rotY: Math.PI,      name: 'South Hangar' }, // moved -50m with plaza
 ];
 
 // ── Room constants (15 rooms per side, 30 total — North hangar only) ──

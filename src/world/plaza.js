@@ -8,6 +8,8 @@ import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 import { attachLabel } from '../ui/labels.js';
 
 const PLAZA_SIZE        = 82;
+const PLAZA_OFFSET_X    = -50;  // Plaza moved 50m toward marina (west)
+const PLAZA_OFFSET_Z    = 0;
 const FLOOR_Y           = 0.35;
 const CENTRAL_TREE_H    = 30;
 const BENCH_URL         = '/models/furniture/benches/bench_aged_and_gritty.glb';
@@ -34,13 +36,13 @@ export function initPlaza(scene) {
 
   // Two seat anchors per bench — the nearest one wins as the player moves left/right.
   const _seat = (sx, sz, frontFacingY) => {
-    registerInteraction([sx, FLOOR_Y, sz], 'Sit', 3.0, () => {
+    registerInteraction([PLAZA_OFFSET_X + sx, FLOOR_Y, PLAZA_OFFSET_Z + sz], 'Sit', 3.0, () => {
       if (isPlayerSitting()) {
         standUp();
         setActiveInteractionLabel('Sit');
         return;
       }
-      sitOnBench(sx, FLOOR_Y, sz, frontFacingY);
+      sitOnBench(PLAZA_OFFSET_X + sx, FLOOR_Y, PLAZA_OFFSET_Z + sz, frontFacingY);
       setActiveInteractionLabel('Stand Up');
     });
   };
@@ -107,7 +109,7 @@ function _loadBenches(scene) {
 function _placeBench(scene, tmpl, x, y, z, rotY) {
   const inst = tmpl.tmpl.clone(true);
   // y argument is already world Y; add floorY so the model base sits on the surface
-  inst.position.set(x, y + tmpl.floorY, z);
+  inst.position.set(PLAZA_OFFSET_X + x, y + tmpl.floorY, PLAZA_OFFSET_Z + z);
   inst.rotation.y = rotY;
   inst.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
   inst.seatY     = tmpl.seatY;
@@ -156,14 +158,14 @@ function addSideBenchesFallback(scene) {
     { x:  WALL, z:  POS, ry: -Math.PI/2 },
   ].forEach(({ x, z, ry }) => {
     const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.9), seatMat);
-    seat.position.set(x, FLOOR_Y + 0.47, z);
+    seat.position.set(PLAZA_OFFSET_X + x, FLOOR_Y + 0.47, PLAZA_OFFSET_Z + z);
     seat.rotation.y = ry;
     seat.castShadow = seat.receiveShadow = true;
     scene.add(seat);
     const lGeo = new THREE.BoxGeometry(0.14, 0.47, 0.14);
     [-0.7, 0.7].forEach(lo => {
       const leg = new THREE.Mesh(lGeo, legMat);
-      leg.position.set(x + Math.sin(ry) * lo, FLOOR_Y + 0.235, z + Math.cos(ry) * lo);
+      leg.position.set(PLAZA_OFFSET_X + x + Math.sin(ry) * lo, FLOOR_Y + 0.235, PLAZA_OFFSET_Z + z + Math.cos(ry) * lo);
       leg.castShadow = true;
       scene.add(leg);
     });
@@ -198,14 +200,14 @@ function addFloor(scene) {
     aoMap:          aoTex,
     aoMapIntensity: 1.0,
   }));
-  floor.position.y = FLOOR_Y - 0.4;
+  floor.position.set(PLAZA_OFFSET_X, FLOOR_Y - 0.4, PLAZA_OFFSET_Z);
   floor.receiveShadow = true;
   scene.add(floor);
   registerGround(floor);
 
   const borderMat = new THREE.MeshStandardMaterial({ color: 0x828070, roughness: 0.88, metalness: 0.0 });
   const border = new THREE.Mesh(new THREE.BoxGeometry(PLAZA_SIZE + 4, 0.32, PLAZA_SIZE + 4), borderMat);
-  border.position.y = 0.16;
+  border.position.set(PLAZA_OFFSET_X, 0.16, PLAZA_OFFSET_Z);
   border.receiveShadow = true;
   scene.add(border);
 }
@@ -215,11 +217,11 @@ function addFloor(scene) {
 function addNpc(scene) {
   // Brighten color by 20%: 0xFFB300 → 0xFFCC33
   const npc = buildNpcCharacter(0xFFCC33, 'mainStore');
-  npc.position.set(6, 0.80, 6);
+  npc.position.set(PLAZA_OFFSET_X + 6, 0.80, PLAZA_OFFSET_Z + 6);
   npc.userData.animType = 'dance';
   scene.add(npc);
 
-  registerInteraction([6, 2.5, 6], 'חנות', 3, () => {
+  registerInteraction([PLAZA_OFFSET_X + 6, 2.5, PLAZA_OFFSET_Z + 6], 'חנות', 3, () => {
     if (window.openMainShop) {
       window.openMainShop();
     } else {
@@ -263,9 +265,9 @@ function createBirds(scene) {
 function _updateBird(b, delta, time) {
   b.angle += b.speed * delta;
   b.group.position.set(
-    Math.cos(b.angle) * b.orbitR,
+    PLAZA_OFFSET_X + Math.cos(b.angle) * b.orbitR,
     b.orbitH + Math.sin(time * b.bobFreq + b.bobPhase) * b.bobAmp,
-    Math.sin(b.angle) * b.orbitR
+    PLAZA_OFFSET_Z + Math.sin(b.angle) * b.orbitR
   );
   b.group.rotation.y = b.angle+(b.speed>0?Math.PI/2:-Math.PI/2);
   b.group.rotation.z = b.speed>0?-0.18:0.18;
@@ -297,7 +299,7 @@ function _addBenchLabels(scene) {
       transparent: true,
       depthWrite: false,
     }));
-    sprite.position.set(x, FLOOR_Y + 2.6, z);
+    sprite.position.set(PLAZA_OFFSET_X + x, FLOOR_Y + 2.6, PLAZA_OFFSET_Z + z);
     sprite.scale.set(1.8, 1.0, 1);
     scene.add(sprite);
   }
