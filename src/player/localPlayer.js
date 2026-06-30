@@ -378,16 +378,17 @@ function computeIslandRadius() {
 /**
  * Tests if position (x, z) is within playable bounds.
  * Uses asymmetric ellipse shape matching the actual island geometry.
- * Boundary is positioned 20-50m into deep water for swimming/boating room.
+ * Boundary positioned in deep water, allowing free movement on island, beach, and shallow water.
  */
 function isWithinPlayableBounds(x, z) {
   // Island expansion factors (from island.js)
   const EAST_EXPANSION = 1.4;
   const NORTH_SOUTH_EXPANSION = 2.38;
 
-  // Playable boundary: extends well into deep water (beyond beach + shallow water)
-  // Beach ends at ~350, shallow water ~500, so boundary at 550 gives 50m of deep water
-  const PLAYABLE_RADIUS = 550;
+  // Playable boundary: far into deep water
+  // Grass: 255, Beach: 350, Shallow water: 500
+  // Boundary at 650 allows full access to island + beach + shallow water + swimming room
+  const PLAYABLE_RADIUS = 650;
 
   // Normalize coordinates for asymmetric ellipse
   const normalizedX = x > 0 ? x / EAST_EXPANSION : x;
