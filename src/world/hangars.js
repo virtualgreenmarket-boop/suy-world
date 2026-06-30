@@ -405,11 +405,11 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   const slotSignMat = stdMat(0xBDBDBD, 0.82); // default: available (gray)
   const counterMat  = stdMat(0x90A4AE, 0.88);
 
-  if (hangarIndex === 0) {
-    buildRooms(group, 'left',  hangarIndex);
-    buildRooms(group, 'right', hangarIndex);
+  // North hangar (index 0): No shop slots - empty for redesign
+  if (hangarIndex !== 0) {
+    // Only build slots for East/Center and South hangars
+    buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
   }
-  buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
 
   // ── Entrance NPC character ────────────────────────────────────────
   // Floor top surface is at y=0.5 (floor center at 0.25 + thickness/2)
