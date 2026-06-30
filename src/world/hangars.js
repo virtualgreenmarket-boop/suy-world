@@ -829,26 +829,9 @@ function buildKiosks(group, hangarIndex) {
     });
   }
 
-  // Entrance wall - East segment (X=-39.5 to X=+45, 6 kiosks)
-  const entranceZ = D/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
-  const entranceEastStart = -39.5;
-  const entranceEastSpan = 45 - entranceEastStart; // 84.5m
-  const entranceEastSpacing = entranceEastSpan / 6;
-  for (let i = 0; i < 6; i++) {
-    const x = entranceEastStart + entranceEastSpacing * (i + 0.5);
-    addKiosk(x, entranceZ, Math.PI, 'entrance-east');
-  }
+  // NO kiosks on entrance wall - keep it clear for entry
 
-  // Entrance wall - West segment (X=-145 to X=-60.5, 6 kiosks)
-  const entranceWestEnd = -60.5;
-  const entranceWestSpan = entranceWestEnd - (-145); // 84.5m
-  const entranceWestSpacing = entranceWestSpan / 6;
-  for (let i = 0; i < 6; i++) {
-    const x = -145 + entranceWestSpacing * (i + 0.5);
-    addKiosk(x, entranceZ, Math.PI, 'entrance-west');
-  }
-
-  // Rear wall (full 190m, 16 kiosks)
+  // Rear wall (north, full 190m, 16 kiosks facing SOUTH toward center)
   const rearZ = -D/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
   const rearSpacing = W / 16; // 190/16 = 11.875m
   for (let i = 0; i < 16; i++) {
@@ -856,18 +839,19 @@ function buildKiosks(group, hangarIndex) {
     addKiosk(x, rearZ, 0, 'rear');
   }
 
-  // East side wall (11 kiosks)
+  // East side wall (12 kiosks facing WEST toward center)
   const eastX = W/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
-  const sideSpacing = D / 11; // 143.85/11 = 13.077m
-  for (let i = 0; i < 11; i++) {
-    const z = -D/2 + sideSpacing * (i + 0.5);
+  const eastSpacing = D / 12; // 143.85/12 = 11.99m
+  for (let i = 0; i < 12; i++) {
+    const z = -D/2 + eastSpacing * (i + 0.5);
     addKiosk(eastX, z, -Math.PI/2, 'east');
   }
 
-  // West side wall (11 kiosks)
+  // West side wall (12 kiosks facing EAST toward center)
   const westX = -W/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
-  for (let i = 0; i < 11; i++) {
-    const z = -D/2 + sideSpacing * (i + 0.5);
+  const westSpacing = D / 12; // 143.85/12 = 11.99m
+  for (let i = 0; i < 12; i++) {
+    const z = -D/2 + westSpacing * (i + 0.5);
     addKiosk(westX, z, Math.PI/2, 'west');
   }
 
