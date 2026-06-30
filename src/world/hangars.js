@@ -291,9 +291,9 @@ function getBrickMat() {
 
 // ── Dimensions ────────────────────────────────────────────────────────
 // Per-hangar exterior dimensions: [North, East/Center, South].
-// North resized per spec: 84m wide × 330m long, 14m walls, 1.5m roof (~15.5m total height).
+// North EXPANDED: 210m wide (84×2.5) × 143.85m deep (far end at Z:-243), 14m walls, 1.5m roof (~15.5m total height).
 export const HANGAR_DIMS = [
-  { W: 84,   D: 330,   H: 14,   TH: 1.5  }, // North
+  { W: 210,   D: 143.85,   H: 14,   TH: 1.5  }, // North - PHASE 1 EXPANSION
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
 ];
@@ -301,13 +301,11 @@ export const HANGAR_DIMS = [
 // ── Positions ─────────────────────────────────────────────────────────
 // Hangar positions - moved 20% further from plaza for elliptical island
 // (135.5 × 1.2 = 162.6m from center).
-// North hangar is much longer than East/South (330m vs 126.9m); its z position is
-// pushed further from the plaza so its entrance (south-facing side) stays at the same
-// world position as the original layout (-99.15), with the extra length extending
-// away from the plaza.
+// North hangar PHASE 1: entrance fixed at z=-99.15, far end at z=-243.
+// Center = (-99.15 + -243) / 2 = -171.075
 // Exported so collision.js can build wall colliders that always match the real geometry.
 export const HANGAR_CONFIGS = [
-  { x:   0, z: -99.15 - HANGAR_DIMS[0].D / 2, rotY: 0,           name: 'North Hangar' }, // z = -264.15
+  { x:   0, z: -171.075, rotY: 0,           name: 'North Hangar' }, // entrance at z=-99.15, far end at z=-243
   { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },
   { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },
 ];
