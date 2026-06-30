@@ -802,9 +802,13 @@ function buildKiosks(group, hangarIndex) {
     counter.receiveShadow = true;
     kiosk.add(counter);
 
-    // Number sign
-    const numSign = _buildRoomNumberSign(kioskNumber);
+    // Simple placeholder sign — no canvas texture (prevents EffectComposer crash)
+    // TODO: Re-enable _buildRoomNumberSign() after fixing canvas texture timing
+    const signGeo = new THREE.BoxGeometry(2, 1.2, 0.05);
+    const signMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+    const numSign = new THREE.Mesh(signGeo, signMat);
     numSign.position.set(0, KIOSK_HEIGHT - 0.5, -KIOSK_DEPTH/2 - 0.1);
+    numSign.castShadow = true;
     kiosk.add(numSign);
 
     group.add(kiosk);
