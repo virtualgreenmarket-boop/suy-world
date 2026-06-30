@@ -291,9 +291,9 @@ function getBrickMat() {
 
 // ── Dimensions ────────────────────────────────────────────────────────
 // Per-hangar exterior dimensions: [North, East/Center, South].
-// North EXPANDED: 210m wide (84×2.5) × 143.85m deep (far end at Z:-243), 14m walls, 1.5m roof (~15.5m total height).
+// North PHASE 2: 210m wide (84×2.5) × 143.85m deep (far end at Z:-243), 17.5m walls (14×1.25), 1.5m roof.
 export const HANGAR_DIMS = [
-  { W: 210,   D: 143.85,   H: 14,   TH: 1.5  }, // North - PHASE 1 EXPANSION
+  { W: 210,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - PHASE 2: width×2.5, height×1.25
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
 ];
@@ -313,7 +313,7 @@ export const HANGAR_CONFIGS = [
 // ── Room constants (15 rooms per side, 30 total — North hangar only) ──
 const ROOM_W     = 20;    // room width along Z axis
 const ROOM_D     = 24;    // room depth along X axis (into hangar from side wall)
-const ROOM_H     = 14;    // room interior height (matches North hangar wall height)
+const ROOM_H     = 17.5;  // room interior height (matches North hangar PHASE 2 wall height)
 const ROOM_COUNT = 15;    // rooms per side
 const DOOR_W     = 6;     // door opening width (world Z)
 const DOOR_H     = 5.5;   // door opening height
@@ -323,10 +323,11 @@ const WALL_T     = 0.3;   // interior wall thickness
 // Central corridor width = W - 2*ROOM_D = 84 - 2*24 = 36 m (matches spec)
 const ROOM_GAP   = (HANGAR_DIMS[0].D - ROOM_COUNT * ROOM_W) / (ROOM_COUNT + 1);
 
-// Far-wall store slots (unchanged)
+// Far-wall store slots
+// For North hangar (index 0): use full width for more slots
+// For other hangars: use original 67.5m span
 const FRONT_SPAN  = 67.5;
 const FRONT_COUNT = 10;
-const SLOT_W_FRONT = FRONT_SPAN / FRONT_COUNT; // 6.75 m
 
 // Accent colours per hangar
 const ACCENT = [0xC0392B, 0x27AE60, 0xF1C40F]; // red, green, yellow
@@ -478,14 +479,18 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
   addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat,  W / 2 - fwSide / 2,   H / 2, -D / 2);
   addWall(group, new THREE.BoxGeometry(12, H * 0.35, 0.6), wallMat, 0, H - H * 0.35 / 2, -D / 2);
 
-  // Entrance: four columns instead of wall
-  [-(W / 2 - 1.5), -10, 10, W / 2 - 1.5].forEach(cx => {
+  // Entrance: columns scaled proportionally to hangar width
+  // For narrow hangars: 4 columns. For wide hangars (W>150): add more columns
+  const columnCount = W > 150 ? 8 : 4;
+  const columnSpacing = W / (columnCount + 1);
+  for (let i = 1; i <= columnCount; i++) {
+    const cx = -W / 2 + i * columnSpacing;
     const col = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, H, 10), colMat);
     col.position.set(cx, H / 2, D / 2);
     col.castShadow = false; // No shadows
     col.receiveShadow = false;
     group.add(col);
-  });
+  }
 
   // Roof
   add(group, new THREE.BoxGeometry(W + 1, TH, D + 1), roofMat, 0, H + TH / 2, 0, true);
@@ -613,13 +618,20 @@ function buildRooms(group, side, hangarIndex) {
 }
 
 function buildFarSlots(group, hangarIndex, signMat, counterMat) {
-  const { H, D } = HANGAR_DIMS[hangarIndex];
+  const { H, D, W } = HANGAR_DIMS[hangarIndex];
   const wallZ  = -(D / 2 - 0.3);
 
-  for (let i = 0; i < FRONT_COUNT; i++) {
-    const slotX = -FRONT_SPAN / 2 + (i + 0.5) * SLOT_W_FRONT;
+  // For North hangar (index 0): use full width and add more slots to reach 50 total
+  // 15 left + 15 right + 20 far = 50 slots
+  const isNorthHangar = hangarIndex === 0;
+  const slotCount = isNorthHangar ? 20 : FRONT_COUNT;
+  const spanWidth = isNorthHangar ? (W - 4) : FRONT_SPAN; // Use almost full width for North
+  const slotWidth = spanWidth / slotCount;
 
-    const pillarX = -FRONT_SPAN / 2 + i * SLOT_W_FRONT;
+  for (let i = 0; i < slotCount; i++) {
+    const slotX = -spanWidth / 2 + (i + 0.5) * slotWidth;
+
+    const pillarX = -spanWidth / 2 + i * slotWidth;
     const pillar = new THREE.Mesh(
       new THREE.BoxGeometry(0.35, H * 0.85, 0.35),
       new THREE.MeshStandardMaterial({ color: 0xC8C0B8, roughness: 0.88 })
@@ -628,7 +640,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     group.add(pillar);
 
     const sign = new THREE.Mesh(
-      new THREE.BoxGeometry(SLOT_W_FRONT - 0.35, 1.2, 0.15),
+      new THREE.BoxGeometry(slotWidth - 0.35, 1.2, 0.15),
       signMat.clone()
     );
     sign.position.set(slotX, 5.5, wallZ + 0.1);
@@ -636,7 +648,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     group.add(sign);
 
     const counter = new THREE.Mesh(
-      new THREE.BoxGeometry(SLOT_W_FRONT - 0.45, 0.9, 1.6),
+      new THREE.BoxGeometry(slotWidth - 0.45, 0.9, 1.6),
       counterMat
     );
     counter.position.set(slotX, 0.45, wallZ + 1.4);
@@ -659,7 +671,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     new THREE.BoxGeometry(0.35, H * 0.85, 0.35),
     new THREE.MeshStandardMaterial({ color: 0xC8C0B8, roughness: 0.88 })
   );
-  pillar.position.set(FRONT_SPAN / 2, H * 0.85 / 2, wallZ + 1.5);
+  pillar.position.set(spanWidth / 2, H * 0.85 / 2, wallZ + 1.5);
   group.add(pillar);
 }
 
