@@ -796,18 +796,28 @@ function buildKiosks(group, hangarIndex) {
 
     group.add(kiosk);
 
-    // Collision box (shrink by 0.5m on each side to match actual solid geometry)
-    // Posts are only 0.25m radius, front is open - tight box prevents invisible walls
+    // Collision box ONLY at back half - front is OPEN for entry/exit
+    // CRITICAL: Do NOT block the open front face - player must walk in/out freely
     const c = Math.cos(rotY);
     const s = Math.sin(rotY);
-    const hw = (KIOSK_WIDTH / 2) - 0.5;  // 5m → 4.5m
-    const hd = (KIOSK_DEPTH / 2) - 0.5;  // 4m → 3.5m
+    const hw = (KIOSK_WIDTH / 2) - 0.5;  // 5m → 4.5m (width)
 
+    // Collision depth: only 1.5m at the BACK (not full 8m depth)
+    // This leaves the front 6.5m completely open for player movement
+    const collisionDepth = 1.5;  // Just the back wall area
+    const backOffset = KIOSK_DEPTH / 2 - collisionDepth / 2;  // Position at back edge
+
+    // Calculate collision box centered at back wall (offset from kiosk center)
+    const collisionZ = z + c * 0 + s * backOffset;  // Shift toward back wall
+    const collisionX = x + c * backOffset + s * 0;
+
+    // Four corners of the back-wall collision box
+    const hcd = collisionDepth / 2;  // Half collision depth
     const corners = [
-      [x + c * -hw - s * -hd, z + s * -hw + c * -hd],
-      [x + c *  hw - s * -hd, z + s *  hw + c * -hd],
-      [x + c * -hw - s *  hd, z + s * -hw + c *  hd],
-      [x + c *  hw - s *  hd, z + s *  hw + c *  hd]
+      [collisionX + c * -hw - s * -hcd, collisionZ + s * -hw + c * -hcd],
+      [collisionX + c *  hw - s * -hcd, collisionZ + s *  hw + c * -hcd],
+      [collisionX + c * -hw - s *  hcd, collisionZ + s * -hw + c *  hcd],
+      [collisionX + c *  hw - s *  hcd, collisionZ + s *  hw + c *  hcd]
     ];
 
     const minX = Math.min(...corners.map(p => p[0]));
