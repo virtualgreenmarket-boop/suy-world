@@ -722,56 +722,23 @@ function buildKiosks(group, hangarIndex) {
   ];
 
   // Materials - created ONCE and shared across all kiosks
-  // CRITICAL: All texture properties MUST be explicitly null (not undefined) to prevent WebGL crashes
-  const postMat = new THREE.MeshStandardMaterial({
-    color: 0x8B6914,
-    roughness: 0.85,
-    metalness: 0.0,
-    map: null,
-    normalMap: null,
-    roughnessMap: null,
-    metalnessMap: null,
-    emissiveMap: null,
-    aoMap: null
+  // Using MeshLambertMaterial instead of MeshStandardMaterial to avoid
+  // roughness/metalness uniform resolution issues with EffectComposer
+  const postMat = new THREE.MeshLambertMaterial({
+    color: 0x8B6914
   });
 
-  const wallMat = new THREE.MeshStandardMaterial({
-    color: 0xF5F5DC,
-    roughness: 0.88,
-    metalness: 0.0,
-    map: null,
-    normalMap: null,
-    roughnessMap: null,
-    metalnessMap: null,
-    emissiveMap: null,
-    aoMap: null
+  const wallMat = new THREE.MeshLambertMaterial({
+    color: 0xF5F5DC
   });
 
-  const counterMat = new THREE.MeshStandardMaterial({
-    color: 0xA0826D,
-    roughness: 0.82,
-    metalness: 0.0,
-    map: null,
-    normalMap: null,
-    roughnessMap: null,
-    metalnessMap: null,
-    emissiveMap: null,
-    aoMap: null
+  const counterMat = new THREE.MeshLambertMaterial({
+    color: 0xA0826D
   });
 
   // Create one roof material per color (6 total, shared across all kiosks)
   const roofMaterials = ROOF_COLORS.map(color =>
-    new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.75,
-      metalness: 0.1,
-      map: null,
-      normalMap: null,
-      roughnessMap: null,
-      metalnessMap: null,
-      emissiveMap: null,
-      aoMap: null
-    })
+    new THREE.MeshLambertMaterial({ color })
   );
 
   let kioskNumber = 0;
