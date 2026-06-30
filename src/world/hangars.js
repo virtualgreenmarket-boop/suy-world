@@ -796,11 +796,12 @@ function buildKiosks(group, hangarIndex) {
 
     group.add(kiosk);
 
-    // Collision box (full footprint)
+    // Collision box (shrink by 0.5m on each side to match actual solid geometry)
+    // Posts are only 0.25m radius, front is open - tight box prevents invisible walls
     const c = Math.cos(rotY);
     const s = Math.sin(rotY);
-    const hw = KIOSK_WIDTH / 2;
-    const hd = KIOSK_DEPTH / 2;
+    const hw = (KIOSK_WIDTH / 2) - 0.5;  // 5m → 4.5m
+    const hd = (KIOSK_DEPTH / 2) - 0.5;  // 4m → 3.5m
 
     const corners = [
       [x + c * -hw - s * -hd, z + s * -hw + c * -hd],
@@ -836,7 +837,7 @@ function buildKiosks(group, hangarIndex) {
   const rearSpacing = W / 16; // 190/16 = 11.875m
   for (let i = 0; i < 16; i++) {
     const x = -W/2 + rearSpacing * (i + 0.5);
-    addKiosk(x, rearZ, 0, 'rear');
+    addKiosk(x, rearZ, Math.PI, 'rear'); // Face SOUTH (toward positive Z)
   }
 
   // East side wall (12 kiosks facing WEST toward center)
@@ -844,7 +845,7 @@ function buildKiosks(group, hangarIndex) {
   const eastSpacing = D / 12; // 143.85/12 = 11.99m
   for (let i = 0; i < 12; i++) {
     const z = -D/2 + eastSpacing * (i + 0.5);
-    addKiosk(eastX, z, -Math.PI/2, 'east');
+    addKiosk(eastX, z, Math.PI/2, 'east'); // Face WEST (toward negative X)
   }
 
   // West side wall (12 kiosks facing EAST toward center)
@@ -852,7 +853,7 @@ function buildKiosks(group, hangarIndex) {
   const westSpacing = D / 12; // 143.85/12 = 11.99m
   for (let i = 0; i < 12; i++) {
     const z = -D/2 + westSpacing * (i + 0.5);
-    addKiosk(westX, z, Math.PI/2, 'west');
+    addKiosk(westX, z, -Math.PI/2, 'west'); // Face EAST (toward positive X)
   }
 
   console.log('[hangars] North hangar: Built', kioskNumber, 'market kiosks');
