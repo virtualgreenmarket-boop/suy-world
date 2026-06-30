@@ -5,6 +5,7 @@ import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { registerGround } from '../systems/terrain.js';
+import { registerBox } from '../systems/collision.js';
 
 // ── Enhance model quality helper ─────────────────────────────────────
 
@@ -689,6 +690,7 @@ function buildKiosks(group, hangarIndex) {
   const KIOSK_HEIGHT = 4.5;
   const POST_RADIUS = 0.25;
   const WALL_THICKNESS = 0.15;
+  const WALL_CLEARANCE = 1.5; // Min clearance from hangar wall (prevents trapping)
 
   // Curated roof color palette (6 colors, alternating)
   const ROOF_COLORS = [
@@ -783,6 +785,30 @@ function buildKiosks(group, hangarIndex) {
 
     group.add(kiosk);
 
+    // Register single collision box for entire kiosk (prevents corner-post trapping)
+    // Box matches visual geometry exactly - no extra padding
+    const worldX = x;
+    const worldZ = z;
+    const c = Math.cos(rotY);
+    const s = Math.sin(rotY);
+
+    // Calculate rotated bounding box corners in world space
+    const hw = KIOSK_WIDTH / 2;
+    const hd = KIOSK_DEPTH / 2;
+    const corners = [
+      [worldX + c * -hw - s * -hd, worldZ + s * -hw + c * -hd],
+      [worldX + c *  hw - s * -hd, worldZ + s *  hw + c * -hd],
+      [worldX + c * -hw - s *  hd, worldZ + s * -hw + c *  hd],
+      [worldX + c *  hw - s *  hd, worldZ + s *  hw + c *  hd],
+    ];
+
+    const minX = Math.min(...corners.map(p => p[0]));
+    const maxX = Math.max(...corners.map(p => p[0]));
+    const minZ = Math.min(...corners.map(p => p[1]));
+    const maxZ = Math.max(...corners.map(p => p[1]));
+
+    registerBox(minX, maxX, minZ, maxZ);
+
     // Register slot
     const slotId = allSlots.length;
     allSlots.push({
@@ -798,7 +824,8 @@ function buildKiosks(group, hangarIndex) {
   }
 
   // Entrance wall - East segment (X=-39.5 to X=+45, 84.5m, 6 kiosks)
-  const entranceZ = D/2 - KIOSK_DEPTH/2 - 0.5;
+  // 1.5m clearance from wall prevents player from entering gap
+  const entranceZ = D/2 - KIOSK_DEPTH/2 - WALL_CLEARANCE;
   const entranceEastStart = -39.5;
   const entranceEastEnd = 45;
   const entranceEastSpan = entranceEastEnd - entranceEastStart;
@@ -818,19 +845,23 @@ function buildKiosks(group, hangarIndex) {
     addKiosk(x, 0, entranceZ, Math.PI, 'entrance-west');
   }
 
-  // Rear wall (full 190m, 16 kiosks) - face SOUTH toward center
-  const rearZ = -D/2 + KIOSK_DEPTH/2 + 0.5;
+  // Rear wall (full 190m, 15 kiosks instead of 16) - face SOUTH toward center
+  // Reduced from 16 to 15 to ensure 2m+ gap between kiosks (prevents trapping)
+  // 190m / 15 = 12.67m spacing → 2.67m gap (safe)
+  const rearZ = -D/2 + KIOSK_DEPTH/2 + WALL_CLEARANCE;
   const rearStart = -W/2;
   const rearEnd = W/2;
   const rearSpan = rearEnd - rearStart;
-  const rearSpacing = rearSpan / 16;
-  for (let i = 0; i < 16; i++) {
+  const rearCount = 15; // Reduced from 16
+  const rearSpacing = rearSpan / rearCount;
+  for (let i = 0; i < rearCount; i++) {
     const x = rearStart + rearSpacing * (i + 0.5);
     addKiosk(x, 0, rearZ, Math.PI, 'rear');
   }
 
   // East side wall (11 kiosks) - face WEST toward center
-  const eastX = W/2 - KIOSK_DEPTH/2 - 0.5;
+  // 143.85m / 11 = 13.08m spacing → 3.08m gap (safe)
+  const eastX = W/2 - KIOSK_DEPTH/2 - WALL_CLEARANCE;
   const sideStart = -D/2;
   const sideEnd = D/2;
   const sideSpan = sideEnd - sideStart;
@@ -841,7 +872,7 @@ function buildKiosks(group, hangarIndex) {
   }
 
   // West side wall (11 kiosks) - face EAST toward center
-  const westX = -W/2 + KIOSK_DEPTH/2 + 0.5;
+  const westX = -W/2 + KIOSK_DEPTH/2 + WALL_CLEARANCE;
   const westSpacing = sideSpan / 11;
   for (let i = 0; i < 11; i++) {
     const z = sideStart + westSpacing * (i + 0.5);
