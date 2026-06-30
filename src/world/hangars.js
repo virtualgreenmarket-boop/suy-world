@@ -787,15 +787,16 @@ function buildKiosks(group, hangarIndex) {
     group.add(kiosk);
 
     // Register single collision box for entire kiosk (prevents corner-post trapping)
-    // Box matches visual geometry exactly - no extra padding
+    // Shrink box slightly to match actual visual geometry (posts are only 0.25m radius)
     const worldX = x;
     const worldZ = z;
     const c = Math.cos(rotY);
     const s = Math.sin(rotY);
 
     // Calculate rotated bounding box corners in world space
-    const hw = KIOSK_WIDTH / 2;
-    const hd = KIOSK_DEPTH / 2;
+    // Shrink by 0.3m on each side to account for open front and thin posts
+    const hw = (KIOSK_WIDTH / 2) - 0.3;  // 5m → 4.7m
+    const hd = (KIOSK_DEPTH / 2) - 0.3;  // 4m → 3.7m
     const corners = [
       [worldX + c * -hw - s * -hd, worldZ + s * -hw + c * -hd],
       [worldX + c *  hw - s * -hd, worldZ + s *  hw + c * -hd],

@@ -194,7 +194,7 @@ initHangars(scene, camera);
 initMarina(scene);
 initDecor(scene);
 initBeach(scene);
-initCollision();
+initCollision(); // Must be AFTER initHangars so kiosk collision boxes are registered first
 spawnPlazaTree(scene);
 initPetSystem(scene);
 
