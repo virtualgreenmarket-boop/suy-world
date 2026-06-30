@@ -291,9 +291,9 @@ function getBrickMat() {
 
 // ── Dimensions ────────────────────────────────────────────────────────
 // Per-hangar exterior dimensions: [North, East/Center, South].
-// North PHASE 2: 210m wide (84×2.5) × 143.85m deep (far end at Z:-243), 17.5m walls (14×1.25), 1.5m roof.
+// North PHASE 2: 190m wide (centered on X=0, ±95m) × 143.85m deep (Z:-99.15 to Z:-243), 17.5m walls, 1.5m roof.
 export const HANGAR_DIMS = [
-  { W: 210,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - PHASE 2: width×2.5, height×1.25
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - PHASE 2: 190m width, centered
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
   { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
 ];
