@@ -508,7 +508,17 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
 
 // ── Room number sign ─────────────────────────────────────────────────
 
+// Cache for sign materials to prevent WebGL uniform errors
+const _signMaterialCache = new Map();
+
 function _buildRoomNumberSign(number) {
+  // Check cache first
+  if (_signMaterialCache.has(number)) {
+    const cachedMat = _signMaterialCache.get(number);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), cachedMat);
+    return plane;
+  }
+
   const canvas  = document.createElement('canvas');
   canvas.width  = 256;
   canvas.height = 256;
@@ -537,8 +547,17 @@ function _buildRoomNumberSign(number) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true; // Explicitly mark as ready
 
-  const mat   = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true });
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex,
+    side: THREE.DoubleSide,
+    transparent: true
+  });
+
+  // Cache the material
+  _signMaterialCache.set(number, mat);
+
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
   return plane;
 }
