@@ -950,37 +950,37 @@ function finaliseSlotPositions(group, hangarIndex) {
 function buildCeilingFan(group, hangarIndex) {
   const { H } = HANGAR_DIMS[hangarIndex];
 
-  const FAN_DIAMETER = 12; // 12m diameter fan
+  const FAN_DIAMETER = 60; // 60m diameter fan (5x larger than 12m)
   const FAN_HEIGHT = H - 1; // 1m below ceiling (16.5m)
   const BLADE_COUNT = 4;
-  const BLADE_WIDTH = FAN_DIAMETER / 2 - 0.5; // Radius minus hub
-  const BLADE_DEPTH = 1.2;
-  const BLADE_THICKNESS = 0.08;
+  const BLADE_WIDTH = FAN_DIAMETER / 2 - 2.5; // Radius minus hub (scaled)
+  const BLADE_DEPTH = 6; // 6m blade depth (5x of 1.2m)
+  const BLADE_THICKNESS = 0.4; // 0.4m thick (5x of 0.08m)
 
   const fanGroup = new THREE.Group();
   fanGroup.position.set(0, FAN_HEIGHT, 0);
 
-  // Central hub (motor housing)
-  const hubMat = new THREE.MeshLambertMaterial({ color: 0x2C2C2C }); // Dark gray
+  // Central hub (motor housing) - WHITE
+  const hubMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF }); // White
   const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.4, 0.5, 0.8, 12),
+    new THREE.CylinderGeometry(2, 2.5, 4, 12), // 5x larger
     hubMat
   );
   hub.castShadow = true;
   fanGroup.add(hub);
 
-  // Rod connecting to ceiling
+  // Rod connecting to ceiling - WHITE
   const rod = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.08, 0.08, 1, 8),
+    new THREE.CylinderGeometry(0.4, 0.4, 5, 8), // 5x larger
     hubMat
   );
-  rod.position.y = 0.9;
+  rod.position.y = 4.5;
   rod.castShadow = true;
   fanGroup.add(rod);
 
-  // 4 blades
+  // 4 blades - WHITE
   const bladeMat = new THREE.MeshLambertMaterial({
-    color: 0x8B7355, // Wooden brown
+    color: 0xFFFFFF, // White
     side: THREE.DoubleSide
   });
 
@@ -993,9 +993,9 @@ function buildCeilingFan(group, hangarIndex) {
 
     // Position blade extending from hub
     blade.position.set(
-      Math.cos(angle) * (BLADE_WIDTH / 2 + 0.3),
-      -0.2,
-      Math.sin(angle) * (BLADE_WIDTH / 2 + 0.3)
+      Math.cos(angle) * (BLADE_WIDTH / 2 + 1.5),
+      -1,
+      Math.sin(angle) * (BLADE_WIDTH / 2 + 1.5)
     );
 
     // Rotate blade to align radially
