@@ -499,7 +499,7 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
     group.add(col);
   }
 
-  // Glass panels on entrance wall (between columns, excluding center area)
+  // Glass panels on entrance wall (between columns)
   // Light blue glass with shine, 50% transparent
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x87CEEB,        // Light blue (sky blue)
@@ -510,8 +510,9 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
     side: THREE.DoubleSide
   });
 
-  // Center exclusion zone: ±30m from center (where sign and NPC are)
-  const centerExclusionHalf = 30;
+  // Find center two columns indices (where NPC is)
+  const centerColumnIndex1 = Math.floor(columnCount / 2);
+  const centerColumnIndex2 = centerColumnIndex1 + 1;
 
   for (let i = 0; i < columnCount - 1; i++) {
     const col1X = -W / 2 + (i + 1) * columnSpacing;
@@ -519,11 +520,9 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
     const panelCenterX = (col1X + col2X) / 2;
     const panelWidth = columnSpacing - 2.4; // Gap minus column diameter
 
-    // Skip if panel overlaps with center exclusion zone
-    const panelLeft = panelCenterX - panelWidth / 2;
-    const panelRight = panelCenterX + panelWidth / 2;
-    if (panelLeft < centerExclusionHalf && panelRight > -centerExclusionHalf) {
-      continue; // Skip center panels
+    // Skip ONLY the panel between the two center columns (closest to NPC)
+    if (i + 1 === centerColumnIndex1) {
+      continue; // Skip center panel
     }
 
     const glassPanel = new THREE.Mesh(
