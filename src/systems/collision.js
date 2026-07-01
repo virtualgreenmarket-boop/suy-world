@@ -23,6 +23,14 @@ export function initCollision() {
     addHangar(x, z, rotY, W / 2, D / 2);
   });
   console.log(`[collision] Total boxes: ${boxes.length} (${boxCountBefore} from kiosks, ${boxes.length - boxCountBefore} from hangar walls)`);
+
+  // DEBUG: Print all boxes in the Z=-100 to Z=0 range (approach to North Hangar)
+  console.log('[collision] DEBUG: Boxes between Z=0 and Z=-100:');
+  boxes.forEach((box, i) => {
+    if (box.minZ <= 0 && box.maxZ >= -100) {
+      console.log(`  Box ${i}: X[${box.minX.toFixed(1)}, ${box.maxX.toFixed(1)}] Z[${box.minZ.toFixed(1)}, ${box.maxZ.toFixed(1)}]`);
+    }
+  });
 }
 
 function rot(lx, lz, cx, cz, ry) {
