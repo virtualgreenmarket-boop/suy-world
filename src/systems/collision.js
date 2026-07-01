@@ -8,6 +8,12 @@ const PLAYER_R = 0.55;
 const TH  = 0.35;   // wall half-thickness (wall is 0.6 thick)
 const OPN = 6;       // far-wall door half-opening (door is 12 m wide)
 
+// Clear all collision boxes (for cleanup before rebuild)
+export function clearAllBoxes() {
+  boxes.length = 0;
+  console.log('[collision] Cleared all collision boxes');
+}
+
 export function initCollision() {
   // Wall colliders are derived directly from HANGAR_DIMS/HANGAR_CONFIGS (hangars.js)
   // so they always match the real geometry, even when hangars are resized per-hangar.

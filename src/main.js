@@ -20,7 +20,7 @@ import { initMultiplayer, updateMultiplayer, sendChat, getSocket }
 import { initEconomy }      from './systems/economy.js';
 import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
-import { initCollision }    from './systems/collision.js';
+import { initCollision, clearAllBoxes } from './systems/collision.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
 import { initLoadingScreen } from './ui/loadingScreen.js';
@@ -190,11 +190,12 @@ composer.addPass(new OutputPass());
 initIsland(scene, { lowQuality: isMobile, maxTrees: isMobile ? 28 : 55 });
 initPlaza(scene);
 initPaths(scene);
-initHangars(scene, camera);
+clearAllBoxes(); // Clear any phantom collision boxes from previous builds
+initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
 initDecor(scene);
 initBeach(scene);
-initCollision(); // Must be AFTER initHangars so kiosk collision boxes are registered first
+initCollision(); // Adds hangar wall collision boxes AFTER kiosk boxes
 spawnPlazaTree(scene);
 initPetSystem(scene);
 
