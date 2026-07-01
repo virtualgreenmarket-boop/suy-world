@@ -409,7 +409,7 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
 
   // North hangar (index 0): 50 market kiosks
   if (hangarIndex === 0) {
-    buildKiosks(group, hangarIndex);
+    buildKiosks(group, hangarIndex, x, z, rotY);
   } else {
     // East/Center and South hangars: far wall slots
     buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
@@ -713,7 +713,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
 
 // ── Market Kiosks (North Hangar only) — 50 open-front stalls ─────────
 
-function buildKiosks(group, hangarIndex) {
+function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRotY) {
   const { W, D } = HANGAR_DIMS[hangarIndex];
 
   // Kiosk dimensions (+5% width and height)
@@ -815,14 +815,21 @@ function buildKiosks(group, hangarIndex) {
 
     // SOLID WALL COLLISION - 3 boxes (back + left side + right side)
     // Front face is OPEN - no collision
+    // CRITICAL: Convert from LOCAL (inside hangar group) to WORLD coordinates
     const c = Math.cos(rotY);
     const s = Math.sin(rotY);
+    const hc = Math.cos(hangarRotY);
+    const hs = Math.sin(hangarRotY);
+
+    // Convert local kiosk position to world coordinates
+    const worldKioskX = hangarCenterX + hc * x - hs * z;
+    const worldKioskZ = hangarCenterZ + hs * x + hc * z;
 
     // Back wall collision (full width, thin depth at back)
     const backWallThickness = 0.2;
     const backWallOffset = KIOSK_DEPTH / 2 - backWallThickness / 2;
-    const backWallCenterX = x + c * 0 + s * backWallOffset;
-    const backWallCenterZ = z + s * 0 + c * backWallOffset;
+    const backWallCenterX = worldKioskX + c * 0 + s * backWallOffset;
+    const backWallCenterZ = worldKioskZ + s * 0 + c * backWallOffset;
 
     const hwb = KIOSK_WIDTH / 2;
     const hdb = backWallThickness / 2;
@@ -844,8 +851,8 @@ function buildKiosks(group, hangarIndex) {
     const sideWallDepth = KIOSK_DEPTH * 0.6; // 60% of depth (back + partial sides)
     const sideWallOffset = KIOSK_DEPTH / 2 - sideWallDepth / 2;
 
-    const leftSideX = x + c * (-KIOSK_WIDTH/2 + sideWallThickness/2) + s * sideWallOffset;
-    const leftSideZ = z + s * (-KIOSK_WIDTH/2 + sideWallThickness/2) + c * sideWallOffset;
+    const leftSideX = worldKioskX + c * (-KIOSK_WIDTH/2 + sideWallThickness/2) + s * sideWallOffset;
+    const leftSideZ = worldKioskZ + s * (-KIOSK_WIDTH/2 + sideWallThickness/2) + c * sideWallOffset;
     const hws = sideWallThickness / 2;
     const hds = sideWallDepth / 2;
     const leftCorners = [
@@ -862,8 +869,8 @@ function buildKiosks(group, hangarIndex) {
     );
 
     // Right side wall collision
-    const rightSideX = x + c * (KIOSK_WIDTH/2 - sideWallThickness/2) + s * sideWallOffset;
-    const rightSideZ = z + s * (KIOSK_WIDTH/2 - sideWallThickness/2) + c * sideWallOffset;
+    const rightSideX = worldKioskX + c * (KIOSK_WIDTH/2 - sideWallThickness/2) + s * sideWallOffset;
+    const rightSideZ = worldKioskZ + s * (KIOSK_WIDTH/2 - sideWallThickness/2) + c * sideWallOffset;
     const rightCorners = [
       [rightSideX + c * -hws - s * -hds, rightSideZ + s * -hws + c * -hds],
       [rightSideX + c *  hws - s * -hds, rightSideZ + s *  hws + c * -hds],
