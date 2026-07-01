@@ -991,12 +991,12 @@ function buildCeilingFan(group, hangarIndex) {
     const bladeGeo = new THREE.BoxGeometry(BLADE_WIDTH, BLADE_THICKNESS, BLADE_DEPTH);
     const blade = new THREE.Mesh(bladeGeo, bladeMat);
 
-    // All blades emerge from same point: bottom of rod
-    // Rod is at y=4.5 with height=5, so bottom is at y=4.5-2.5=2
+    // All blades emerge from same point: bottom of hub (motor base)
+    // Hub is at y=0 with height=4, so bottom is at y=-2
     // Blade extends outward from center point
     blade.position.set(
       Math.cos(angle) * (BLADE_WIDTH / 2),
-      2, // Bottom of rod
+      -2, // Bottom of hub (base of motor)
       Math.sin(angle) * (BLADE_WIDTH / 2)
     );
 
