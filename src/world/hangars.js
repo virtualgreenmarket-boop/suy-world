@@ -950,12 +950,12 @@ function finaliseSlotPositions(group, hangarIndex) {
 function buildCeilingFan(group, hangarIndex) {
   const { H } = HANGAR_DIMS[hangarIndex];
 
-  const FAN_DIAMETER = 60; // 60m diameter fan (5x larger than 12m)
+  const FAN_DIAMETER = 48; // 48m diameter fan (-20% from 60m)
   const FAN_HEIGHT = H - 1; // 1m below ceiling (16.5m)
   const BLADE_COUNT = 4;
-  const BLADE_WIDTH = FAN_DIAMETER / 2 - 2.5; // Radius minus hub (scaled)
-  const BLADE_DEPTH = 6; // 6m blade depth (5x of 1.2m)
-  const BLADE_THICKNESS = 0.4; // 0.4m thick (5x of 0.08m)
+  const BLADE_WIDTH = FAN_DIAMETER / 2 - 2; // Radius minus hub (scaled -20%)
+  const BLADE_DEPTH = 4.8; // 4.8m blade depth (-20% from 6m)
+  const BLADE_THICKNESS = 0.32; // 0.32m thick (-20% from 0.4m)
 
   const fanGroup = new THREE.Group();
   fanGroup.position.set(0, FAN_HEIGHT, 0);
@@ -963,7 +963,7 @@ function buildCeilingFan(group, hangarIndex) {
   // Central hub (motor housing) - WHITE
   const hubMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF }); // White
   const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(2, 2.5, 4, 12), // 5x larger
+    new THREE.CylinderGeometry(1.6, 2, 3.2, 12), // -20% from (2, 2.5, 4)
     hubMat
   );
   hub.castShadow = true;
@@ -971,10 +971,10 @@ function buildCeilingFan(group, hangarIndex) {
 
   // Rod connecting to ceiling - WHITE
   const rod = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.4, 0.4, 5, 8), // 5x larger
+    new THREE.CylinderGeometry(0.32, 0.32, 4, 8), // -20% from (0.4, 0.4, 5)
     hubMat
   );
-  rod.position.y = 4.5;
+  rod.position.y = 3.6; // -20% from 4.5
   rod.castShadow = true;
   fanGroup.add(rod);
 
@@ -992,11 +992,11 @@ function buildCeilingFan(group, hangarIndex) {
     const blade = new THREE.Mesh(bladeGeo, bladeMat);
 
     // All blades emerge from same point: bottom of hub (motor base)
-    // Hub is at y=0 with height=4, so bottom is at y=-2
+    // Hub is at y=0 with height=3.2, so bottom is at y=-1.6
     // Blade extends outward from center point
     blade.position.set(
       Math.cos(angle) * (BLADE_WIDTH / 2),
-      -2, // Bottom of hub (base of motor)
+      -1.6, // Bottom of hub (base of motor, -20% from -2)
       Math.sin(angle) * (BLADE_WIDTH / 2)
     );
 
