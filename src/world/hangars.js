@@ -499,6 +499,43 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
     group.add(col);
   }
 
+  // Glass panels on entrance wall (between columns, excluding center area)
+  // Light blue glass with shine, 50% transparent
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x87CEEB,        // Light blue (sky blue)
+    transparent: true,
+    opacity: 0.5,           // 50% transparent
+    metalness: 0.1,
+    roughness: 0.1,         // Shiny/glossy
+    side: THREE.DoubleSide
+  });
+
+  // Center exclusion zone: ±30m from center (where sign and NPC are)
+  const centerExclusionHalf = 30;
+
+  for (let i = 0; i < columnCount - 1; i++) {
+    const col1X = -W / 2 + (i + 1) * columnSpacing;
+    const col2X = -W / 2 + (i + 2) * columnSpacing;
+    const panelCenterX = (col1X + col2X) / 2;
+    const panelWidth = columnSpacing - 2.4; // Gap minus column diameter
+
+    // Skip if panel overlaps with center exclusion zone
+    const panelLeft = panelCenterX - panelWidth / 2;
+    const panelRight = panelCenterX + panelWidth / 2;
+    if (panelLeft < centerExclusionHalf && panelRight > -centerExclusionHalf) {
+      continue; // Skip center panels
+    }
+
+    const glassPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(panelWidth, H - 1, 0.15), // Thin glass
+      glassMat
+    );
+    glassPanel.position.set(panelCenterX, H / 2, D / 2);
+    glassPanel.castShadow = false;
+    glassPanel.receiveShadow = true;
+    group.add(glassPanel);
+  }
+
   // Roof
   add(group, new THREE.BoxGeometry(W + 1, TH, D + 1), roofMat, 0, H + TH / 2, 0, true);
 
