@@ -987,15 +987,17 @@ function buildCeilingFan(group, hangarIndex) {
   for (let i = 0; i < BLADE_COUNT; i++) {
     const angle = (i / BLADE_COUNT) * Math.PI * 2;
 
-    // Blade geometry (slightly curved)
+    // Blade geometry
     const bladeGeo = new THREE.BoxGeometry(BLADE_WIDTH, BLADE_THICKNESS, BLADE_DEPTH);
     const blade = new THREE.Mesh(bladeGeo, bladeMat);
 
-    // Position blade extending from hub
+    // All blades emerge from same point: bottom of rod
+    // Rod is at y=4.5 with height=5, so bottom is at y=4.5-2.5=2
+    // Blade extends outward from center point
     blade.position.set(
-      Math.cos(angle) * (BLADE_WIDTH / 2 + 1.5),
-      -1,
-      Math.sin(angle) * (BLADE_WIDTH / 2 + 1.5)
+      Math.cos(angle) * (BLADE_WIDTH / 2),
+      2, // Bottom of rod
+      Math.sin(angle) * (BLADE_WIDTH / 2)
     );
 
     // Rotate blade to align radially
