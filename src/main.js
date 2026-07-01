@@ -28,7 +28,7 @@ import { initInventoryButton } from './ui/inventoryButton.js';
 
 import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
-import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
+import { preloadTrees, spawnPlazaTree, spawnTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
@@ -233,11 +233,11 @@ const animalManager = new AnimalManager({
 // Pass animalManager to localPlayer for collision detection
 setGLBAnimalManager(animalManager);
 
-// ZONE-AWARE ANIMAL SPAWNING: Scatter animals across ENTIRE GRASS ZONE
-// Using randomGrassPosition from mapZones.js for natural, even distribution
-console.log('[main] 🦌 Spawning GLB animals across grass zone...');
+// 4-ZONE ANIMAL SPAWNING: Relocate all animals to 4 designated zones
+// Dogs and cats excluded - all other animals relocated
+console.log('[main] 🦌 Spawning animals at 4 designated zones...');
 
-// CRITICAL: Clear all existing animals first (removes old spawns in water)
+// CRITICAL: Clear all existing animals first
 animalManager.instances.forEach((instance, id) => {
   if (instance.root && instance.root.parent) {
     instance.root.parent.remove(instance.root);
@@ -246,44 +246,80 @@ animalManager.instances.forEach((instance, id) => {
 animalManager.instances.clear();
 console.log('[main] Cleared all existing animals for re-spawn');
 
-import('./world/mapZones.js').then(({ randomGrassPosition }) => {
-  const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'];
-  const totalAnimals = 40; // Increased from 30 to fill larger grass zone
-  const spawnPromises = [];
+// Define 4 spawn zones (center point + 10m wander radius)
+const SPAWN_ZONES = [
+  { x: 98.82,   z: -147.17, name: 'North-East grass' },
+  { x: 113.75,  z: 150.19,  name: 'South grass' },
+  { x: -198.10, z: 59.15,   name: 'West coast/marina' },
+  { x: -203.28, z: -49.81,  name: 'Northwest plaza' }
+];
 
-  for (let i = 0; i < totalAnimals; i++) {
-    // Get random valid position in grass zone
-    const pos = randomGrassPosition(100);
-    if (!pos) {
-      console.warn(`[main] Could not find valid grass position for animal ${i + 1}`);
-      continue;
-    }
+// Animals to spawn (excluding dogs/cats: Husky, ShibaInu)
+const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Stag', 'Wolf'];
+const totalAnimals = 40;
+const spawnPromises = [];
+const zoneAnimalCounts = [0, 0, 0, 0];
 
-    // Random species, scale, rotation
-    const species = animalSpecies[Math.floor(Math.random() * animalSpecies.length)];
-    const scale = 0.9 + Math.random() * 0.25;
-    const rotationY = Math.random() * Math.PI * 2;
-    const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk'; // 1/3 idle, 2/3 walk
+for (let i = 0; i < totalAnimals; i++) {
+  // Assign to zone (round-robin for even distribution)
+  const zoneIndex = i % SPAWN_ZONES.length;
+  const zone = SPAWN_ZONES[zoneIndex];
+  zoneAnimalCounts[zoneIndex]++;
 
-    spawnPromises.push(
-      animalManager.spawn(species, { x: pos.x, y: 0, z: pos.z }, {
-        scale,
-        rotationY,
-        startAnimation,
-        wanderRadius: 30 + Math.random() * 20 // Wander 30-50 units from spawn
-      }).catch(err => {
-        console.error(`[main] Failed to spawn ${species}:`, err);
-      })
-    );
-  }
+  // Random position within 10m radius of zone center
+  const angle = Math.random() * Math.PI * 2;
+  const distance = Math.random() * 10; // 0-10m from center
+  const spawnX = zone.x + Math.cos(angle) * distance;
+  const spawnZ = zone.z + Math.sin(angle) * distance;
 
-  Promise.all(spawnPromises).then(() => {
-    console.log(`[main] ✅ GLB animals spawned successfully across grass zone (${spawnPromises.length} total)`);
-  }).catch(err => {
-    console.error('[main] ❌ Failed to spawn some animals:', err);
+  // Random species, scale, rotation
+  const species = animalSpecies[Math.floor(Math.random() * animalSpecies.length)];
+  const scale = 0.9 + Math.random() * 0.25;
+  const rotationY = Math.random() * Math.PI * 2;
+  const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk';
+
+  spawnPromises.push(
+    animalManager.spawn(species, { x: spawnX, y: 0, z: spawnZ }, {
+      scale,
+      rotationY,
+      startAnimation,
+      wanderRadius: 10 // Stay within 10m of spawn point
+    }).catch(err => {
+      console.error(`[main] Failed to spawn ${species} in zone ${zoneIndex}:`, err);
+    })
+  );
+}
+
+Promise.all(spawnPromises).then(() => {
+  console.log(`[main] ✅ Animals spawned at 4 zones:`);
+  SPAWN_ZONES.forEach((zone, i) => {
+    console.log(`  Zone ${i + 1} (${zone.name}): ${zoneAnimalCounts[i]} animals`);
   });
 }).catch(err => {
-  console.error('[main] ❌ Failed to load mapZones:', err);
+  console.error('[main] ❌ Failed to spawn some animals:', err);
+});
+
+// PART 2: Place 5 trees around each zone (20 trees total)
+console.log('[main] 🌳 Placing 5 trees around each of 4 zones (20 total)...');
+preloadTrees().then(() => {
+  let totalTreesPlaced = 0;
+  SPAWN_ZONES.forEach((zone, zoneIndex) => {
+    for (let t = 0; t < 5; t++) {
+      // Random angle and distance (10-20m from zone center)
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 10 + Math.random() * 10; // 10-20m
+      const treeX = zone.x + Math.cos(angle) * distance;
+      const treeZ = zone.z + Math.sin(angle) * distance;
+
+      // Spawn tree at position
+      spawnTree(scene, treeX, treeZ, 0, 1.0);
+      totalTreesPlaced++;
+    }
+    console.log(`[main]   Zone ${zoneIndex + 1} (${zone.name}): 5 trees placed`);
+  });
+  console.log(`[main] ✅ Total trees placed: ${totalTreesPlaced}`);
+}).catch(err => {
+  console.error('[main] ❌ Failed to preload trees:', err);
 });
 
 // Preload selected character (no GLB loading, just store the type)
