@@ -165,12 +165,13 @@ async function startRealLoading() {
     }
 
     updateProgress(30, 'Loading environment models...');
-    // Preload trees
+    // Preload trees (both regular and plaza tree)
     try {
-      await managedLoader.loadAsync('/models/environment/trees/tree_1.glb');
+      const { preloadTrees } = await import('../world/trees.js');
+      await preloadTrees();
       console.log('[loading] ✅ Trees loaded');
     } catch (err) {
-      console.log('[loading] Trees not found (optional)');
+      console.log('[loading] Trees failed (optional):', err.message);
     }
 
     updateProgress(50, 'Loading NPCs...');
