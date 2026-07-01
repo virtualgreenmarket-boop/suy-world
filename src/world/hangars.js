@@ -857,138 +857,28 @@ function buildKiosks(group, hangarIndex) {
     });
   }
 
-  // Helper: add large corner kiosk (14×14×7m)
-  function addCornerKiosk(x, z, cornerName) {
-    kioskNumber++;
-
-    const CORNER_SIZE = 14;
-    const CORNER_HEIGHT = 7;
-
-    const corner = new THREE.Group();
-    corner.position.set(x, 0, z);
-
-    // 4 large corner posts
-    const cornerPostGeo = new THREE.CylinderGeometry(0.35, 0.35, CORNER_HEIGHT, 8);
-    const postPositions = [
-      [-CORNER_SIZE/2, -CORNER_SIZE/2],
-      [CORNER_SIZE/2, -CORNER_SIZE/2],
-      [-CORNER_SIZE/2, CORNER_SIZE/2],
-      [CORNER_SIZE/2, CORNER_SIZE/2]
-    ];
-    postPositions.forEach(([px, pz]) => {
-      const post = new THREE.Mesh(cornerPostGeo, postMat);
-      post.position.set(px, CORNER_HEIGHT/2, pz);
-      post.castShadow = true;
-      corner.add(post);
-    });
-
-    // Back walls (two walls at back edges of corner)
-    const backWall1 = new THREE.Mesh(
-      new THREE.BoxGeometry(CORNER_SIZE, CORNER_HEIGHT, 0.15),
-      wallMat
-    );
-    backWall1.position.set(0, CORNER_HEIGHT/2, CORNER_SIZE/2);
-    backWall1.castShadow = true;
-    corner.add(backWall1);
-
-    const backWall2 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.15, CORNER_HEIGHT, CORNER_SIZE),
-      wallMat
-    );
-    backWall2.position.set(-CORNER_SIZE/2, CORNER_HEIGHT/2, 0);
-    backWall2.castShadow = true;
-    corner.add(backWall2);
-
-    // Gold roof (landmark color)
-    const goldRoofMat = new THREE.MeshLambertMaterial({ color: 0xFFD700 });
-    const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(CORNER_SIZE + 0.5, 0.2, CORNER_SIZE + 0.5),
-      goldRoofMat
-    );
-    roof.position.set(0, CORNER_HEIGHT, 0);
-    roof.castShadow = true;
-    corner.add(roof);
-
-    // Front counters along both open faces
-    const counter1 = new THREE.Mesh(
-      new THREE.BoxGeometry(CORNER_SIZE, 1.0, 0.8),
-      counterMat
-    );
-    counter1.position.set(0, 0.5, -CORNER_SIZE/2 + 0.4);
-    counter1.castShadow = true;
-    corner.add(counter1);
-
-    const counter2 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 1.0, CORNER_SIZE),
-      counterMat
-    );
-    counter2.position.set(CORNER_SIZE/2 - 0.4, 0.5, 0);
-    counter2.castShadow = true;
-    corner.add(counter2);
-
-    // Placeholder signs
-    const signGeo = new THREE.BoxGeometry(3, 1.5, 0.05);
-    const signMat = new THREE.MeshLambertMaterial({ color: 0xFFD700 }); // Gold to match roof
-
-    const sign1 = new THREE.Mesh(signGeo, signMat);
-    sign1.position.set(0, CORNER_HEIGHT - 1, -CORNER_SIZE/2 - 0.1);
-    sign1.castShadow = true;
-    corner.add(sign1);
-
-    const sign2 = new THREE.Mesh(signGeo, signMat);
-    sign2.position.set(CORNER_SIZE/2 + 0.1, CORNER_HEIGHT - 1, 0);
-    sign2.rotation.y = Math.PI/2;
-    sign2.castShadow = true;
-    corner.add(sign2);
-
-    group.add(corner);
-
-    // Collision box (14×14m footprint)
-    const hw = CORNER_SIZE / 2;
-    registerBox(x - hw, x + hw, z - hw, z + hw);
-
-    // Register slot
-    allSlots.push({
-      id: allSlots.length,
-      hangarIndex,
-      wall: cornerName,
-      slotIndex: kioskNumber - 1,
-      localPos: new THREE.Vector3(x, 0, z),
-      signMesh: sign1,
-      status: 'available',
-      worldPos: new THREE.Vector3()
-    });
-  }
-
   // NO kiosks on entrance wall - keep it clear for entry
 
-  // CORNER KIOSKS (2 large landmarks)
-  // Rear-left corner (west side)
-  addCornerKiosk(-W/2 + 7, -D/2 + 7, 'corner-left');
-
-  // Rear-right corner (east side)
-  addCornerKiosk(W/2 - 7, -D/2 + 7, 'corner-right');
-
-  // Rear wall (north, 14 kiosks, skip corners)
+  // Rear wall (north, 16 kiosks facing SOUTH toward center)
   const rearZ = -D/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
   const rearSpacing = W / 16; // 190/16 = 11.875m
-  for (let i = 1; i < 15; i++) { // Skip i=0 and i=15 (corners)
+  for (let i = 0; i < 16; i++) {
     const x = -W/2 + rearSpacing * (i + 0.5);
     addKiosk(x, rearZ, Math.PI, 'rear'); // Face SOUTH (toward positive Z)
   }
 
-  // East side wall (11 kiosks, skip rear corner)
+  // East side wall (12 kiosks facing WEST toward center)
   const eastX = W/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
   const eastSpacing = D / 12; // 143.85/12 = 11.99m
-  for (let i = 1; i < 12; i++) { // Skip i=0 (rear corner)
+  for (let i = 0; i < 12; i++) {
     const z = -D/2 + eastSpacing * (i + 0.5);
     addKiosk(eastX, z, Math.PI/2, 'east'); // Face WEST (toward negative X)
   }
 
-  // West side wall (11 kiosks, skip rear corner)
+  // West side wall (12 kiosks facing EAST toward center)
   const westX = -W/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
   const westSpacing = D / 12; // 143.85/12 = 11.99m
-  for (let i = 1; i < 12; i++) { // Skip i=0 (rear corner)
+  for (let i = 0; i < 12; i++) {
     const z = -D/2 + westSpacing * (i + 0.5);
     addKiosk(westX, z, -Math.PI/2, 'west'); // Face EAST (toward positive X)
   }
