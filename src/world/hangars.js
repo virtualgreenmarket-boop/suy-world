@@ -813,36 +813,69 @@ function buildKiosks(group, hangarIndex) {
 
     group.add(kiosk);
 
-    // Collision box ONLY at back half - front is OPEN for entry/exit
-    // CRITICAL: Do NOT block the open front face - player must walk in/out freely
+    // SOLID WALL COLLISION - 3 boxes (back + left side + right side)
+    // Front face is OPEN - no collision
     const c = Math.cos(rotY);
     const s = Math.sin(rotY);
-    const hw = (KIOSK_WIDTH / 2) - 0.5;  // 5m → 4.5m (width)
 
-    // Collision depth: only 1.5m at the BACK (not full 8m depth)
-    // This leaves the front 6.5m completely open for player movement
-    const collisionDepth = 1.5;  // Just the back wall area
-    const backOffset = KIOSK_DEPTH / 2 - collisionDepth / 2;  // Position at back edge
+    // Back wall collision (full width, thin depth at back)
+    const backWallThickness = 0.2;
+    const backWallOffset = KIOSK_DEPTH / 2 - backWallThickness / 2;
+    const backWallCenterX = x + c * 0 + s * backWallOffset;
+    const backWallCenterZ = z + s * 0 + c * backWallOffset;
 
-    // Calculate collision box centered at back wall (offset from kiosk center)
-    const collisionZ = z + c * 0 + s * backOffset;  // Shift toward back wall
-    const collisionX = x + c * backOffset + s * 0;
-
-    // Four corners of the back-wall collision box
-    const hcd = collisionDepth / 2;  // Half collision depth
-    const corners = [
-      [collisionX + c * -hw - s * -hcd, collisionZ + s * -hw + c * -hcd],
-      [collisionX + c *  hw - s * -hcd, collisionZ + s *  hw + c * -hcd],
-      [collisionX + c * -hw - s *  hcd, collisionZ + s * -hw + c *  hcd],
-      [collisionX + c *  hw - s *  hcd, collisionZ + s *  hw + c *  hcd]
+    const hwb = KIOSK_WIDTH / 2;
+    const hdb = backWallThickness / 2;
+    const backCorners = [
+      [backWallCenterX + c * -hwb - s * -hdb, backWallCenterZ + s * -hwb + c * -hdb],
+      [backWallCenterX + c *  hwb - s * -hdb, backWallCenterZ + s *  hwb + c * -hdb],
+      [backWallCenterX + c * -hwb - s *  hdb, backWallCenterZ + s * -hwb + c *  hdb],
+      [backWallCenterX + c *  hwb - s *  hdb, backWallCenterZ + s *  hwb + c *  hdb]
     ];
+    registerBox(
+      Math.min(...backCorners.map(p => p[0])),
+      Math.max(...backCorners.map(p => p[0])),
+      Math.min(...backCorners.map(p => p[1])),
+      Math.max(...backCorners.map(p => p[1]))
+    );
 
-    const minX = Math.min(...corners.map(p => p[0]));
-    const maxX = Math.max(...corners.map(p => p[0]));
-    const minZ = Math.min(...corners.map(p => p[1]));
-    const maxZ = Math.max(...corners.map(p => p[1]));
+    // Left side wall collision (thin width, runs from back to ~middle)
+    const sideWallThickness = 0.2;
+    const sideWallDepth = KIOSK_DEPTH * 0.6; // 60% of depth (back + partial sides)
+    const sideWallOffset = KIOSK_DEPTH / 2 - sideWallDepth / 2;
 
-    registerBox(minX, maxX, minZ, maxZ);
+    const leftSideX = x + c * (-KIOSK_WIDTH/2 + sideWallThickness/2) + s * sideWallOffset;
+    const leftSideZ = z + s * (-KIOSK_WIDTH/2 + sideWallThickness/2) + c * sideWallOffset;
+    const hws = sideWallThickness / 2;
+    const hds = sideWallDepth / 2;
+    const leftCorners = [
+      [leftSideX + c * -hws - s * -hds, leftSideZ + s * -hws + c * -hds],
+      [leftSideX + c *  hws - s * -hds, leftSideZ + s *  hws + c * -hds],
+      [leftSideX + c * -hws - s *  hds, leftSideZ + s * -hws + c *  hds],
+      [leftSideX + c *  hws - s *  hds, leftSideZ + s *  hws + c *  hds]
+    ];
+    registerBox(
+      Math.min(...leftCorners.map(p => p[0])),
+      Math.max(...leftCorners.map(p => p[0])),
+      Math.min(...leftCorners.map(p => p[1])),
+      Math.max(...leftCorners.map(p => p[1]))
+    );
+
+    // Right side wall collision
+    const rightSideX = x + c * (KIOSK_WIDTH/2 - sideWallThickness/2) + s * sideWallOffset;
+    const rightSideZ = z + s * (KIOSK_WIDTH/2 - sideWallThickness/2) + c * sideWallOffset;
+    const rightCorners = [
+      [rightSideX + c * -hws - s * -hds, rightSideZ + s * -hws + c * -hds],
+      [rightSideX + c *  hws - s * -hds, rightSideZ + s *  hws + c * -hds],
+      [rightSideX + c * -hws - s *  hds, rightSideZ + s * -hws + c *  hds],
+      [rightSideX + c *  hws - s *  hds, rightSideZ + s *  hws + c *  hds]
+    ];
+    registerBox(
+      Math.min(...rightCorners.map(p => p[0])),
+      Math.max(...rightCorners.map(p => p[0])),
+      Math.min(...rightCorners.map(p => p[1])),
+      Math.max(...rightCorners.map(p => p[1]))
+    );
 
     // Register slot
     allSlots.push({
