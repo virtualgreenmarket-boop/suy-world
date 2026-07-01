@@ -266,9 +266,9 @@ for (let i = 0; i < totalAnimals; i++) {
   const zone = SPAWN_ZONES[zoneIndex];
   zoneAnimalCounts[zoneIndex]++;
 
-  // Random position within 10m radius of zone center
+  // Random position within 20m radius of zone center
   const angle = Math.random() * Math.PI * 2;
-  const distance = Math.random() * 10; // 0-10m from center
+  const distance = Math.random() * 20; // 0-20m from center
   const spawnX = zone.x + Math.cos(angle) * distance;
   const spawnZ = zone.z + Math.sin(angle) * distance;
 
@@ -283,7 +283,7 @@ for (let i = 0; i < totalAnimals; i++) {
       scale,
       rotationY,
       startAnimation,
-      wanderRadius: 10 // Stay within 10m of spawn point
+      wanderRadius: 20 // Stay within 20m of spawn point
     }).catch(err => {
       console.error(`[main] Failed to spawn ${species} in zone ${zoneIndex}:`, err);
     })
@@ -305,9 +305,9 @@ preloadTrees().then(() => {
   let totalTreesPlaced = 0;
   SPAWN_ZONES.forEach((zone, zoneIndex) => {
     for (let t = 0; t < 5; t++) {
-      // Random angle and distance (10-20m from zone center)
+      // Random angle, fixed distance at 30m from zone center
       const angle = Math.random() * Math.PI * 2;
-      const distance = 10 + Math.random() * 10; // 10-20m
+      const distance = 30; // Exactly 30m from center
       const treeX = zone.x + Math.cos(angle) * distance;
       const treeZ = zone.z + Math.sin(angle) * distance;
 
