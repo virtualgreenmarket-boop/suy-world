@@ -716,11 +716,11 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
 function buildKiosks(group, hangarIndex) {
   const { W, D } = HANGAR_DIMS[hangarIndex];
 
-  // Kiosk dimensions
-  const KIOSK_WIDTH = 10;
-  const KIOSK_DEPTH = 8;
-  const KIOSK_HEIGHT = 4.5;
-  const WALL_OFFSET = 0.3; // Distance from hangar wall
+  // Kiosk dimensions (+5% width and height)
+  const KIOSK_WIDTH = 10.5;  // Was 10m, +5% = 10.5m
+  const KIOSK_DEPTH = 8;     // Unchanged
+  const KIOSK_HEIGHT = 4.725; // Was 4.5m, +5% = 4.725m
+  const WALL_OFFSET = 0.3;    // Distance from hangar wall
 
   // Roof color palette (6 colors, cycling)
   const ROOF_COLORS = [0xE67E22, 0x16A085, 0xC0392B, 0x2980B9, 0x8E44AD, 0x27AE60];
@@ -859,31 +859,37 @@ function buildKiosks(group, hangarIndex) {
 
   // NO kiosks on entrance wall - keep it clear for entry
 
-  // Rear wall (north, 16 kiosks facing SOUTH toward center)
+  // Rear wall (north, 16 kiosks @ 10.5m width = 168m total)
+  // Wall: 190m - 168m = 22m gap space → distribute evenly
   const rearZ = -D/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
-  const rearSpacing = W / 16; // 190/16 = 11.875m
+  const rearTotalWidth = 16 * KIOSK_WIDTH; // 168m
+  const rearGapSpace = W - rearTotalWidth; // 22m
+  const rearGap = rearGapSpace / (16 + 1); // 1.29m per gap (17 gaps total)
   for (let i = 0; i < 16; i++) {
-    const x = -W/2 + rearSpacing * (i + 0.5);
-    addKiosk(x, rearZ, Math.PI, 'rear'); // Face SOUTH (toward positive Z)
+    const x = -W/2 + rearGap + (i * (KIOSK_WIDTH + rearGap)) + KIOSK_WIDTH/2;
+    addKiosk(x, rearZ, Math.PI, 'rear');
   }
 
-  // East side wall (12 kiosks facing WEST toward center)
+  // East side wall (12 kiosks @ 10.5m width = 126m total)
+  // Wall: 143.85m - 126m = 17.85m gap space
   const eastX = W/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
-  const eastSpacing = D / 12; // 143.85/12 = 11.99m
+  const eastTotalWidth = 12 * KIOSK_WIDTH; // 126m
+  const eastGapSpace = D - eastTotalWidth; // 17.85m
+  const eastGap = eastGapSpace / (12 + 1); // 1.37m per gap (13 gaps total)
   for (let i = 0; i < 12; i++) {
-    const z = -D/2 + eastSpacing * (i + 0.5);
-    addKiosk(eastX, z, Math.PI/2, 'east'); // Face WEST (toward negative X)
+    const z = -D/2 + eastGap + (i * (KIOSK_WIDTH + eastGap)) + KIOSK_WIDTH/2;
+    addKiosk(eastX, z, Math.PI/2, 'east');
   }
 
-  // West side wall (12 kiosks facing EAST toward center)
+  // West side wall (12 kiosks @ 10.5m width = 126m total)
   const westX = -W/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
-  const westSpacing = D / 12; // 143.85/12 = 11.99m
+  const westGap = eastGap; // Same as east wall
   for (let i = 0; i < 12; i++) {
-    const z = -D/2 + westSpacing * (i + 0.5);
-    addKiosk(westX, z, -Math.PI/2, 'west'); // Face EAST (toward positive X)
+    const z = -D/2 + westGap + (i * (KIOSK_WIDTH + westGap)) + KIOSK_WIDTH/2;
+    addKiosk(westX, z, -Math.PI/2, 'west');
   }
 
-  console.log('[hangars] North hangar: Built', kioskNumber, 'market kiosks (2 corner + 36 regular)');
+  console.log('[hangars] North hangar: Built', kioskNumber, 'market kiosks (40 total, 10.5m wide each)');
 }
 
 function finaliseSlotPositions(group, hangarIndex) {
