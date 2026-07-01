@@ -30,15 +30,17 @@ export function preloadTrees() {
 
   const trunkMat = new THREE.MeshStandardMaterial({
     map: trunkColor, normalMap: trunkNorm,
+    color: new THREE.Color(0x8B6F47), // Rich brown trunk color
     roughness: 0.85, metalness: 0.0,
-    emissive: new THREE.Color(0x0a0a08), // Slight warm emissive for better color
-    emissiveIntensity: 0.15,
+    emissive: new THREE.Color(0x3a2817), // Warm brown emissive
+    emissiveIntensity: 0.2,
   });
   const leafMat = new THREE.MeshStandardMaterial({
     map: leafColor, alphaTest: 0.45,
+    color: new THREE.Color(0x4a8a2a), // Vibrant green leaves
     side: THREE.DoubleSide, roughness: 0.8, metalness: 0.0,
-    emissive: new THREE.Color(0x0a1008), // Slight green emissive for vibrant leaves
-    emissiveIntensity: 0.2,
+    emissive: new THREE.Color(0x1a4010), // Deep green emissive
+    emissiveIntensity: 0.3,
   });
 
   _promise = new Promise((resolve, reject) =>
@@ -142,7 +144,13 @@ export function spawnPlazaTree(scene) {
           mat.alphaTest   = 0.28; // was 0.65 — too aggressive, cut most leaf pixels
           mat.transparent = false;
           mat.depthWrite  = true;
-          mat.color.setHex(0x5a8a3a); // warm green tint
+          mat.color.setHex(0x4a8a2a); // Vibrant green (matching regular trees)
+          mat.emissive    = new THREE.Color(0x1a4010); // Deep green emissive
+          mat.emissiveIntensity = 0.25;
+        } else {
+          mat.color.setHex(0x8B6F47); // Rich brown trunk
+          mat.emissive    = new THREE.Color(0x3a2817); // Warm brown emissive
+          mat.emissiveIntensity = 0.15;
         }
         mat.roughness = isLeaf ? 0.80 : 0.90;
         mat.metalness = 0.0;
@@ -210,7 +218,9 @@ function _addPlazaLeafCanopy(scene, leafTex) {
     metalness:   0.0,
     transparent: false,
     depthWrite:  true,
-    color:       new THREE.Color(0x5a8a3a),
+    color:       new THREE.Color(0x4a8a2a), // Vibrant green (matching other trees)
+    emissive:    new THREE.Color(0x1a4010), // Deep green emissive
+    emissiveIntensity: 0.25,
   });
 
   let s = 31;
