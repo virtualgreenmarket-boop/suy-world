@@ -410,13 +410,8 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   const slotSignMat = stdMat(0xBDBDBD, 0.82); // default: available (gray)
   const counterMat  = stdMat(0x90A4AE, 0.88);
 
-  // North hangar (index 0): 50 market kiosks
-  if (hangarIndex === 0) {
-    buildKiosks(group, hangarIndex, x, z, rotY);
-  } else {
-    // East/Center and South hangars: far wall slots
-    buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
-  }
+  // All hangars: 40 market kiosks
+  buildKiosks(group, hangarIndex, x, z, rotY);
 
   // ── Entrance NPC character ────────────────────────────────────────
   // Floor top surface is at y=0.5 (floor center at 0.25 + thickness/2)
