@@ -798,7 +798,9 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
     color: 0xF5F0E8,        // Warm white
     transparent: false,
     opacity: 1.0,
-    side: THREE.DoubleSide  // Double-sided for solid walls
+    side: THREE.DoubleSide, // Double-sided for solid walls
+    depthWrite: true,       // Ensure proper depth rendering
+    depthTest: true
   });
   const counterMat = new THREE.MeshLambertMaterial({
     color: 0x8B6914,        // Dark wood
