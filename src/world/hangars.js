@@ -1000,11 +1000,8 @@ function buildCeilingFan(group, hangarIndex) {
       Math.sin(angle) * (BLADE_WIDTH / 2)
     );
 
-    // Rotate blade to align radially
+    // Rotate blade to align radially (no tilt - perfectly flat)
     blade.rotation.y = angle;
-
-    // Slight tilt for aerodynamics (15 degrees)
-    blade.rotation.z = 0.26;
 
     blade.castShadow = true;
     blade.receiveShadow = true;
