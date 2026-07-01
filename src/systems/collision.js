@@ -11,10 +11,12 @@ const OPN = 6;       // far-wall door half-opening (door is 12 m wide)
 export function initCollision() {
   // Wall colliders are derived directly from HANGAR_DIMS/HANGAR_CONFIGS (hangars.js)
   // so they always match the real geometry, even when hangars are resized per-hangar.
+  const boxCountBefore = boxes.length;
   HANGAR_CONFIGS.forEach(({ x, z, rotY }, i) => {
     const { W, D } = HANGAR_DIMS[i];
     addHangar(x, z, rotY, W / 2, D / 2);
   });
+  console.log(`[collision] Total boxes: ${boxes.length} (${boxCountBefore} from kiosks, ${boxes.length - boxCountBefore} from hangar walls)`);
 }
 
 function rot(lx, lz, cx, cz, ry) {
