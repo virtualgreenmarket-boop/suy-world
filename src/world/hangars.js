@@ -499,7 +499,7 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
     group.add(col);
   }
 
-  // Glass panels on entrance wall (between columns)
+  // Glass panels on entrance wall (between columns AND corner gaps)
   // Light blue glass with shine, 50% transparent
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x87CEEB,        // Light blue (sky blue)
@@ -512,8 +512,8 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
 
   // Find center two columns indices (where NPC is)
   const centerColumnIndex1 = Math.floor(columnCount / 2);
-  const centerColumnIndex2 = centerColumnIndex1 + 1;
 
+  // Glass between columns
   for (let i = 0; i < columnCount - 1; i++) {
     const col1X = -W / 2 + (i + 1) * columnSpacing;
     const col2X = -W / 2 + (i + 2) * columnSpacing;
@@ -534,6 +534,32 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
     glassPanel.receiveShadow = true;
     group.add(glassPanel);
   }
+
+  // Corner glass panels: left side (wall to first column)
+  const firstColumnX = -W / 2 + columnSpacing;
+  const leftCornerPanelWidth = columnSpacing - 1.2 - 0.3; // spacing - half column diameter - wall thickness
+  const leftCornerPanelX = -W / 2 + leftCornerPanelWidth / 2 + 0.3;
+  const leftCornerGlass = new THREE.Mesh(
+    new THREE.BoxGeometry(leftCornerPanelWidth, H - 1, 0.15),
+    glassMat
+  );
+  leftCornerGlass.position.set(leftCornerPanelX, H / 2, D / 2);
+  leftCornerGlass.castShadow = false;
+  leftCornerGlass.receiveShadow = true;
+  group.add(leftCornerGlass);
+
+  // Corner glass panels: right side (last column to wall)
+  const lastColumnX = -W / 2 + columnCount * columnSpacing;
+  const rightCornerPanelWidth = columnSpacing - 1.2 - 0.3;
+  const rightCornerPanelX = W / 2 - rightCornerPanelWidth / 2 - 0.3;
+  const rightCornerGlass = new THREE.Mesh(
+    new THREE.BoxGeometry(rightCornerPanelWidth, H - 1, 0.15),
+    glassMat
+  );
+  rightCornerGlass.position.set(rightCornerPanelX, H / 2, D / 2);
+  rightCornerGlass.castShadow = false;
+  rightCornerGlass.receiveShadow = true;
+  group.add(rightCornerGlass);
 
   // Roof
   add(group, new THREE.BoxGeometry(W + 1, TH, D + 1), roofMat, 0, H + TH / 2, 0, true);
