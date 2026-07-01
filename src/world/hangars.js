@@ -716,11 +716,11 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
 function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRotY) {
   const { W, D } = HANGAR_DIMS[hangarIndex];
 
-  // Kiosk dimensions (+5% width and height)
+  // Kiosk dimensions (+5% width, +20% height from original)
   const KIOSK_WIDTH = 10.5;  // Was 10m, +5% = 10.5m
   const KIOSK_DEPTH = 8;     // Unchanged
-  const KIOSK_HEIGHT = 4.725; // Was 4.5m, +5% = 4.725m
-  const WALL_OFFSET = 0.3;    // Distance from hangar wall
+  const KIOSK_HEIGHT = 5.4;  // Was 4.5m, +20% = 5.4m (increased from 4.725m)
+  const WALL_OFFSET = 0.3;   // Distance from hangar wall
 
   // Roof color palette (6 colors, cycling)
   const ROOF_COLORS = [0xE67E22, 0x16A085, 0xC0392B, 0x2980B9, 0x8E44AD, 0x27AE60];
