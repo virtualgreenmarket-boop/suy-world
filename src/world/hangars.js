@@ -787,13 +787,34 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
 
   // CRITICAL: Use ONLY MeshLambertMaterial to avoid EffectComposer crashes
   // Create materials ONCE and reuse across all kiosks
-  const postMat = new THREE.MeshLambertMaterial({ color: 0x8B6914 }); // Dark wood
-  const wallMat = new THREE.MeshLambertMaterial({ color: 0xF5F0E8 }); // Warm white
-  const counterMat = new THREE.MeshLambertMaterial({ color: 0x8B6914 }); // Dark wood
+  // All materials are SOLID (opaque, no transparency)
+  const postMat = new THREE.MeshLambertMaterial({
+    color: 0x8B6914,        // Dark wood
+    transparent: false,
+    opacity: 1.0,
+    side: THREE.FrontSide
+  });
+  const wallMat = new THREE.MeshLambertMaterial({
+    color: 0xF5F0E8,        // Warm white
+    transparent: false,
+    opacity: 1.0,
+    side: THREE.DoubleSide  // Double-sided for solid walls
+  });
+  const counterMat = new THREE.MeshLambertMaterial({
+    color: 0x8B6914,        // Dark wood
+    transparent: false,
+    opacity: 1.0,
+    side: THREE.FrontSide
+  });
 
-  // Create 6 roof materials (one per color)
+  // Create 6 roof materials (one per color) - all SOLID
   const roofMaterials = ROOF_COLORS.map(color =>
-    new THREE.MeshLambertMaterial({ color })
+    new THREE.MeshLambertMaterial({
+      color,
+      transparent: false,
+      opacity: 1.0,
+      side: THREE.FrontSide
+    })
   );
 
   let kioskNumber = 0;
