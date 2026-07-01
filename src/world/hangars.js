@@ -403,6 +403,9 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   // ── Shell ─────────────────────────────────────────────────────────
   buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangarIndex);
 
+  // ── Ceiling fan (center of hangar) ────────────────────────────────
+  buildCeilingFan(group, hangarIndex);
+
   // ── Store slots ───────────────────────────────────────────────────
   const slotSignMat = stdMat(0xBDBDBD, 0.82); // default: available (gray)
   const counterMat  = stdMat(0x90A4AE, 0.88);
@@ -940,6 +943,77 @@ function finaliseSlotPositions(group, hangarIndex) {
       s.worldPos.copy(s.localPos).applyMatrix4(group.matrixWorld);
       s.worldPos.y = 0;
     });
+}
+
+// ── Ceiling Fan (large rotating fan in center of hangar) ─────────────
+
+function buildCeilingFan(group, hangarIndex) {
+  const { H } = HANGAR_DIMS[hangarIndex];
+
+  const FAN_DIAMETER = 12; // 12m diameter fan
+  const FAN_HEIGHT = H - 1; // 1m below ceiling (16.5m)
+  const BLADE_COUNT = 4;
+  const BLADE_WIDTH = FAN_DIAMETER / 2 - 0.5; // Radius minus hub
+  const BLADE_DEPTH = 1.2;
+  const BLADE_THICKNESS = 0.08;
+
+  const fanGroup = new THREE.Group();
+  fanGroup.position.set(0, FAN_HEIGHT, 0);
+
+  // Central hub (motor housing)
+  const hubMat = new THREE.MeshLambertMaterial({ color: 0x2C2C2C }); // Dark gray
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.4, 0.5, 0.8, 12),
+    hubMat
+  );
+  hub.castShadow = true;
+  fanGroup.add(hub);
+
+  // Rod connecting to ceiling
+  const rod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.08, 1, 8),
+    hubMat
+  );
+  rod.position.y = 0.9;
+  rod.castShadow = true;
+  fanGroup.add(rod);
+
+  // 4 blades
+  const bladeMat = new THREE.MeshLambertMaterial({
+    color: 0x8B7355, // Wooden brown
+    side: THREE.DoubleSide
+  });
+
+  for (let i = 0; i < BLADE_COUNT; i++) {
+    const angle = (i / BLADE_COUNT) * Math.PI * 2;
+
+    // Blade geometry (slightly curved)
+    const bladeGeo = new THREE.BoxGeometry(BLADE_WIDTH, BLADE_THICKNESS, BLADE_DEPTH);
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+
+    // Position blade extending from hub
+    blade.position.set(
+      Math.cos(angle) * (BLADE_WIDTH / 2 + 0.3),
+      -0.2,
+      Math.sin(angle) * (BLADE_WIDTH / 2 + 0.3)
+    );
+
+    // Rotate blade to align radially
+    blade.rotation.y = angle;
+
+    // Slight tilt for aerodynamics (15 degrees)
+    blade.rotation.z = 0.26;
+
+    blade.castShadow = true;
+    blade.receiveShadow = true;
+    fanGroup.add(blade);
+  }
+
+  group.add(fanGroup);
+
+  // Store reference for animation
+  fanGroup.userData.isCeilingFan = true;
+  fanGroup.userData.rotationSpeed = 0.3; // Radians per second
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

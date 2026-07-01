@@ -394,6 +394,13 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateAnimalSystem(delta);
+
+  // Ceiling fans rotation
+  scene.traverse(obj => {
+    if (obj.userData.isCeilingFan) {
+      obj.rotation.y += delta * obj.userData.rotationSpeed;
+    }
+  });
   updateRoamingNPCs(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
