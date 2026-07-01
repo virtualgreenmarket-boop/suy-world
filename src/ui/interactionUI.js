@@ -107,12 +107,14 @@ function _buildDom() {
  *   label     — button text, e.g. "Talk", "Shop", "Sit"
  *   range     — activation radius in metres (default 4.5)
  *   callback  — called when player presses E or taps the button
+ *   talkCallback — optional callback for G key
+ *   anchorY   — height above worldPos to show button (default 2.5)
  */
-export function registerInteraction(worldPos, label, range = 4.5, callback, talkCallback = null) {
+export function registerInteraction(worldPos, label, range = 4.5, callback, talkCallback = null, anchorY = 2.5) {
   const pos = worldPos instanceof THREE.Vector3
     ? worldPos.clone()
     : new THREE.Vector3(...worldPos);
-  _targets.push({ worldPos: pos, label, range, callback, talkCallback });
+  _targets.push({ worldPos: pos, label, range, callback, talkCallback, anchorY });
 }
 
 /**

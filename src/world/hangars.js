@@ -364,7 +364,7 @@ export function initHangars(scene, camera) {
       'Take your time, look around, and click on anything that interests you to learn more.',
       'Enjoy your visit to the North Hangar!',
     ], 'North Hangar');
-  });
+  }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
   // Center: x=162.6, z=0, rotY=-PI/2 (10m closer to plaza)
   registerInteraction([162.6 + halfD[1]*sinNE, 0, 0 + halfD[1]*cosNE], 'Talk', 7, () => {
     showNpcDialog([
@@ -373,7 +373,7 @@ export function initHangars(scene, camera) {
       'Browse both sides and the far wall — there is always something new to discover here.',
       'Enjoy your visit to the Central Hangar!',
     ], 'Central Hangar');
-  });
+  }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
   // South: x=0, z=162.6, rotY=PI (10m closer to plaza)
   registerInteraction([0 + halfD[2]*sinS, 0, 162.6 + halfD[2]*cosS], 'Talk', 7, () => {
     showNpcDialog([
@@ -382,7 +382,7 @@ export function initHangars(scene, camera) {
       'Walk in, explore, and click on anything that catches your eye.',
       'Enjoy your visit to the South Hangar!',
     ], 'South Hangar');
-  });
+  }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
 }
 
 // ── Build one hangar ──────────────────────────────────────────────────
