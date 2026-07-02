@@ -472,14 +472,25 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
   registerGround(floor);
 
   // Left wall
-  addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);
+  const leftWall = addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);
+  leftWall.name = `Hangar${hangarIndex}_LeftWall`;
+
   // Right wall
-  addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat,  W / 2, H / 2, 0);
+  const rightWall = addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat,  W / 2, H / 2, 0);
+  rightWall.name = `Hangar${hangarIndex}_RightWall`;
+
   // Far wall (with door opening — 10 m gap)
   const fwSide = (W - 12) / 2;
-  addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat, -(W / 2 - fwSide / 2), H / 2, -D / 2);
-  addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat,  W / 2 - fwSide / 2,   H / 2, -D / 2);
-  addWall(group, new THREE.BoxGeometry(12, H * 0.35, 0.6), wallMat, 0, H - H * 0.35 / 2, -D / 2);
+  const farLeft = addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat, -(W / 2 - fwSide / 2), H / 2, -D / 2);
+  farLeft.name = `Hangar${hangarIndex}_FarLeft`;
+
+  const farRight = addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat,  W / 2 - fwSide / 2,   H / 2, -D / 2);
+  farRight.name = `Hangar${hangarIndex}_FarRight`;
+
+  const farTop = addWall(group, new THREE.BoxGeometry(12, H * 0.35, 0.6), wallMat, 0, H - H * 0.35 / 2, -D / 2);
+  farTop.name = `Hangar${hangarIndex}_FarTop`;
+
+  console.log(`[hangars] Hangar ${hangarIndex}: Created 5 wall meshes (left, right, far-left, far-right, far-top)`);
 
   // Entrance: columns scaled proportionally to hangar width
   // For narrow hangars: 4 columns. For wide hangars (W>150): add more columns
@@ -1160,6 +1171,8 @@ function add(group, geo, mat, x, y, z, castShadow = false) {
   m.position.set(x, y, z);
   m.receiveShadow = false; // No shadows on hangar structures
   m.castShadow = false;    // Hangars don't cast shadows
+  m.visible = true;        // Ensure mesh is visible
+  m.frustumCulled = true;  // Enable frustum culling (default)
   group.add(m);
   return m;
 }
