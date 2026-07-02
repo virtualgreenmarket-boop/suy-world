@@ -1016,9 +1016,7 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
   const eastX = W/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
   const eastKioskCount = 10; // Reduced from 11, skip first
   const eastTotalWidth = eastKioskCount * KIOSK_WIDTH; // 105m
-  const eastGapSpace = D - eastTotalWidth; // 38.85m
-  const eastGapBase = eastGapSpace / (eastKioskCount + 1); // 3.53m per gap (11 gaps total)
-  const eastGap = eastGapBase * 0.95; // Reduce spacing by 5% (kiosks closer together)
+  const eastGap = 2.5; // Fixed 2.5m spacing between kiosks
   for (let i = 1; i <= eastKioskCount; i++) { // Start from i=1 to skip first position
     const z = -D/2 + eastGap + (i * (KIOSK_WIDTH + eastGap)) + KIOSK_WIDTH/2;
     addKiosk(eastX, z, Math.PI/2, 'east');
@@ -1028,7 +1026,7 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
   // Start from 2nd position to clear rear wall corner
   const westX = -W/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
   const westKioskCount = 10; // Same as east
-  const westGap = eastGap; // Same as east wall (already reduced by 5%)
+  const westGap = 2.5; // Fixed 2.5m spacing between kiosks (same as east)
   for (let i = 1; i <= westKioskCount; i++) { // Start from i=1 to skip first position
     const z = -D/2 + westGap + (i * (KIOSK_WIDTH + westGap)) + KIOSK_WIDTH/2;
     addKiosk(westX, z, -Math.PI/2, 'west');
