@@ -5,7 +5,7 @@ import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { registerGround } from '../systems/terrain.js';
-import { registerBox } from '../systems/collision.js';
+import { registerBox, clearKioskBoxes } from '../systems/collision.js';
 
 // ── Enhance model quality helper ─────────────────────────────────────
 
@@ -774,6 +774,10 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
 // ── Market Kiosks (North Hangar only) — 50 open-front stalls ─────────
 
 function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRotY) {
+  // STEP 4: Clear ALL previously registered kiosk collision boxes before building new ones
+  // This prevents phantom boxes from old builds accumulating
+  clearKioskBoxes();
+
   const { W, D } = HANGAR_DIMS[hangarIndex];
 
   // Kiosk dimensions (+5% width, +20% height from original)
@@ -926,7 +930,8 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
       Math.min(...backCorners.map(p => p[0])),
       Math.max(...backCorners.map(p => p[0])),
       Math.min(...backCorners.map(p => p[1])),
-      Math.max(...backCorners.map(p => p[1]))
+      Math.max(...backCorners.map(p => p[1])),
+      true // Tag as kiosk box
     );
 
     // Left side wall collision (thin width, runs from back to ~middle)
@@ -948,7 +953,8 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
       Math.min(...leftCorners.map(p => p[0])),
       Math.max(...leftCorners.map(p => p[0])),
       Math.min(...leftCorners.map(p => p[1])),
-      Math.max(...leftCorners.map(p => p[1]))
+      Math.max(...leftCorners.map(p => p[1])),
+      true // Tag as kiosk box
     );
 
     // Right side wall collision
@@ -964,7 +970,8 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
       Math.min(...rightCorners.map(p => p[0])),
       Math.max(...rightCorners.map(p => p[0])),
       Math.min(...rightCorners.map(p => p[1])),
-      Math.max(...rightCorners.map(p => p[1]))
+      Math.max(...rightCorners.map(p => p[1])),
+      true // Tag as kiosk box
     );
 
     // Register slot
@@ -1026,7 +1033,9 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
     addKiosk(westX, z, -Math.PI/2, 'west');
   }
 
+  const kioskCollisionBoxes = kioskNumber * 3; // 3 boxes per kiosk (back + 2 sides)
   console.log('[hangars] Hangar', hangarIndex, ': Built', kioskNumber, 'market kiosks (16 rear + 10 east + 10 west = 36 total, 10.5m wide each)');
+  console.log('[hangars] Hangar', hangarIndex, ': Registered', kioskCollisionBoxes, 'kiosk collision boxes (3 per kiosk)');
 }
 
 function finaliseSlotPositions(group, hangarIndex) {
