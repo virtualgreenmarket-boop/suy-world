@@ -1004,28 +1004,29 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
     addKiosk(x, rearZ, Math.PI, 'rear');
   }
 
-  // East side wall (11 kiosks instead of 12 - keep last one away from entrance)
-  // Wall: 143.85m - 115.5m = 28.35m gap space (more breathing room)
+  // East side wall (10 kiosks - skip first to avoid rear wall overlap)
+  // Start from 2nd position to clear rear wall corner
   const eastX = W/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
-  const eastKioskCount = 11; // Reduced from 12
-  const eastTotalWidth = eastKioskCount * KIOSK_WIDTH; // 115.5m
-  const eastGapSpace = D - eastTotalWidth; // 28.35m
-  const eastGap = eastGapSpace / (eastKioskCount + 1); // 2.36m per gap (12 gaps total)
-  for (let i = 0; i < eastKioskCount; i++) {
+  const eastKioskCount = 10; // Reduced from 11, skip first
+  const eastTotalWidth = eastKioskCount * KIOSK_WIDTH; // 105m
+  const eastGapSpace = D - eastTotalWidth; // 38.85m
+  const eastGap = eastGapSpace / (eastKioskCount + 1); // 3.53m per gap (11 gaps total)
+  for (let i = 1; i <= eastKioskCount; i++) { // Start from i=1 to skip first position
     const z = -D/2 + eastGap + (i * (KIOSK_WIDTH + eastGap)) + KIOSK_WIDTH/2;
     addKiosk(eastX, z, Math.PI/2, 'east');
   }
 
-  // West side wall (11 kiosks instead of 12 - keep last one away from entrance)
+  // West side wall (10 kiosks - skip first to avoid rear wall overlap)
+  // Start from 2nd position to clear rear wall corner
   const westX = -W/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
-  const westKioskCount = 11; // Same as east
+  const westKioskCount = 10; // Same as east
   const westGap = eastGap; // Same as east wall
-  for (let i = 0; i < westKioskCount; i++) {
+  for (let i = 1; i <= westKioskCount; i++) { // Start from i=1 to skip first position
     const z = -D/2 + westGap + (i * (KIOSK_WIDTH + westGap)) + KIOSK_WIDTH/2;
     addKiosk(westX, z, -Math.PI/2, 'west');
   }
 
-  console.log('[hangars] Hangar', hangarIndex, ': Built', kioskNumber, 'market kiosks (16 rear + 11 east + 11 west = 38 total, 10.5m wide each)');
+  console.log('[hangars] Hangar', hangarIndex, ': Built', kioskNumber, 'market kiosks (16 rear + 10 east + 10 west = 36 total, 10.5m wide each)');
 }
 
 function finaliseSlotPositions(group, hangarIndex) {
