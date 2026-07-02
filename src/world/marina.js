@@ -57,6 +57,7 @@ export function initMarina(scene) {
   addStairs(group);
   addLandStairs(group);
   addFishingPier(group);
+  addPerimeterFence(group);
   _registerDeckCollision(group);
 
   _loadHouse(group);
@@ -354,6 +355,97 @@ function addFishingPier(group) {
       group.add(alcSpot);
     }
   });
+}
+
+// ── Perimeter fence around marina grounds ────────────────────────────
+// Fence encloses the marina property with gaps for land stairs and path
+// Local coords: group at (-325.2, 0, 0), rot.y=PI/2
+// Deck: localX∈[-65,+65], localZ∈[-21,+23] → worldX∈[-302,-348], worldZ∈[-65,+65]
+
+function addPerimeterFence(group) {
+  const fenceHeight = 1.8;  // 1.8m high fence
+  const fenceY = 0.9;       // center at half height
+  const postMat = solidMat(0x5C3D1A, 0.9);  // dark brown wood
+  const railMat = solidMat(0x7D5D3C, 0.85); // lighter brown
+
+  // Fence boundaries (local coords, wider than deck to enclose property)
+  const fenceMinX = -75;   // 10m beyond deck left edge
+  const fenceMaxX = 75;    // 10m beyond deck right edge
+  const fenceMinZ = -30;   // 9m beyond sea edge
+  const fenceMaxZ = 35;    // 12m beyond land edge
+
+  // Land stairs gap (centered at localX=0, width 9.5m + clearance)
+  const stairsGapHalf = 6;  // 12m total gap for 9.5m stairs + clearance
+
+  // ── Back (land) side: two segments with stairs gap in center ─────────
+  const backZ = fenceMaxZ;
+  // Left segment: from left corner to stairs gap
+  _buildFenceSegment(group, (fenceMinX - stairsGapHalf) / 2, backZ,
+                     fenceMinX + stairsGapHalf, fenceHeight, fenceY, 'x', postMat, railMat);
+  // Right segment: from stairs gap to right corner
+  _buildFenceSegment(group, (fenceMaxX + stairsGapHalf) / 2, backZ,
+                     fenceMaxX - stairsGapHalf, fenceHeight, fenceY, 'x', postMat, railMat);
+
+  // ── Left side (full length) ──────────────────────────────────────────
+  const leftX = fenceMinX;
+  const leftLen = fenceMaxZ - fenceMinZ;
+  _buildFenceSegment(group, leftX, (fenceMinZ + fenceMaxZ) / 2,
+                     leftLen, fenceHeight, fenceY, 'z', postMat, railMat);
+
+  // ── Right side (full length) ─────────────────────────────────────────
+  const rightX = fenceMaxX;
+  _buildFenceSegment(group, rightX, (fenceMinZ + fenceMaxZ) / 2,
+                     leftLen, fenceHeight, fenceY, 'z', postMat, railMat);
+
+  // ── Front (sea) side: full length ────────────────────────────────────
+  const frontZ = fenceMinZ;
+  const frontLen = fenceMaxX - fenceMinX;
+  _buildFenceSegment(group, 0, frontZ,
+                     frontLen, fenceHeight, fenceY, 'x', postMat, railMat);
+
+  console.log('[marina] Perimeter fence built with land stairs gap');
+}
+
+// Build a fence segment with posts and horizontal rails
+// axis: 'x' = fence runs along X, 'z' = fence runs along Z
+function _buildFenceSegment(group, cx, cz, length, height, baseY, axis, postMat, railMat) {
+  const postSpacing = 2.5;  // posts every 2.5m
+  const postCount = Math.floor(length / postSpacing) + 1;
+
+  // Add posts
+  for (let i = 0; i <= postCount; i++) {
+    const t = (i / postCount) - 0.5;
+    const px = axis === 'x' ? cx + t * length : cx;
+    const pz = axis === 'z' ? cz + t * length : cz;
+    const post = new THREE.Mesh(
+      new THREE.BoxGeometry(0.10, height, 0.10),
+      postMat
+    );
+    post.position.set(px, baseY, pz);
+    post.castShadow = true;
+    group.add(post);
+  }
+
+  // Add horizontal rails (3 rails: top, middle, bottom)
+  const railGeo = axis === 'x'
+    ? new THREE.BoxGeometry(length, 0.08, 0.08)
+    : new THREE.BoxGeometry(0.08, 0.08, length);
+
+  [0.7, 0.0, -0.7].forEach(offsetY => {
+    const rail = new THREE.Mesh(railGeo, railMat);
+    rail.position.set(cx, baseY + offsetY, cz);
+    rail.castShadow = true;
+    group.add(rail);
+  });
+
+  // Add collision box for fence (in world coords)
+  const GROUP_X = -325.2;
+  const PAD = 0.5;  // thicker padding for fence
+  if (axis === 'x') {
+    registerBox(GROUP_X + cz - PAD, GROUP_X + cz + PAD, -cx - length / 2, -cx + length / 2, 'marina_fence');
+  } else {
+    registerBox(GROUP_X + cz - length / 2, GROUP_X + cz + length / 2, -cx - PAD, -cx + PAD, 'marina_fence');
+  }
 }
 
 // ── Deck collision (world-space AABBs) ───────────────────────────────

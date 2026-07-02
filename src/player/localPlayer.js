@@ -403,7 +403,10 @@ function _loadSpawn() {
     const raw = localStorage.getItem('suy_spawn');
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { x: 0, y: 0.7, z: 20 };
+  // Marina deck: group at (-325.2, 0, 0), rot.y=PI/2
+  // Deck center local (0, DECK_Y, 0) → world (-325.2, 3.2, 0)
+  // Spawn player at deck center
+  return { x: -325, y: 3.5, z: 0 };
 }
 
 export function setLocalPlayerPosition(x, z) {
