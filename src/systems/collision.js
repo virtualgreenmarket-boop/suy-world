@@ -14,20 +14,23 @@ export function clearAllBoxes() {
   console.log('[collision] Cleared all collision boxes');
 }
 
-// Clear only kiosk collision boxes (before rebuilding kiosks)
-export function clearKioskBoxes() {
+// Clear collision boxes by tag (prevents phantom boxes from hot-reloads)
+export function clearCollisionsByTag(tag) {
   const beforeCount = boxes.length;
-  const kioskCount = boxes.filter(b => b.isKiosk).length;
-  // Remove all boxes tagged as kiosk boxes
+  const taggedCount = boxes.filter(b => b.tag === tag).length;
+  // Remove all boxes with matching tag
   for (let i = boxes.length - 1; i >= 0; i--) {
-    if (boxes[i].isKiosk) {
+    if (boxes[i].tag === tag) {
       boxes.splice(i, 1);
     }
   }
-  console.log(`[collision] Cleared ${kioskCount} kiosk boxes (${beforeCount} → ${boxes.length})`);
+  console.log(`[collision] Cleared ${taggedCount} '${tag}' boxes (${beforeCount} → ${boxes.length})`);
 }
 
 export function initCollision() {
+  // Clear hangar wall boxes before rebuilding (prevents hot-reload accumulation)
+  clearCollisionsByTag('hangar_wall');
+
   // Wall colliders are derived directly from HANGAR_DIMS/HANGAR_CONFIGS (hangars.js)
   // so they always match the real geometry, even when hangars are resized per-hangar.
   const boxCountBefore = boxes.length;
@@ -37,16 +40,24 @@ export function initCollision() {
   });
   console.log(`[collision] Total boxes: ${boxes.length} (${boxCountBefore} from kiosks, ${boxes.length - boxCountBefore} from hangar walls)`);
 
-  // STEP 1: Print ALL collision boxes with position and size
+  // STEP 1: Print ALL collision boxes with position, size, and tag
   console.log('[collision] === ALL COLLISION BOXES ===');
   boxes.forEach((box, i) => {
     const centerX = (box.minX + box.maxX) / 2;
     const centerZ = (box.minZ + box.maxZ) / 2;
     const width = box.maxX - box.minX;
     const depth = box.maxZ - box.minZ;
-    const isKiosk = box.isKiosk ? ' [KIOSK]' : '';
-    console.log(`[collision] Box ${i}: pos=(${centerX.toFixed(2)}, ${centerZ.toFixed(2)}) size=(${width.toFixed(2)}, ${depth.toFixed(2)}) X[${box.minX.toFixed(2)}, ${box.maxX.toFixed(2)}] Z[${box.minZ.toFixed(2)}, ${box.maxZ.toFixed(2)}]${isKiosk}`);
+    const tag = box.tag ? ` [${box.tag}]` : '';
+    console.log(`[collision] Box ${i}: pos=(${centerX.toFixed(2)}, ${centerZ.toFixed(2)}) size=(${width.toFixed(2)}, ${depth.toFixed(2)}) X[${box.minX.toFixed(2)}, ${box.maxX.toFixed(2)}] Z[${box.minZ.toFixed(2)}, ${box.maxZ.toFixed(2)}]${tag}`);
   });
+
+  // Summary by tag
+  const tagCounts = {};
+  boxes.forEach(box => {
+    const tag = box.tag || 'untagged';
+    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+  });
+  console.log('[collision] Boxes by tag:', tagCounts);
 
   // STEP 2: Identify suspect boxes near entrance wall (Z between -85 and -115)
   console.log('[collision] === SUSPECT BOXES NEAR ENTRANCE (Z: -85 to -115) ===');
@@ -61,8 +72,8 @@ export function initCollision() {
     const centerZ = (box.minZ + box.maxZ) / 2;
     const width = box.maxX - box.minX;
     const depth = box.maxZ - box.minZ;
-    const isKiosk = box.isKiosk ? ' [KIOSK]' : '';
-    console.log(`[collision]   Suspect ${i} (box ${globalIndex}): pos=(${centerX.toFixed(2)}, ${centerZ.toFixed(2)}) size=(${width.toFixed(2)}, ${depth.toFixed(2)})${isKiosk}`);
+    const tag = box.tag ? ` [${box.tag}]` : '';
+    console.log(`[collision]   Suspect ${i} (box ${globalIndex}): pos=(${centerX.toFixed(2)}, ${centerZ.toFixed(2)}) size=(${width.toFixed(2)}, ${depth.toFixed(2)})${tag}`);
   });
 }
 
@@ -71,7 +82,7 @@ function rot(lx, lz, cx, cz, ry) {
   return [c * lx - s * lz + cx, s * lx + c * lz + cz];
 }
 
-function addRotBox(lx1, lz1, lx2, lz2, cx, cz, ry) {
+function addRotBox(lx1, lz1, lx2, lz2, cx, cz, ry, tag = 'hangar_wall') {
   const corners = [
     rot(lx1, lz1, cx, cz, ry), rot(lx2, lz1, cx, cz, ry),
     rot(lx1, lz2, cx, cz, ry), rot(lx2, lz2, cx, cz, ry),
@@ -81,6 +92,7 @@ function addRotBox(lx1, lz1, lx2, lz2, cx, cz, ry) {
     maxX: Math.max(...corners.map(c => c[0])),
     minZ: Math.min(...corners.map(c => c[1])),
     maxZ: Math.max(...corners.map(c => c[1])),
+    tag
   });
 }
 
@@ -109,10 +121,10 @@ function collidesAny(x, z) {
  * @param {number} maxX
  * @param {number} minZ
  * @param {number} maxZ
- * @param {boolean} isKiosk - Tag as kiosk box for cleanup
+ * @param {string} tag - Tag for cleanup (e.g., 'kiosk', 'hangar_wall', 'boundary')
  */
-export function registerBox(minX, maxX, minZ, maxZ, isKiosk = false) {
-  boxes.push({ minX, maxX, minZ, maxZ, isKiosk });
+export function registerBox(minX, maxX, minZ, maxZ, tag = 'untagged') {
+  boxes.push({ minX, maxX, minZ, maxZ, tag });
 }
 
 export function resolveCollision(nx, nz, oldX, oldZ) {

@@ -5,7 +5,7 @@ import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { registerGround } from '../systems/terrain.js';
-import { registerBox, clearKioskBoxes } from '../systems/collision.js';
+import { registerBox, clearCollisionsByTag } from '../systems/collision.js';
 
 // ── Enhance model quality helper ─────────────────────────────────────
 
@@ -774,9 +774,9 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
 // ── Market Kiosks (North Hangar only) — 50 open-front stalls ─────────
 
 function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRotY) {
-  // STEP 4: Clear ALL previously registered kiosk collision boxes before building new ones
-  // This prevents phantom boxes from old builds accumulating
-  clearKioskBoxes();
+  // Clear ALL previously registered kiosk collision boxes before building new ones
+  // This prevents phantom boxes from hot-reloads accumulating
+  clearCollisionsByTag('kiosk');
 
   const { W, D } = HANGAR_DIMS[hangarIndex];
 
@@ -931,7 +931,7 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
       Math.max(...backCorners.map(p => p[0])),
       Math.min(...backCorners.map(p => p[1])),
       Math.max(...backCorners.map(p => p[1])),
-      true // Tag as kiosk box
+      'kiosk' // Tag for cleanup
     );
 
     // Left side wall collision (thin width, runs from back to ~middle)
@@ -954,7 +954,7 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
       Math.max(...leftCorners.map(p => p[0])),
       Math.min(...leftCorners.map(p => p[1])),
       Math.max(...leftCorners.map(p => p[1])),
-      true // Tag as kiosk box
+      'kiosk' // Tag for cleanup
     );
 
     // Right side wall collision
@@ -971,7 +971,7 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
       Math.max(...rightCorners.map(p => p[0])),
       Math.min(...rightCorners.map(p => p[1])),
       Math.max(...rightCorners.map(p => p[1])),
-      true // Tag as kiosk box
+      'kiosk' // Tag for cleanup
     );
 
     // Register slot
