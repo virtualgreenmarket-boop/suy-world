@@ -1,6 +1,6 @@
 // Level and EXP bar display UI
 
-import { getCurrentLevel, getCurrentEXP, getEXPToNextLevel } from '../systems/leveling.js';
+import { getCurrentLevel, getCurrentEXP, getRequiredEXPForLevel } from '../systems/leveling.js';
 
 export function initLevelDisplay() {
   const container = document.createElement('div');
@@ -19,7 +19,13 @@ export function initLevelDisplay() {
   `;
   document.body.appendChild(container);
 
-  // Update every second
+  // Expose update function globally for immediate updates from leveling system
+  window.updateLevelDisplayNow = updateLevelDisplay;
+
+  // Initial update
+  updateLevelDisplay();
+
+  // Also update every second as fallback
   setInterval(() => {
     updateLevelDisplay();
   }, 1000);
@@ -34,11 +40,14 @@ export function updateLevelDisplay() {
 
   const level = getCurrentLevel();
   const currentExp = getCurrentEXP();
-  const expToNext = getEXPToNextLevel();
-  const totalRequired = currentExp + expToNext;
-  const percentage = (currentExp / totalRequired) * 100;
+  const requiredForNextLevel = getRequiredEXPForLevel(level);
+
+  // Calculate percentage based on current progress toward next level
+  const percentage = requiredForNextLevel > 0 ? (currentExp / requiredForNextLevel) * 100 : 0;
 
   levelDisplay.textContent = `Level ${level}`;
   expBar.style.width = `${Math.min(100, percentage)}%`;
-  expText.textContent = `${currentExp} / ${totalRequired} EXP`;
+  expText.textContent = `${currentExp} / ${requiredForNextLevel} EXP`;
+
+  console.log(`[levelDisplay] Updated: Level ${level}, ${currentExp}/${requiredForNextLevel} EXP (${percentage.toFixed(1)}%)`);
 }

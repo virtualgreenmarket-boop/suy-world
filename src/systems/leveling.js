@@ -103,8 +103,15 @@ function _showLevelUpNotification() {
   }, 3000);
 }
 
-// Update UI display
+// Update UI display - now calls the UI module directly
 function _updateUI() {
+  // Call the external UI update function if available
+  if (window.updateLevelDisplayNow) {
+    window.updateLevelDisplayNow();
+    return;
+  }
+
+  // Fallback: direct DOM update (for backwards compatibility)
   const levelDisplay = document.getElementById('player-level-display');
   const expBar = document.getElementById('player-exp-bar');
   const expText = document.getElementById('player-exp-text');
@@ -206,4 +213,8 @@ export function getLimitsStatus() {
     steps: `${_dailyLimits.steps.count}/100 per hour`,
     chatMessages: `${_dailyLimits.chatMessages.count}/25 per day`
   };
+}
+
+export function getRequiredEXPForLevel(level) {
+  return getRequiredEXP(level);
 }
