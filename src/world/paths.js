@@ -119,8 +119,9 @@ export function initPaths(scene) {
   // South hangar: x=-50, z=162.6
   addPath(scene, -50,  41, -50, 123);   // Plaza (X=-50) to south hangar entrance
 
-  // Marina path (west): from plaza X=-50 to marina land stairs at X=-202
-  addPath(scene, -91,   0, -200,  0);   // Plaza west edge (X=-50-41=-91) to marina stairs base
+  // Marina path (west): from plaza X=-50 to marina land stairs base at X=-297.2
+  // Marina group at X=-325.2, stairs local Z=28 → world X=-325.2+28=-297.2
+  addPath(scene, -91,   0, -297,  0);   // Plaza west edge (X=-50-41=-91) to marina stairs base
 }
 
 function addPath(scene, ax, az, bx, bz) {
