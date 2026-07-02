@@ -57,7 +57,7 @@ export function initMarina(scene) {
   addStairs(group);
   addLandStairs(group);
   addFishingPier(group);
-  _registerDeckCollision();
+  _registerDeckCollision(group);
 
   _loadHouse(group);
   _loadFishermanNpc(group);
@@ -360,20 +360,63 @@ function addFishingPier(group) {
 // Deck: localX∈[-65,+65], localZ∈[-21,+1]  →  worldX∈[-251,-229], worldZ∈[-65,+65]
 // Stairs opening: localX∈[-12.5,+12.5] → worldZ∈[-12.5,+12.5]
 
-function _registerDeckCollision() {
-  // Group at (-230,0,0) rot.y=PI/2 → worldX=-230+localZ, worldZ=-localX
-  // Deck: localZ∈[-21,+23] → worldX∈[-251,-207], localX∈[-65,+65] → worldZ∈[-65,+65]
+function _registerDeckCollision(group) {
+  // BUG FIX: All collision boxes now have matching visible wall meshes
+  // Group at (-325.2, 0, 0) rot.y=PI/2 → worldX = -325.2 + localZ, worldZ = -localX
+
+  const wallMat = solidMat(0x8B7355, 0.9); // Brown wood wall material
+  const wallHeight = DECK_Y + 2; // Walls go up to 5.2m (deck height + 2m)
+
   // Back wall — two halves with 9.5 m stair gap (worldZ∈[-5,+5])
-  registerBox(-208, -206, -66, -5);
-  registerBox(-208, -206,   5, 66);
+  // Left half: worldX∈[-208,-206], worldZ∈[-66,-5]
+  registerBox(-208, -206, -66, -5, 'marina_wall');
+  _addWallMesh(group, -207, wallHeight/2, -35.5, 2, wallHeight, 61, wallMat, 'BackLeft');
+
+  // Right half: worldX∈[-208,-206], worldZ∈[5,66]
+  registerBox(-208, -206,   5, 66, 'marina_wall');
+  _addWallMesh(group, -207, wallHeight/2, 35.5, 2, wallHeight, 61, wallMat, 'BackRight');
+
   // Left side wall (localX=-65 → worldZ=+65)
-  registerBox(-252, -206, 64, 66);
+  // worldX∈[-252,-206], worldZ∈[64,66]
+  registerBox(-252, -206, 64, 66, 'marina_wall');
+  _addWallMesh(group, -229, wallHeight/2, 65, 46, wallHeight, 2, wallMat, 'LeftSide');
+
   // Right side wall (localX=+65 → worldZ=-65)
-  registerBox(-252, -206, -66, -64);
+  // worldX∈[-252,-206], worldZ∈[-66,-64]
+  registerBox(-252, -206, -66, -64, 'marina_wall');
+  _addWallMesh(group, -229, wallHeight/2, -65, 46, wallHeight, 2, wallMat, 'RightSide');
+
   // Front wall — left of stair gap (worldZ∈[13,66])
-  registerBox(-252.5, -249.5, 13, 66);
+  // worldX∈[-252.5,-249.5], worldZ∈[13,66]
+  registerBox(-252.5, -249.5, 13, 66, 'marina_wall');
+  _addWallMesh(group, -251, wallHeight/2, 39.5, 3, wallHeight, 53, wallMat, 'FrontLeft');
+
   // Front wall — right of stair gap (worldZ∈[-66,-13])
-  registerBox(-252.5, -249.5, -66, -13);
+  // worldX∈[-252.5,-249.5], worldZ∈[-66,-13]
+  registerBox(-252.5, -249.5, -66, -13, 'marina_wall');
+  _addWallMesh(group, -251, wallHeight/2, -39.5, 3, wallHeight, 53, wallMat, 'FrontRight');
+
+  console.log('[marina] Created 6 visible wall meshes + collision boxes');
+}
+
+// Helper: add a visible wall mesh in WORLD coordinates (marina group is already rotated)
+function _addWallMesh(group, worldX, worldY, worldZ, width, height, depth, material, name) {
+  // Convert world coords back to local coords
+  // Group: pos=(-325.2, 0, 0), rot.y=PI/2
+  // worldX = -325.2 + localZ → localZ = worldX + 325.2
+  // worldZ = -localX → localX = -worldZ
+  const localX = -worldZ;
+  const localZ = worldX + 325.2;
+
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    material
+  );
+  mesh.position.set(localX, worldY, localZ);
+  mesh.castShadow = false;
+  mesh.receiveShadow = true;
+  mesh.name = `Marina_Wall_${name}`;
+  group.add(mesh);
 }
 
 // ── Fisherman NPC ─────────────────────────────────────────────────────
