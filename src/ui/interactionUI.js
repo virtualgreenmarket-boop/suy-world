@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { isChatOpen } from './chatUI.js';
+import { awardNPCChatEXP } from '../systems/leveling.js';
 
 // Floating interaction button — appears in world space when the local player
 // walks within range of an NPC, bench, or other interactable.
@@ -241,6 +242,9 @@ export function showNpcDialog(paragraphs, title = 'Welcome to Suy-World') {
     </div>
   `;
   document.body.appendChild(overlay);
+
+  // Award NPC chat EXP (4 EXP, max 3 per hour)
+  awardNPCChatEXP(title);
 
   const box = overlay.querySelector('#npc-dialog-box');
 

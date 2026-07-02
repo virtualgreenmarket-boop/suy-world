@@ -36,6 +36,12 @@ import { AnimalManager } from './world/AnimalLoader.js';
 import { initRoamingNPCs, updateRoamingNPCs } from './world/roamingNPCs.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
+import { initLeveling, awardStepEXP } from './systems/leveling.js';
+import { initLevelDisplay } from './ui/levelDisplay.js';
+
+// Step tracking for EXP
+let _lastPlayerPosition = null;
+let _totalStepsThisSession = 0;
 import { initShopUI } from './ui/ShopUI.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
@@ -201,6 +207,8 @@ initPetSystem(scene);
 
 // ── UI (initialize early, before character loads) ─────────────────────
 initHud();
+initLeveling();
+initLevelDisplay();
 initMinimap();
 initShopUI();
 initChatUI();
@@ -417,6 +425,20 @@ function animate() {
   // Update coordinates display
   if (pos) {
     updateCoordinates(pos);
+
+    // Track steps for EXP (award every meter moved)
+    if (_lastPlayerPosition) {
+      const dx = pos.x - _lastPlayerPosition.x;
+      const dz = pos.z - _lastPlayerPosition.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      if (distance >= 1.0) {
+        _totalStepsThisSession++;
+        awardStepEXP(1);
+        _lastPlayerPosition = { x: pos.x, z: pos.z };
+      }
+    } else {
+      _lastPlayerPosition = { x: pos.x, z: pos.z };
+    }
   }
 
   // ── Every frame: physics, networking, core animation ─────────────────

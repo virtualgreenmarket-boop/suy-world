@@ -207,6 +207,101 @@ function _injectStyles() {
       letter-spacing: 0.5px;
       pointer-events: none; user-select: none; z-index: 100;
     }
+    /* Level Display */
+    .level-display-container {
+      position: fixed; top: 70px; right: 16px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 100; pointer-events: none; user-select: none;
+    }
+    .level-badge {
+      background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.2));
+      border: 2px solid rgba(255,215,0,0.4);
+      border-radius: 24px;
+      padding: 8px 16px;
+      display: flex; align-items: center; gap: 8px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .level-icon {
+      font-size: 24px; line-height: 1;
+    }
+    .level-number {
+      font: 700 16px 'Segoe UI', Arial, sans-serif;
+      color: #FFD700; letter-spacing: 0.5px;
+    }
+    .exp-bar-container {
+      background: rgba(0,0,0,0.6);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 6px;
+      backdrop-filter: blur(8px);
+    }
+    .exp-bar-background {
+      width: 200px; height: 12px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .exp-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+      border-radius: 6px;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 10px rgba(76,175,80,0.5);
+    }
+    .exp-bar-text {
+      text-align: center;
+      font: 600 11px 'Segoe UI', Arial, sans-serif;
+      color: #fff;
+      margin-top: 4px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    /* Level Up Notification */
+    .level-up-notification {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, rgba(255,215,0,0.95), rgba(255,165,0,0.95));
+      border: 3px solid #FFD700;
+      border-radius: 20px;
+      padding: 30px 50px;
+      z-index: 10000;
+      animation: levelUpPop 0.5s ease;
+      box-shadow: 0 10px 40px rgba(255,215,0,0.6);
+    }
+    @keyframes levelUpPop {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      50% { transform: translate(-50%, -50%) scale(1.1); }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    .level-up-notification.fade-out {
+      animation: fadeOut 0.5s ease forwards;
+    }
+    @keyframes fadeOut {
+      to { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    }
+    .level-up-content {
+      text-align: center;
+    }
+    .level-up-icon {
+      font-size: 60px;
+      animation: spin 1s ease-in-out;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .level-up-text {
+      font: 700 32px 'Segoe UI', Arial, sans-serif;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      margin: 10px 0;
+    }
+    .level-up-level {
+      font: 600 24px 'Segoe UI', Arial, sans-serif;
+      color: #FFF8DC;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+    }
   `;
   document.head.appendChild(s);
 }
