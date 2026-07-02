@@ -978,6 +978,17 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
       status: 'available',
       worldPos: new THREE.Vector3()
     });
+
+    // DEBUG: Log collision boxes near entrance wall for hangar 0
+    if (hangarIndex === 0 && wallName === 'east' && (kioskNumber === 1 || kioskNumber >= 11)) {
+      console.log(`[hangars] DEBUG Kiosk ${kioskNumber} (${wallName}):`, {
+        localPos: { x, z },
+        worldPos: { x: worldKioskX.toFixed(2), z: worldKioskZ.toFixed(2) },
+        backWall: `Z[${Math.min(...backCorners.map(p => p[1])).toFixed(2)}, ${Math.max(...backCorners.map(p => p[1])).toFixed(2)}]`,
+        leftSide: `Z[${Math.min(...leftCorners.map(p => p[1])).toFixed(2)}, ${Math.max(...leftCorners.map(p => p[1])).toFixed(2)}]`,
+        rightSide: `Z[${Math.min(...rightCorners.map(p => p[1])).toFixed(2)}, ${Math.max(...rightCorners.map(p => p[1])).toFixed(2)}]`
+      });
+    }
   }
 
   // NO kiosks on entrance wall - keep it clear for entry
@@ -993,26 +1004,28 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
     addKiosk(x, rearZ, Math.PI, 'rear');
   }
 
-  // East side wall (12 kiosks @ 10.5m width = 126m total)
-  // Wall: 143.85m - 126m = 17.85m gap space
+  // East side wall (11 kiosks instead of 12 - keep last one away from entrance)
+  // Wall: 143.85m - 115.5m = 28.35m gap space (more breathing room)
   const eastX = W/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
-  const eastTotalWidth = 12 * KIOSK_WIDTH; // 126m
-  const eastGapSpace = D - eastTotalWidth; // 17.85m
-  const eastGap = eastGapSpace / (12 + 1); // 1.37m per gap (13 gaps total)
-  for (let i = 0; i < 12; i++) {
+  const eastKioskCount = 11; // Reduced from 12
+  const eastTotalWidth = eastKioskCount * KIOSK_WIDTH; // 115.5m
+  const eastGapSpace = D - eastTotalWidth; // 28.35m
+  const eastGap = eastGapSpace / (eastKioskCount + 1); // 2.36m per gap (12 gaps total)
+  for (let i = 0; i < eastKioskCount; i++) {
     const z = -D/2 + eastGap + (i * (KIOSK_WIDTH + eastGap)) + KIOSK_WIDTH/2;
     addKiosk(eastX, z, Math.PI/2, 'east');
   }
 
-  // West side wall (12 kiosks @ 10.5m width = 126m total)
+  // West side wall (11 kiosks instead of 12 - keep last one away from entrance)
   const westX = -W/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
+  const westKioskCount = 11; // Same as east
   const westGap = eastGap; // Same as east wall
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < westKioskCount; i++) {
     const z = -D/2 + westGap + (i * (KIOSK_WIDTH + westGap)) + KIOSK_WIDTH/2;
     addKiosk(westX, z, -Math.PI/2, 'west');
   }
 
-  console.log('[hangars] North hangar: Built', kioskNumber, 'market kiosks (40 total, 10.5m wide each)');
+  console.log('[hangars] Hangar', hangarIndex, ': Built', kioskNumber, 'market kiosks (16 rear + 11 east + 11 west = 38 total, 10.5m wide each)');
 }
 
 function finaliseSlotPositions(group, hangarIndex) {
