@@ -416,25 +416,26 @@ function _drawZoneBoundaries(mapRadius, scale) {
   _ctx.arc(0, 0, mapRadius, 0, Math.PI * 2);
   _ctx.clip();
 
-  // Fill zones with colors (background to foreground)
-  // Deep water (outermost)
-  _ctx.fillStyle = 'rgba(0, 105, 148, 0.15)';
+  // Fill zones with colors (outermost to innermost - larger circles first)
+
+  // 1. Deep water (background - full circle)
+  _ctx.fillStyle = 'rgba(0, 105, 148, 0.2)'; // Dark blue water
   _ctx.beginPath();
   _ctx.arc(0, 0, mapRadius, 0, Math.PI * 2);
   _ctx.fill();
 
-  // Shallow water zone
+  // 2. Shallow water zone (on top of deep water)
   if (shallowWaterScreenRadius < mapRadius * 0.95) {
-    _ctx.fillStyle = 'rgba(0, 188, 212, 0.1)';
+    _ctx.fillStyle = 'rgba(0, 188, 212, 0.25)'; // Cyan shallow water
     _drawAsymmetricEllipseFilled(shallowWaterScreenRadius, EAST_EXPANSION, NS_EXPANSION);
   }
 
-  // Beach zone (sand)
-  _ctx.fillStyle = 'rgba(255, 235, 59, 0.15)';
+  // 3. Beach zone (on top of water)
+  _ctx.fillStyle = 'rgba(255, 235, 59, 0.3)'; // Yellow sand
   _drawAsymmetricEllipseFilled(beachScreenRadius, EAST_EXPANSION, NS_EXPANSION);
 
-  // Grass zone (green)
-  _ctx.fillStyle = 'rgba(76, 175, 80, 0.2)';
+  // 4. Grass zone (innermost - on top of beach)
+  _ctx.fillStyle = 'rgba(76, 175, 80, 0.35)'; // Green grass
   _drawAsymmetricEllipseFilled(grassScreenRadius, EAST_EXPANSION, NS_EXPANSION);
 
   // Now draw zone boundary lines
@@ -713,13 +714,16 @@ function _injectStyles() {
       width: ${MINIMAP_SIZE}px;
       height: ${MINIMAP_SIZE}px;
       border-radius: 50%;
-      overflow: hidden;
+      overflow: visible;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
       z-index: 90;
       pointer-events: none;
     }
     #minimap-container canvas {
       display: block;
+      border-radius: 50%;
+      position: relative;
+      z-index: 1;
     }
     #minimap-count {
       position: absolute;
@@ -732,6 +736,7 @@ function _injectStyles() {
       font: 700 12px 'Segoe UI', Arial, sans-serif;
       pointer-events: none;
       user-select: none;
+      z-index: 10;
     }
     #minimap-settings-btn {
       position: absolute;
@@ -752,7 +757,7 @@ function _injectStyles() {
       align-items: center;
       justify-content: center;
       box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-      z-index: 100;
+      z-index: 10;
     }
     #minimap-settings-btn:hover {
       background: rgba(40, 40, 60, 0.95);
@@ -770,7 +775,7 @@ function _injectStyles() {
       flex-direction: column;
       gap: 4px;
       pointer-events: all;
-      z-index: 100;
+      z-index: 10;
     }
     #minimap-zoom-in, #minimap-zoom-out {
       background: rgba(15, 15, 30, 0.85);
@@ -813,7 +818,7 @@ function _injectStyles() {
       align-items: center;
       justify-content: center;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-      z-index: 100;
+      z-index: 10;
     }
     #minimap-fullscreen-btn:hover {
       background: rgba(40, 40, 60, 0.95);
