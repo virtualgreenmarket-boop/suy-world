@@ -60,6 +60,13 @@ function _createMinimapUI() {
   countDisplay.id = 'minimap-count';
   countDisplay.textContent = '1';
   _container.appendChild(countDisplay);
+
+  // Settings button (in top-right corner of circular minimap)
+  if (window._createSettingsButton) {
+    const gearBtn = window._createSettingsButton();
+    gearBtn.id = 'minimap-settings-btn';
+    _container.appendChild(gearBtn);
+  }
 }
 
 export function updateMinimapPlayer(x, z, rotY, cameraRotY) {
@@ -111,8 +118,12 @@ export function renderMinimap() {
   // Draw zone boundaries (grass/beach/shallow water)
   _drawZoneBoundaries(mapRadius, scale);
 
-  // Draw buildings (hangars)
+  // Draw paths (stone paths connecting buildings)
+  _drawPaths(scale);
+
+  // Draw buildings (hangars + marina)
   _drawHangars(scale);
+  _drawMarina(scale);
 
   // Draw entities from registry
   const entities = getAllMapEntities();
@@ -244,6 +255,71 @@ function _drawGrid(mapRadius, scale) {
   }
 }
 
+function _drawPaths(scale) {
+  const mapRadius = (_canvas.width / 2) - 10 * scale;
+
+  // Path data from paths.js
+  const paths = [
+    { ax: -50, az: -41, bx: -50, bz: -123, width: 9 },    // Plaza to North hangar
+    { ax: -9, az: 0, bx: 123, bz: 0, width: 9 },          // Plaza to East hangar
+    { ax: -50, az: 41, bx: -50, bz: 123, width: 9 },      // Plaza to South hangar
+    { ax: -91, az: 0, bx: -297, bz: 0, width: 9.5 }       // Plaza to Marina
+  ];
+
+  _ctx.strokeStyle = 'rgba(200, 190, 170, 0.4)'; // Stone path color
+  _ctx.lineWidth = 2 * scale;
+  _ctx.lineCap = 'round';
+
+  paths.forEach(path => {
+    const relX1 = path.ax - _playerPos.x;
+    const relZ1 = path.az - _playerPos.z;
+    const relX2 = path.bx - _playerPos.x;
+    const relZ2 = path.bz - _playerPos.z;
+
+    const screenX1 = (relX1 / MINIMAP_WORLD_RADIUS) * mapRadius;
+    const screenY1 = (relZ1 / MINIMAP_WORLD_RADIUS) * mapRadius;
+    const screenX2 = (relX2 / MINIMAP_WORLD_RADIUS) * mapRadius;
+    const screenY2 = (relZ2 / MINIMAP_WORLD_RADIUS) * mapRadius;
+
+    _ctx.beginPath();
+    _ctx.moveTo(screenX1, screenY1);
+    _ctx.lineTo(screenX2, screenY2);
+    _ctx.stroke();
+  });
+}
+
+function _drawMarina(scale) {
+  const mapRadius = (_canvas.width / 2) - 10 * scale;
+
+  // Marina position (from marina.js: group at -325.2, 0, 0)
+  const marinaX = -325.2;
+  const marinaZ = 0;
+
+  const relX = marinaX - _playerPos.x;
+  const relZ = marinaZ - _playerPos.z;
+  const screenX = (relX / MINIMAP_WORLD_RADIUS) * mapRadius;
+  const screenY = (relZ / MINIMAP_WORLD_RADIUS) * mapRadius;
+
+  // Marina deck dimensions (from marina.js: DW=130, DL=44)
+  const deckWidth = 130;
+  const deckLength = 44;
+  const w = (deckWidth / MINIMAP_WORLD_RADIUS) * mapRadius;
+  const h = (deckLength / MINIMAP_WORLD_RADIUS) * mapRadius;
+
+  _ctx.save();
+  _ctx.translate(screenX, screenY);
+  _ctx.rotate(Math.PI / 2); // Marina rotated 90 degrees
+
+  // Draw marina deck
+  _ctx.fillStyle = 'rgba(139, 115, 85, 0.7)'; // Brown wood color
+  _ctx.strokeStyle = 'rgba(180, 160, 130, 0.9)';
+  _ctx.lineWidth = 1.5 * scale;
+  _ctx.fillRect(-w / 2, -h / 2, w, h);
+  _ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+  _ctx.restore();
+}
+
 function _drawHangars(scale) {
   HANGAR_CONFIGS.forEach((cfg, idx) => {
     const dims = HANGAR_DIMS[idx];
@@ -337,7 +413,7 @@ function _injectStyles() {
   style.textContent = `
     #minimap-container {
       position: fixed;
-      top: 88px;
+      top: 20px;
       right: 20px;
       width: ${MINIMAP_SIZE}px;
       height: ${MINIMAP_SIZE}px;
@@ -361,6 +437,33 @@ function _injectStyles() {
       font: 700 12px 'Segoe UI', Arial, sans-serif;
       pointer-events: none;
       user-select: none;
+    }
+    #minimap-settings-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(15, 15, 30, 0.85);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      font-size: 22px;
+      cursor: pointer;
+      pointer-events: all;
+      transition: all 0.2s ease;
+      font-family: system-ui;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+      z-index: 95;
+    }
+    #minimap-settings-btn:hover {
+      background: rgba(40, 40, 60, 0.95);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     }
   `;
   document.head.appendChild(style);

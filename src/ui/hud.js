@@ -34,16 +34,14 @@ export function initHud() {
   topLeft.appendChild(buttonsRow);
   document.body.appendChild(topLeft);
 
-  // ── Top-right: settings button ────────────────────────────────────────
-  const topRight = el('div', { id: 'hud-topright' });
-
-  const gearBtn = el('button', { id: 'hud-gear' });
-  gearBtn.title = 'Settings';
-  gearBtn.innerHTML = '⚙';
-  gearBtn.addEventListener('click', toggleSettingsPanel);
-  topRight.appendChild(gearBtn);
-
-  document.body.appendChild(topRight);
+  // Settings button will be added to minimap corner by minimap.js
+  window._createSettingsButton = () => {
+    const gearBtn = el('button', { id: 'hud-gear' });
+    gearBtn.title = 'Settings';
+    gearBtn.innerHTML = '⚙';
+    gearBtn.addEventListener('click', toggleSettingsPanel);
+    return gearBtn;
+  };
 
   // Emoji picker (hidden by default) - 8 custom emoji expressions
   const emojiPicker = el('div', { id: 'hud-emoji-picker' });
@@ -159,16 +157,7 @@ function _injectStyles() {
       box-shadow: 0 6px 16px rgba(0,0,0,0.5);
     }
 
-    /* ═══ TOP RIGHT CORNER: Settings + Minimap ═══ */
-    #hud-topright {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 100;
-    }
+    /* Settings button in minimap corner - styled by minimap.js */
     #hud-emoji-picker {
       position: fixed;
       top: 90px;
