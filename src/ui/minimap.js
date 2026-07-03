@@ -337,7 +337,7 @@ function _injectStyles() {
   style.textContent = `
     #minimap-container {
       position: fixed;
-      top: 145px;
+      top: 88px;
       right: 20px;
       width: ${MINIMAP_SIZE}px;
       height: ${MINIMAP_SIZE}px;

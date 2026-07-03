@@ -21,7 +21,7 @@ export function initHud() {
   topLeft.appendChild(coinEl);
   _init3DCoin(coinEl.querySelector('.hud-coin-icon'));
 
-  // Action buttons row (below coins)
+  // Action buttons row (below coins) - only emoji button
   const buttonsRow = el('div', { class: 'hud-action-buttons' });
 
   // Emoji button
@@ -31,15 +31,19 @@ export function initHud() {
   emojiBtn.addEventListener('click', toggleEmojiPicker);
   buttonsRow.appendChild(emojiBtn);
 
-  // Settings button
+  topLeft.appendChild(buttonsRow);
+  document.body.appendChild(topLeft);
+
+  // ── Top-right: settings button ────────────────────────────────────────
+  const topRight = el('div', { id: 'hud-topright' });
+
   const gearBtn = el('button', { id: 'hud-gear' });
   gearBtn.title = 'Settings';
   gearBtn.innerHTML = '⚙';
   gearBtn.addEventListener('click', toggleSettingsPanel);
-  buttonsRow.appendChild(gearBtn);
+  topRight.appendChild(gearBtn);
 
-  topLeft.appendChild(buttonsRow);
-  document.body.appendChild(topLeft);
+  document.body.appendChild(topRight);
 
   // Emoji picker (hidden by default) - 8 custom emoji expressions
   const emojiPicker = el('div', { id: 'hud-emoji-picker' });
@@ -155,9 +159,16 @@ function _injectStyles() {
       box-shadow: 0 6px 16px rgba(0,0,0,0.5);
     }
 
-    /* ═══ TOP RIGHT CORNER: Level + Minimap ═══ */
-    /* Level display will be positioned here by levelDisplay.js */
-    /* Minimap will be repositioned below */
+    /* ═══ TOP RIGHT CORNER: Settings + Minimap ═══ */
+    #hud-topright {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 100;
+    }
     #hud-emoji-picker {
       position: fixed;
       top: 90px;
@@ -240,11 +251,12 @@ function _injectStyles() {
       letter-spacing: 0.5px;
       pointer-events: none; user-select: none; z-index: 100;
     }
-    /* ═══ TOP RIGHT: Level Display ═══ */
+    /* ═══ TOP CENTER: Level Display ═══ */
     .level-display-container {
       position: fixed;
       top: 20px;
-      right: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
       flex-direction: column;
       gap: 8px;

@@ -499,11 +499,10 @@ export function initInventoryButton() {
   btn.title = 'תיק';
   btn.textContent = '🎒';
 
-  // Add to action buttons row (before settings button)
+  // Add to action buttons row (after emoji button)
   const buttonsRow = document.querySelector('.hud-action-buttons');
-  const gearBtn = document.getElementById('hud-gear');
-  if (buttonsRow && gearBtn) {
-    buttonsRow.insertBefore(btn, gearBtn);
+  if (buttonsRow) {
+    buttonsRow.appendChild(btn);
   } else if (hudTopLeft) {
     hudTopLeft.appendChild(btn);
   }
