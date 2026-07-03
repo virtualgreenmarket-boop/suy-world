@@ -17,6 +17,13 @@ let _isFullscreen = false;
 let _pinnedLocation = null; // { x, z } for map pin
 
 export function initMinimap() {
+  // Cleanup existing minimap (HMR hot reload protection)
+  const existing = document.getElementById('minimap-container');
+  if (existing) {
+    console.log('[minimap] Removing existing container (HMR cleanup)');
+    existing.remove();
+  }
+
   _loadRotationMode();
   _loadZoomLevel(); // Load zoom BEFORE creating UI
   _createMinimapUI();
@@ -77,10 +84,19 @@ function _createMinimapUI() {
   // Zoom controls (bottom-left of minimap)
   const zoomControls = document.createElement('div');
   zoomControls.id = 'minimap-zoom-controls';
-  zoomControls.innerHTML = `
-    <button id="minimap-zoom-in" title="Zoom In">+</button>
-    <button id="minimap-zoom-out" title="Zoom Out">−</button>
-  `;
+
+  const zoomInBtn = document.createElement('button');
+  zoomInBtn.id = 'minimap-zoom-in';
+  zoomInBtn.title = 'Zoom In';
+  zoomInBtn.textContent = '+';
+
+  const zoomOutBtn = document.createElement('button');
+  zoomOutBtn.id = 'minimap-zoom-out';
+  zoomOutBtn.title = 'Zoom Out';
+  zoomOutBtn.textContent = '−';
+
+  zoomControls.appendChild(zoomInBtn);
+  zoomControls.appendChild(zoomOutBtn);
   _container.appendChild(zoomControls);
 
   // Fullscreen button (bottom-right of minimap)
@@ -90,13 +106,15 @@ function _createMinimapUI() {
   fullscreenBtn.innerHTML = '⛶';
   _container.appendChild(fullscreenBtn);
 
-  // Event listeners for zoom
-  document.getElementById('minimap-zoom-in').addEventListener('click', () => {
+  // Event listeners for zoom - use direct references
+  zoomInBtn.addEventListener('click', () => {
+    console.log('[minimap] Zoom IN clicked, current:', _zoomLevel);
     _zoomLevel = Math.max(0.5, _zoomLevel - 0.25);
     _updateZoom();
   });
 
-  document.getElementById('minimap-zoom-out').addEventListener('click', () => {
+  zoomOutBtn.addEventListener('click', () => {
+    console.log('[minimap] Zoom OUT clicked, current:', _zoomLevel);
     _zoomLevel = Math.min(3, _zoomLevel + 0.25);
     _updateZoom();
   });
@@ -315,8 +333,17 @@ export function updateMinimapOnlineCount(count) {
   }
 }
 
+let _renderCount = 0;
 export function renderMinimap() {
-  if (!_ctx) return;
+  if (!_ctx) {
+    console.warn('[minimap] renderMinimap called but _ctx is null');
+    return;
+  }
+
+  _renderCount++;
+  if (_renderCount % 60 === 0) {
+    console.log(`[minimap] Rendering (${_renderCount} frames), playerPos: (${_playerPos.x.toFixed(1)}, ${_playerPos.z.toFixed(1)}), radius: ${MINIMAP_WORLD_RADIUS}m`);
+  }
 
   const scale = 2; // Retina scaling
   const centerX = (_canvas.width / 2);

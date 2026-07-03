@@ -15,7 +15,7 @@ const STRIPE_HEIGHT = TOWER_HEIGHT / STRIPE_COUNT;
 // Base platform
 const BASE_RADIUS_BOTTOM = 6.2;
 const BASE_RADIUS_TOP = 5.6;
-const BASE_HEIGHT = 1.2;
+const BASE_HEIGHT = 0.3; // Lowered from 1.2 to allow player to step onto first stair
 
 // Spiral stairs
 const TOTAL_STEPS = 110;
@@ -92,6 +92,7 @@ export function initLighthouse(scene) {
   console.log(`[lighthouse] Built at (${LIGHTHOUSE_X}, ${LIGHTHOUSE_Y}, ${LIGHTHOUSE_Z})`);
   console.log(`[lighthouse] Stairs: ${TOTAL_STEPS} steps from Y=${BASE_HEIGHT} to Y=${DECK_Y.toFixed(2)}`);
   console.log(`[lighthouse] Stair zone: radius ${STEP_INNER_RADIUS}m to ${STEP_RADIUS}m`);
+  console.log(`[lighthouse] window._getLighthouseHeight registered:`, typeof window._getLighthouseHeight === 'function' ? 'YES' : 'NO');
 }
 
 function _buildBase() {
@@ -416,6 +417,11 @@ export function getLighthouseHeight(playerX, playerZ, currentY) {
   const dz = playerZ - LIGHTHOUSE_Z;
   const distance = Math.sqrt(dx * dx + dz * dz);
 
+  // DEBUG: Log when player is near lighthouse
+  if (distance < 15 && Math.random() < 0.01) {
+    console.log(`[lighthouse] Player near: dist=${distance.toFixed(1)}m, Y=${currentY.toFixed(1)}`);
+  }
+
   // 1. Check if on observation deck
   if (distance <= DECK_RADIUS && currentY > DECK_Y - 2) {
     // Check if in opening (should fall through)
@@ -439,6 +445,10 @@ export function getLighthouseHeight(playerX, playerZ, currentY) {
   // 2. Check if on spiral stairs
   const stairHeight = getLighthouseStairHeight(playerX, playerZ, currentY);
   if (stairHeight !== null) {
+    // DEBUG: Log when on stairs
+    if (Math.random() < 0.05) {
+      console.log(`[lighthouse] On stairs: dist=${distance.toFixed(1)}m, returning Y=${stairHeight.toFixed(2)}`);
+    }
     return stairHeight;
   }
 
