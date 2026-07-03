@@ -282,39 +282,91 @@ function _renderFullscreenMap() {
 }
 
 function _drawFullscreenFeatures(ctx, mapRadius, worldRadius, scale) {
-  // Draw zone boundaries
-  ctx.strokeStyle = 'rgba(76, 175, 80, 0.3)';
-  ctx.lineWidth = 2 * scale;
+  // Asymmetric expansion factors (same as island.js)
+  const EAST_EXPANSION = 1.4;
+  const NS_EXPANSION = 2.38;
+
+  // Helper to draw asymmetric ellipse in fullscreen
+  function drawAsymmetricEllipseFS(baseRadius, eastExp, nsExp, strokeStyle, lineWidth) {
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    const segments = 128;
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const baseX = Math.cos(angle) * baseRadius;
+      const baseY = Math.sin(angle) * baseRadius;
+      const xScale = baseX > 0 ? eastExp : 1.0;
+      const x = baseX * xScale;
+      const y = baseY * nsExp;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  // Draw zone boundaries with asymmetric ellipses
   const grassR = (255 / worldRadius) * mapRadius;
-  ctx.beginPath();
-  ctx.arc(0, 0, grassR, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.strokeStyle = 'rgba(255, 235, 59, 0.3)';
   const beachR = (350 / worldRadius) * mapRadius;
-  ctx.beginPath();
-  ctx.arc(0, 0, beachR, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.strokeStyle = 'rgba(0, 188, 212, 0.3)';
   const shallowR = (500 / worldRadius) * mapRadius;
-  ctx.beginPath();
-  ctx.arc(0, 0, shallowR, 0, Math.PI * 2);
-  ctx.stroke();
 
-  // Draw hangars (simplified)
-  HANGAR_CONFIGS.forEach((cfg) => {
-    const x = (-cfg.x / worldRadius) * mapRadius;
-    const y = (-cfg.z / worldRadius) * mapRadius;
-    ctx.fillStyle = 'rgba(100, 100, 120, 0.8)';
-    ctx.fillRect(x - 15 * scale, y - 15 * scale, 30 * scale, 30 * scale);
+  drawAsymmetricEllipseFS(grassR, EAST_EXPANSION, NS_EXPANSION, 'rgba(76, 175, 80, 0.4)', 2 * scale);
+  drawAsymmetricEllipseFS(beachR, EAST_EXPANSION, NS_EXPANSION, 'rgba(255, 235, 59, 0.4)', 2 * scale);
+  drawAsymmetricEllipseFS(shallowR, EAST_EXPANSION, NS_EXPANSION, 'rgba(0, 188, 212, 0.3)', 2 * scale);
+
+  // Draw plaza (center square)
+  ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';
+  const plazaSize = (82 / worldRadius) * mapRadius; // 41m half-width = 82m full
+  ctx.fillRect(-plazaSize/2, -plazaSize/2, plazaSize, plazaSize);
+
+  // Draw hangars with labels
+  HANGAR_CONFIGS.forEach((cfg, idx) => {
+    const x = (cfg.x / worldRadius) * mapRadius;
+    const z = (cfg.z / worldRadius) * mapRadius;
+
+    ctx.fillStyle = 'rgba(100, 100, 120, 0.9)';
+    ctx.fillRect(x - 12 * scale, z - 12 * scale, 24 * scale, 24 * scale);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${10 * scale}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const names = ['North', 'Central', 'South'];
+    ctx.fillText(names[idx] || 'Hangar', x, z + 14 * scale);
   });
 
-  // Draw marina
-  const marinaX = (325.2 / worldRadius) * mapRadius;
-  const marinaY = 0;
-  ctx.fillStyle = 'rgba(139, 115, 85, 0.8)';
-  ctx.fillRect(marinaX - 20 * scale, marinaY - 10 * scale, 40 * scale, 20 * scale);
+  // Draw marina with label
+  const marinaX = (-325.2 / worldRadius) * mapRadius;
+  const marinaZ = 0;
+  ctx.fillStyle = 'rgba(139, 115, 85, 0.9)';
+  ctx.fillRect(marinaX - 16 * scale, marinaZ - 8 * scale, 32 * scale, 16 * scale);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `${10 * scale}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Marina', marinaX, marinaZ + 10 * scale);
+
+  // Draw lighthouse with label
+  const lighthouseX = (-272.19 / worldRadius) * mapRadius;
+  const lighthouseZ = (107.62 / worldRadius) * mapRadius;
+
+  // Lighthouse tower (red circle)
+  ctx.fillStyle = 'rgba(198, 40, 40, 0.9)';
+  ctx.beginPath();
+  ctx.arc(lighthouseX, lighthouseZ, 5 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Lighthouse beacon (yellow glow)
+  ctx.fillStyle = 'rgba(255, 233, 140, 0.6)';
+  ctx.beginPath();
+  ctx.arc(lighthouseX, lighthouseZ, 8 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `${10 * scale}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Lighthouse', lighthouseX, lighthouseZ + 12 * scale);
 }
 
 export function updateMinimapPlayer(x, z, rotY, cameraRotY) {
@@ -378,9 +430,10 @@ export function renderMinimap() {
   // Draw paths (stone paths connecting buildings)
   _drawPaths(scale);
 
-  // Draw buildings (hangars + marina)
+  // Draw buildings (hangars + marina + lighthouse)
   _drawHangars(scale);
   _drawMarina(scale);
+  _drawLighthouse(scale);
 
   // Draw entities from registry
   const entities = getAllMapEntities();
@@ -550,23 +603,35 @@ function _drawAsymmetricEllipseFilled(baseRadius, eastExpansion, nsExpansion) {
 }
 
 function _drawGrid(mapRadius, scale) {
-  const gridSpacing = (MINIMAP_WORLD_RADIUS / 4);
+  const gridSpacing = 50; // World units - 50m grid
   const gridScreenSpacing = (gridSpacing / MINIMAP_WORLD_RADIUS) * mapRadius;
 
   _ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
   _ctx.lineWidth = 1 * scale;
 
-  for (let i = -4; i <= 4; i++) {
-    // Vertical lines
-    _ctx.beginPath();
-    _ctx.moveTo(i * gridScreenSpacing, -mapRadius);
-    _ctx.lineTo(i * gridScreenSpacing, mapRadius);
-    _ctx.stroke();
+  // Calculate offset based on player position to make grid scroll
+  const offsetX = ((_playerPos.x % gridSpacing) / MINIMAP_WORLD_RADIUS) * mapRadius;
+  const offsetZ = ((_playerPos.z % gridSpacing) / MINIMAP_WORLD_RADIUS) * mapRadius;
 
-    // Horizontal lines
+  // Draw vertical lines
+  for (let i = -6; i <= 6; i++) {
+    const x = i * gridScreenSpacing - offsetX;
+    if (Math.abs(x) > mapRadius) continue; // Skip if outside circle
+
     _ctx.beginPath();
-    _ctx.moveTo(-mapRadius, i * gridScreenSpacing);
-    _ctx.lineTo(mapRadius, i * gridScreenSpacing);
+    _ctx.moveTo(x, -mapRadius);
+    _ctx.lineTo(x, mapRadius);
+    _ctx.stroke();
+  }
+
+  // Draw horizontal lines
+  for (let i = -6; i <= 6; i++) {
+    const z = i * gridScreenSpacing - offsetZ;
+    if (Math.abs(z) > mapRadius) continue; // Skip if outside circle
+
+    _ctx.beginPath();
+    _ctx.moveTo(-mapRadius, z);
+    _ctx.lineTo(mapRadius, z);
     _ctx.stroke();
   }
 }
@@ -647,6 +712,40 @@ function _drawMarina(scale) {
   _ctx.lineWidth = 1 * scale;
   _ctx.fillRect(-pierW / 2, pierOffsetZ - pierL / 2, pierW, pierL);
   _ctx.strokeRect(-pierW / 2, pierOffsetZ - pierL / 2, pierW, pierL);
+
+  _ctx.restore();
+}
+
+function _drawLighthouse(scale) {
+  const mapRadius = (_canvas.width / 2) - 10 * scale;
+
+  // Lighthouse position (from lighthouse.js)
+  const lighthouseX = -272.19;
+  const lighthouseZ = 107.62;
+
+  const relX = lighthouseX - _playerPos.x;
+  const relZ = lighthouseZ - _playerPos.z;
+  const screenX = (relX / MINIMAP_WORLD_RADIUS) * mapRadius;
+  const screenY = (relZ / MINIMAP_WORLD_RADIUS) * mapRadius;
+
+  // Check if in bounds
+  const dist = Math.sqrt(screenX * screenX + screenY * screenY);
+  if (dist > mapRadius) return;
+
+  _ctx.save();
+  _ctx.translate(screenX, screenY);
+
+  // Lighthouse tower (red and white stripes - simplified to red circle)
+  _ctx.fillStyle = 'rgba(198, 40, 40, 0.9)'; // Red
+  _ctx.beginPath();
+  _ctx.arc(0, 0, 3 * scale, 0, Math.PI * 2);
+  _ctx.fill();
+
+  // Beacon glow (yellow)
+  _ctx.fillStyle = 'rgba(255, 233, 140, 0.5)';
+  _ctx.beginPath();
+  _ctx.arc(0, 0, 5 * scale, 0, Math.PI * 2);
+  _ctx.fill();
 
   _ctx.restore();
 }
