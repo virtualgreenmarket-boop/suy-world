@@ -378,14 +378,14 @@ export function updateLighthouse(delta) {
 }
 
 // Stair climbing logic - calculate Y position based on player's angle
-export function getLighthouseStairHeight(playerX, playerZ) {
+export function getLighthouseStairHeight(playerX, playerZ, currentY = 0) {
   const dx = playerX - LIGHTHOUSE_X;
   const dz = playerZ - LIGHTHOUSE_Z;
   const distance = Math.sqrt(dx * dx + dz * dz);
 
   // Check if on stairs (between tower wall and outer edge)
   // Inner: 4.2 (tower wall), Outer: 6.2 (stair edge)
-  if (distance < STEP_INNER_RADIUS || distance > STEP_RADIUS + 0.2) {
+  if (distance < STEP_INNER_RADIUS || distance > STEP_RADIUS + 0.3) {
     return null; // Not on stairs
   }
 
@@ -393,13 +393,19 @@ export function getLighthouseStairHeight(playerX, playerZ) {
   let angle = Math.atan2(dz, dx);
   if (angle < 0) angle += Math.PI * 2;
 
-  // For spiral stairs, we need to figure out which "lap" the player is on
-  // Simple approach: use floor logic per angle section
-  // Each step covers STEP_ANGLE radians
-  const stepIndex = Math.floor(angle / STEP_ANGLE) % TOTAL_STEPS;
+  // Determine which lap/rotation based on current height
+  // Each full rotation = 2π, we have 2.5 rotations total
+  const stepsPerRotation = TOTAL_STEPS / TOTAL_ROTATIONS; // 44 steps per rotation
+  const currentRotation = Math.max(0, Math.floor((currentY - BASE_HEIGHT) / (TOTAL_RISE / TOTAL_ROTATIONS)));
+  const clampedRotation = Math.min(currentRotation, 2); // Max 2.5 rotations
+
+  // Calculate step index on current rotation
+  const stepOnRotation = Math.floor(angle / STEP_ANGLE);
+  const stepIndex = clampedRotation * stepsPerRotation + stepOnRotation;
+  const clampedStepIndex = Math.min(Math.max(0, Math.floor(stepIndex)), TOTAL_STEPS - 1);
 
   // Height at top of this step
-  const stepTopY = BASE_HEIGHT + stepIndex * STEP_RISE + STEP_HEIGHT;
+  const stepTopY = BASE_HEIGHT + clampedStepIndex * STEP_RISE + STEP_HEIGHT;
 
   return stepTopY;
 }
@@ -431,7 +437,7 @@ export function getLighthouseHeight(playerX, playerZ, currentY) {
   }
 
   // 2. Check if on spiral stairs
-  const stairHeight = getLighthouseStairHeight(playerX, playerZ);
+  const stairHeight = getLighthouseStairHeight(playerX, playerZ, currentY);
   if (stairHeight !== null) {
     return stairHeight;
   }

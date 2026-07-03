@@ -18,8 +18,10 @@ let _pinnedLocation = null; // { x, z } for map pin
 
 export function initMinimap() {
   _loadRotationMode();
+  _loadZoomLevel(); // Load zoom BEFORE creating UI
   _createMinimapUI();
   _injectStyles();
+  console.log(`[minimap] Initialized with size=${MINIMAP_SIZE}px, radius=${MINIMAP_WORLD_RADIUS}m`);
 }
 
 function _loadRotationMode() {
@@ -101,9 +103,6 @@ function _createMinimapUI() {
 
   // Event listener for fullscreen
   fullscreenBtn.addEventListener('click', _toggleFullscreenMap);
-
-  // Load saved zoom level
-  _loadZoomLevel();
 }
 
 function _loadZoomLevel() {
@@ -119,6 +118,7 @@ function _loadZoomLevel() {
 function _updateZoom() {
   MINIMAP_WORLD_RADIUS = 200 * _zoomLevel;
   localStorage.setItem(STORAGE_KEY_ZOOM, _zoomLevel.toString());
+  console.log(`[minimap] Zoom updated: level=${_zoomLevel}, radius=${MINIMAP_WORLD_RADIUS}m`);
 }
 
 function _toggleFullscreenMap() {
