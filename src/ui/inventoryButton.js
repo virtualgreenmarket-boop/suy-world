@@ -43,21 +43,9 @@ export function initInventoryButton() {
   container.id = 'inventory-container';
   container.innerHTML = `
     <style>
-      #inventory-btn {
-        background: rgba(0,0,0,0.50);
-        border: 1.5px solid rgba(255,255,255,0.18);
-        color: #fff;
-        border-radius: 30px;
-        padding: 9px 21px;
-        font-size: 27px;
-        cursor: pointer;
-        pointer-events: all;
-        transition: background 0.15s;
-        font-family: system-ui;
-      }
-
-      #inventory-btn:hover {
-        background: rgba(255,255,255,0.18);
+      /* Inventory button styling removed - now handled by hud.js */
+      #inventory-container {
+        /* Container for button only */
       }
 
       #inventory-panel {
@@ -511,11 +499,12 @@ export function initInventoryButton() {
   btn.title = 'תיק';
   btn.textContent = '🎒';
 
-  // Insert after coin display (before gear button)
+  // Add to action buttons row (before settings button)
+  const buttonsRow = document.querySelector('.hud-action-buttons');
   const gearBtn = document.getElementById('hud-gear');
-  if (gearBtn) {
-    hudTopLeft.insertBefore(btn, gearBtn);
-  } else {
+  if (buttonsRow && gearBtn) {
+    buttonsRow.insertBefore(btn, gearBtn);
+  } else if (hudTopLeft) {
     hudTopLeft.appendChild(btn);
   }
 

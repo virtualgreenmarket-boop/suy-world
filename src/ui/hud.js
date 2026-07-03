@@ -10,33 +10,35 @@ export function initHud() {
 
   _injectStyles();
 
-  // ── Top-right: online count ───────────────────────────────────────────
-  countEl = el('div', { id: 'hud-online' });
-  countEl.textContent = '● 1 online';
-  document.body.appendChild(countEl);
+  // Online count removed - now shown in minimap
 
-  // ── Top-left: coin balance + settings gear ────────────────────────────
+  // ── Top-left: coin balance + action buttons ───────────────────────────
   const topLeft = el('div', { id: 'hud-topleft' });
 
-  // Coin balance
+  // Coin balance (top)
   coinEl = el('div', { id: 'hud-coin' });
   coinEl.innerHTML = '<span class="hud-coin-icon">🪙</span><span class="hud-coin-val">–</span>';
   topLeft.appendChild(coinEl);
   _init3DCoin(coinEl.querySelector('.hud-coin-icon'));
+
+  // Action buttons row (below coins)
+  const buttonsRow = el('div', { class: 'hud-action-buttons' });
 
   // Emoji button
   const emojiBtn = el('button', { id: 'hud-emoji' });
   emojiBtn.title = 'Emotions';
   emojiBtn.innerHTML = '😊';
   emojiBtn.addEventListener('click', toggleEmojiPicker);
-  topLeft.appendChild(emojiBtn);
+  buttonsRow.appendChild(emojiBtn);
 
+  // Settings button
   const gearBtn = el('button', { id: 'hud-gear' });
   gearBtn.title = 'Settings';
   gearBtn.innerHTML = '⚙';
   gearBtn.addEventListener('click', toggleSettingsPanel);
-  topLeft.appendChild(gearBtn);
+  buttonsRow.appendChild(gearBtn);
 
+  topLeft.appendChild(buttonsRow);
   document.body.appendChild(topLeft);
 
   // Emoji picker (hidden by default) - 8 custom emoji expressions
@@ -102,29 +104,60 @@ function selectEmotion(emotionKey) {
 function _injectStyles() {
   const s = document.createElement('style');
   s.textContent = `
-    #hud-online {
-      position: fixed; top: 16px; right: 16px;
-      background: rgba(0,0,0,0.50); color: #fff;
-      padding: 6px 14px; border-radius: 20px;
-      font: 700 13px 'Segoe UI', Arial, sans-serif;
-      pointer-events: none; user-select: none; z-index: 100;
-    }
+    /* ═══ TOP LEFT CORNER: Coins + Action Buttons ═══ */
     #hud-topleft {
-      position: fixed; top: 16px; left: 16px;
-      display: flex; gap: 12px; z-index: 100;
+      position: fixed; top: 20px; left: 20px;
+      display: flex; flex-direction: column; gap: 12px;
+      z-index: 100;
     }
-    #hud-emoji, #hud-gear {
-      background: rgba(0,0,0,0.50);
-      border: 1.5px solid rgba(255,255,255,0.18);
-      color: #fff; border-radius: 30px;
-      padding: 9px 21px; font-size: 27px;
-      cursor: pointer; pointer-events: all;
-      transition: background 0.15s;
+    #hud-coin {
+      background: rgba(10,8,22,0.88);
+      border: 2.25px solid rgba(255,200,50,0.35);
+      border-radius: 36px;
+      padding: 12px 27px 12px 21px;
+      display: flex; align-items: center; gap: 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 6px 27px rgba(0,0,0,0.45);
+      pointer-events: none; user-select: none;
+    }
+    .hud-coin-icon { font-size: 30px; line-height: 1; }
+    .hud-coin-val  {
+      font: 700 24px 'Segoe UI', Arial, sans-serif;
+      color: #FFD54F; letter-spacing: 0.75px;
+      min-width: 42px; text-align: right;
+    }
+
+    /* Action buttons row */
+    .hud-action-buttons {
+      display: flex; gap: 10px;
+    }
+    #hud-emoji, #hud-gear, #inventory-btn {
+      background: rgba(15,15,30,0.85);
+      border: 2px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      font-size: 26px;
+      cursor: pointer;
+      pointer-events: all;
+      transition: all 0.2s ease;
       font-family: system-ui;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
-    #hud-emoji:hover, #hud-gear:hover {
-      background: rgba(255,255,255,0.18);
+    #hud-emoji:hover, #hud-gear:hover, #inventory-btn:hover {
+      background: rgba(40,40,60,0.95);
+      border-color: rgba(255,255,255,0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
     }
+
+    /* ═══ TOP RIGHT CORNER: Level + Minimap ═══ */
+    /* Level display will be positioned here by levelDisplay.js */
+    /* Minimap will be repositioned below */
     #hud-emoji-picker {
       position: fixed;
       top: 90px;
@@ -207,11 +240,17 @@ function _injectStyles() {
       letter-spacing: 0.5px;
       pointer-events: none; user-select: none; z-index: 100;
     }
-    /* Level Display */
+    /* ═══ TOP RIGHT: Level Display ═══ */
     .level-display-container {
-      position: fixed; top: 70px; right: 16px;
-      display: flex; flex-direction: column; gap: 8px;
-      z-index: 100; pointer-events: none; user-select: none;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 100;
+      pointer-events: none;
+      user-select: none;
     }
     .level-badge {
       background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.2));
