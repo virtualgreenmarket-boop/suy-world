@@ -9,6 +9,7 @@ import { initPlaza,  updatePlaza }   from './world/plaza.js';
 import { initPaths }                 from './world/paths.js';
 import { initHangars, updateHangars } from './world/hangars.js';
 import { initMarina, updateMarina }  from './world/marina.js';
+import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/lighthouse.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
@@ -199,6 +200,19 @@ initPaths(scene);
 clearAllBoxes(); // Clear any phantom collision boxes from previous builds
 initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
+initLighthouse(scene);
+
+// Display lighthouse configuration
+const lighthouseConfig = getLighthouseConfig();
+console.log('[main] ═══════════════════════════════════════════════════════');
+console.log('[main] LIGHTHOUSE CONFIGURATION:');
+console.log(`[main] Position: X=${lighthouseConfig.position.x}, Y=${lighthouseConfig.position.y}, Z=${lighthouseConfig.position.z}`);
+console.log(`[main] Tower: Radius=${lighthouseConfig.towerRadius}m, Height=${lighthouseConfig.towerHeight}m`);
+console.log(`[main] Base: Radius=${lighthouseConfig.baseRadius}m`);
+console.log(`[main] Stairs: ${lighthouseConfig.totalSteps} steps, Rise=${lighthouseConfig.stepRise.toFixed(3)}m per step`);
+console.log(`[main] Observation Deck: Y=${lighthouseConfig.deckY.toFixed(2)}m, Radius=${lighthouseConfig.deckRadius}m`);
+console.log(`[main] Collision: ${lighthouseConfig.collisionBoxes} boxes tagged "${lighthouseConfig.collisionTag}"`);
+console.log('[main] ═══════════════════════════════════════════════════════');
 initDecor(scene);
 initBeach(scene);
 initCollision(); // Adds hangar wall collision boxes AFTER kiosk boxes
@@ -451,6 +465,7 @@ function animate() {
   updatePlaza(delta, npcTime);
   updateHangars(delta);
   updateMarina(delta);
+  updateLighthouse(delta);
   updateAnimalSystem(delta);
 
   // Ceiling fans rotation

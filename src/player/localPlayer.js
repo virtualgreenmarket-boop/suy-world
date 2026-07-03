@@ -246,12 +246,12 @@ export function updateLocalPlayer(delta) {
   }
 
   if (consumeJump()) {
-    const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z);
+    const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y);
     if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
   }
 
   // Gravity
-  const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z);
+  const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y);
   velocityY += GRAVITY * delta;
   playerGroup.position.y = Math.max(groundY, playerGroup.position.y + velocityY * delta);
   if (playerGroup.position.y <= groundY) {
