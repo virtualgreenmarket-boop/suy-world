@@ -474,12 +474,16 @@ function _drawAsymmetricEllipse(baseRadius, eastExpansion, nsExpansion, mapRadiu
   const segments = 128;
   for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
-    let x = Math.cos(angle) * baseRadius;
-    let y = Math.sin(angle) * baseRadius;
+    const baseX = Math.cos(angle) * baseRadius;
+    const baseY = Math.sin(angle) * baseRadius;
 
     // Apply asymmetric expansions
-    if (x > 0) x *= eastExpansion;
-    y *= nsExpansion;
+    // East (x > 0) expands by eastExpansion
+    // West (x < 0) stays at 1.0
+    // North/South (y) expands by nsExpansion
+    const xScale = baseX > 0 ? eastExpansion : 1.0;
+    const x = baseX * xScale;
+    const y = baseY * nsExpansion;
 
     if (i === 0) {
       _ctx.moveTo(x, y);
@@ -497,12 +501,16 @@ function _drawAsymmetricEllipseFilled(baseRadius, eastExpansion, nsExpansion) {
   const segments = 128;
   for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
-    let x = Math.cos(angle) * baseRadius;
-    let y = Math.sin(angle) * baseRadius;
+    const baseX = Math.cos(angle) * baseRadius;
+    const baseY = Math.sin(angle) * baseRadius;
 
     // Apply asymmetric expansions
-    if (x > 0) x *= eastExpansion;
-    y *= nsExpansion;
+    // East (x > 0) expands by eastExpansion
+    // West (x < 0) stays at 1.0
+    // North/South (y) expands by nsExpansion
+    const xScale = baseX > 0 ? eastExpansion : 1.0;
+    const x = baseX * xScale;
+    const y = baseY * nsExpansion;
 
     if (i === 0) {
       _ctx.moveTo(x, y);
