@@ -25,6 +25,7 @@ const BASE_WORLD_RADIUS = 200; // meters
 const CAMERA_HEIGHT = 1000; // y position
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
+const MAX_VISIBLE_PLAYERS = 50;
 
 // ── Helper Functions ──────────────────────────────────────────────────
 
@@ -160,9 +161,9 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers) {
   const worldRadius = BASE_WORLD_RADIUS * _zoomLevel;
 
   // Player marker culling: limit to 50 closest players
-  const MAX_VISIBLE_PLAYERS = 50;
+  let playersToRender = remotePlayers;
   if (remotePlayers.length > MAX_VISIBLE_PLAYERS) {
-    remotePlayers = remotePlayers
+    playersToRender = remotePlayers
       .map(p => ({
         ...p,
         dist: Math.hypot(p.x - playerPos.x, p.z - playerPos.z)
@@ -196,7 +197,7 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers) {
   _ctx.stroke();
 
   // Remote players
-  for (const player of remotePlayers) {
+  for (const player of playersToRender) {
     const screen = _worldToScreen(player.x, player.z, playerPos, worldRadius);
 
     // Clip to circle
