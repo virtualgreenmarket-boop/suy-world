@@ -14,6 +14,10 @@ let _rotationMode = 'camera'; // 'camera' | 'north'
 let _isInitialized = false;
 let _pinnedLocation = null; // {x, z} world coordinates
 
+// Performance monitoring
+let _frameCount = 0;
+let _totalRenderTime = 0;
+
 // ── Constants ──────────────────────────────────────────────────────────
 
 const RENDER_TARGET_SIZE = 720; // 720×720 (2x for 360px display)
@@ -154,6 +158,18 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers) {
   const centerX = _canvas.width / 2;
   const centerY = _canvas.height / 2;
   const worldRadius = BASE_WORLD_RADIUS * _zoomLevel;
+
+  // Player marker culling: limit to 50 closest players
+  const MAX_VISIBLE_PLAYERS = 50;
+  if (remotePlayers.length > MAX_VISIBLE_PLAYERS) {
+    remotePlayers = remotePlayers
+      .map(p => ({
+        ...p,
+        dist: Math.hypot(p.x - playerPos.x, p.z - playerPos.z)
+      }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, MAX_VISIBLE_PLAYERS);
+  }
 
   // Local player (blue circle + arrow)
   _ctx.beginPath();
@@ -301,6 +317,8 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
     return;
   }
 
+  const startTime = performance.now();
+
   // Store camera yaw for coordinate conversions
   _cameraYaw = cameraYaw;
 
@@ -350,6 +368,20 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
   _drawPin(playerPos, worldRadius);
 
   _ctx.restore();
+
+  // Performance monitoring
+  const endTime = performance.now();
+  const renderTime = endTime - startTime;
+  _totalRenderTime += renderTime;
+  _frameCount++;
+
+  if (_frameCount % 60 === 0) {
+    const avgTime = _totalRenderTime / 60;
+    if (avgTime > 4) {
+      console.warn(`[liveMap] Performance: avg ${avgTime.toFixed(2)}ms per frame (target: <4ms)`);
+    }
+    _totalRenderTime = 0;
+  }
 }
 
 /**
