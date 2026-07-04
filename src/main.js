@@ -53,7 +53,32 @@ import { initInventoryPanel, onEquipChange }             from './ui/inventoryPan
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
-import { initMinimap, updateMinimapPlayer, updateMinimapOnlineCount, renderMinimap } from './ui/minimap.js';
+import { initLiveMap, updateLiveMap, disposeLiveMap, getMapPin, setMapPin } from './ui/liveMap.js';
+import { createLiveMapUI, updateOnlineCount as updateLiveMapOnlineCount, removeLiveMapUI } from './ui/liveMapUI.js';
+import { openFullscreenMap } from './ui/liveMapFullscreen.js';
+
+// ── Helper: Extract remote player data for live map ──────────────────
+function getRemotePlayersData() {
+  const remotePlayers = [];
+  for (const [id, player] of Object.entries(window._remotePlayers || {})) {
+    if (player.mesh && player.mesh.position) {
+      remotePlayers.push({
+        id,
+        x: player.mesh.position.x,
+        z: player.mesh.position.z
+      });
+    }
+  }
+  return remotePlayers;
+}
+
+// ── HMR cleanup ───────────────────────────────────────────────────────
+if (module.hot) {
+  module.hot.dispose(() => {
+    disposeLiveMap();
+    removeLiveMapUI();
+  });
+}
 
 // ── Wait for DOM to be ready ──────────────────────────────────────────
 
@@ -203,8 +228,14 @@ clearAllBoxes(); // Clear any phantom collision boxes from previous builds
 initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
 initLighthouse(scene);
-initIslandDecor(scene); // Tropical plants + beach furniture
-initIslandLife(scene); // Fish, crabs, dolphins
+
+// Island decor & life initialization (optional features, don't block startup)
+try {
+  initIslandDecor(scene); // Tropical plants + beach furniture
+  initIslandLife(scene); // Fish, crabs, dolphins
+} catch (err) {
+  console.error('[main] Island init error (non-critical):', err);
+}
 
 // Display lighthouse configuration
 const lighthouseConfig = getLighthouseConfig();
@@ -227,7 +258,24 @@ initPetSystem(scene);
 initHud();
 initLeveling();
 initLevelDisplay();
-initMinimap();
+
+// Initialize live map system
+if (initLiveMap(scene, renderer)) {
+  const canvas = document.getElementById('live-map-canvas');
+  createLiveMapUI(canvas);
+
+  // M key to open fullscreen
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'm' || e.key === 'M') {
+      const playerPos = getLocalPlayerPosition();
+      const remotePlayers = getRemotePlayersData();
+      openFullscreenMap(scene, renderer, playerPos, remotePlayers, getMapPin, setMapPin);
+    }
+  });
+} else {
+  console.error('[main] Failed to initialize live map');
+}
+
 initShopUI();
 initChatUI();
 bindSendChat(sendChat);
@@ -470,8 +518,6 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateLighthouse(delta);
-  updateIslandDecor(delta, playerPos); // Wind sway on plants
-  updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
   updateAnimalSystem(delta);
 
   // Ceiling fans rotation
@@ -527,19 +573,30 @@ function animate() {
   if (_tUI >= 3) {
     const onlineCount = 1 + getRemotePlayerCount();
     updateOnlineCount(onlineCount);
-    updateMinimapOnlineCount(onlineCount);
+    updateLiveMapOnlineCount(onlineCount);
     _tUI = 0;
   }
 
-  // ── Minimap updates every frame ───────────────────────────────────────
-  // Only update minimap if player exists (avoid race condition during startup)
+  // ── Live map updates every frame ──────────────────────────────────────
+  // Only update live map if player exists (avoid race condition during startup)
   const playerPos = getLocalPlayerPosition();
   if (playerPos) {
     const playerRotY = getLocalPlayerRotY();
+    const remotePlayers = getRemotePlayersData();
     const cameraYaw = getCameraYaw();
-    updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY, cameraYaw);
+    updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw);
+
+    // Island decor & life updates (after playerPos is defined)
+    try {
+      updateIslandDecor(delta, playerPos); // Wind sway on plants
+      updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
+    } catch (err) {
+      if (!window._islandUpdateErrorLogged) {
+        console.error('[main] Island update error:', err);
+        window._islandUpdateErrorLogged = true;
+      }
+    }
   }
-  renderMinimap();
 
   composer.render();
 }
