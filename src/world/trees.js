@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
 import { attachLabel, createLabel } from '../ui/labels.js';
-import { registerMapEntity } from '../ui/minimapRegistry.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
@@ -263,12 +262,6 @@ export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
     if (scale > 0) {
       _treeCount++;
       attachLabel(tree, `TREE ${_treeCount}`, 17);
-      // Register on minimap
-      registerMapEntity(
-        `tree_${_treeCount}`,
-        'tree',
-        () => ({ x: tree.position.x, z: tree.position.z })
-      );
     }
   };
 

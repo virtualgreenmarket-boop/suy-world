@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { buildCharacter, setCharacterEmotion, animateCharacter } from '../player/CharacterBuilder.js';
 import { getSurfaceY } from '../systems/terrain.js';
-import { registerMapEntity, unregisterMapEntity } from '../ui/minimapRegistry.js';
 import { attachLabel } from '../ui/labels.js';
 
 // NPC instances
@@ -67,14 +66,6 @@ class RoamingNPC {
 
     // Add name tag above head - using exact same system as localPlayer ('player' style = blue text)
     attachLabel(this.group, this.name, 3.0, 'player');
-
-    // Register on minimap with white color (different from GLB NPCs)
-    registerMapEntity(
-      this.mapEntityId,
-      'roaming_npc',
-      () => ({ x: this.group.position.x, z: this.group.position.z }),
-      { name: this.name }
-    );
 
     // State
     this.state = 'idle';
@@ -442,7 +433,6 @@ export function getRoamingNPCs() {
 
 export function cleanupRoamingNPCs() {
   _npcs.forEach(npc => {
-    unregisterMapEntity(npc.mapEntityId);
     if (npc.group) {
       _scene.remove(npc.group);
     }
