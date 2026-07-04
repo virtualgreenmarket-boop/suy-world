@@ -12,6 +12,7 @@ let _cameraYaw = 0;
 let _zoomLevel = 1.0;
 let _rotationMode = 'camera'; // 'camera' | 'north'
 let _isInitialized = false;
+let _pinnedLocation = null; // {x, z} world coordinates
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -109,6 +110,40 @@ function _copyRenderTargetToCanvas() {
 }
 
 /**
+ * Draw pin marker on the canvas
+ * @param {Object} playerPos - Player position {x, z}
+ * @param {number} worldRadius - Current world radius based on zoom
+ */
+function _drawPin(playerPos, worldRadius) {
+  if (!_pinnedLocation) return;
+
+  const scale = 2;
+  const screen = _worldToScreen(_pinnedLocation.x, _pinnedLocation.z, playerPos, worldRadius);
+  const centerX = _canvas.width / 2;
+  const centerY = _canvas.height / 2;
+
+  // Check if pin is visible
+  const dist = Math.hypot(screen.x - centerX, screen.y - centerY);
+  if (dist > centerX) return;
+
+  // Draw red pin
+  _ctx.fillStyle = '#FF5252';
+  _ctx.strokeStyle = '#ffffff';
+  _ctx.lineWidth = 2 * scale;
+
+  _ctx.beginPath();
+  _ctx.arc(screen.x, screen.y, 8 * scale, 0, Math.PI * 2);
+  _ctx.fill();
+  _ctx.stroke();
+
+  // White center
+  _ctx.fillStyle = '#ffffff';
+  _ctx.beginPath();
+  _ctx.arc(screen.x, screen.y, 3 * scale, 0, Math.PI * 2);
+  _ctx.fill();
+}
+
+/**
  * Draw player markers on the canvas
  * @param {Object} playerPos - Player position {x, z}
  * @param {number} playerRotY - Player rotation in radians
@@ -165,6 +200,20 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers) {
 // ── Public API ────────────────────────────────────────────────────────
 
 /**
+ * Load pinned location from localStorage
+ */
+function _loadPinnedLocation() {
+  const saved = localStorage.getItem('liveMapPin');
+  if (saved) {
+    const [x, z] = saved.split(',').map(parseFloat);
+    if (!isNaN(x) && !isNaN(z)) {
+      _pinnedLocation = { x, z };
+      console.log(`[liveMap] Loaded pin from localStorage: (${x.toFixed(1)}, ${z.toFixed(1)})`);
+    }
+  }
+}
+
+/**
  * Initialize the live map rendering system
  * @param {THREE.Scene} scene - The main game scene to render
  * @param {THREE.WebGLRenderer} renderer - The main WebGL renderer
@@ -196,6 +245,9 @@ export function initLiveMap(scene, renderer) {
   _mapCamera.position.set(0, CAMERA_HEIGHT, 0);
   _mapCamera.lookAt(0, 0, 0);
   _mapCamera.up.set(0, 0, -1); // Z-up for top-down view
+
+  // Load pinned location from localStorage
+  _loadPinnedLocation();
 
   // Create WebGLRenderTarget for render-to-texture
   try {
@@ -294,6 +346,9 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
   // Draw player markers
   _drawPlayerMarkers(playerPos, playerRotY, remotePlayers || []);
 
+  // Draw pin
+  _drawPin(playerPos, worldRadius);
+
   _ctx.restore();
 }
 
@@ -346,6 +401,34 @@ export function getMapRenderTarget() {
  */
 export function getMapCanvas() {
   return _canvas;
+}
+
+/**
+ * Set a pin marker on the map
+ * @param {number} worldX - World X coordinate
+ * @param {number} worldZ - World Z coordinate
+ */
+export function setMapPin(worldX, worldZ) {
+  _pinnedLocation = { x: worldX, z: worldZ };
+  localStorage.setItem('liveMapPin', `${worldX},${worldZ}`);
+  console.log(`[liveMap] Pin set at (${worldX.toFixed(1)}, ${worldZ.toFixed(1)})`);
+}
+
+/**
+ * Clear the pin marker
+ */
+export function clearMapPin() {
+  _pinnedLocation = null;
+  localStorage.removeItem('liveMapPin');
+  console.log('[liveMap] Pin cleared');
+}
+
+/**
+ * Get the current pin location
+ * @returns {{x: number, z: number}|null}
+ */
+export function getMapPin() {
+  return _pinnedLocation;
 }
 
 /**

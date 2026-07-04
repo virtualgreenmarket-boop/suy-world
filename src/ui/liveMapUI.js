@@ -5,6 +5,7 @@ import { setMapZoom, setMapRotationMode, getMapRotationMode } from './liveMap.js
 let _container = null;
 let _countDisplay = null;
 let _zoomLevel = 1.0;
+let _onFullscreenRequest = null; // Callback when user clicks to open fullscreen
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -19,9 +20,10 @@ const ZOOM_OUT_FACTOR = 1.25; // Zoom out = larger worldRadius
 /**
  * Create the live map UI container with controls
  * @param {HTMLCanvasElement} canvas - The map canvas element
+ * @param {Function} onFullscreenRequest - Optional callback when user requests fullscreen
  * @returns {HTMLElement} The container element
  */
-export function createLiveMapUI(canvas) {
+export function createLiveMapUI(canvas, onFullscreenRequest = null) {
   if (!canvas) {
     console.error('[liveMapUI] Canvas is required');
     return null;
@@ -29,6 +31,9 @@ export function createLiveMapUI(canvas) {
 
   // Remove existing UI if present
   removeLiveMapUI();
+
+  // Store callback
+  _onFullscreenRequest = onFullscreenRequest;
 
   // Load saved settings
   _loadSettings();
@@ -39,6 +44,11 @@ export function createLiveMapUI(canvas) {
 
   // Add canvas to container
   _container.appendChild(canvas);
+
+  // Click handler for fullscreen
+  if (_onFullscreenRequest) {
+    _container.addEventListener('click', _handleContainerClick);
+  }
 
   // Online count display
   _countDisplay = document.createElement('div');
@@ -158,6 +168,18 @@ function _handleRotationToggle(e) {
   setMapRotationMode(newMode);
   localStorage.setItem('liveMapRotation', newMode);
   console.log('[liveMapUI] Rotation mode:', newMode);
+}
+
+/**
+ * Handle container click (opens fullscreen)
+ */
+function _handleContainerClick(e) {
+  // Don't trigger if clicking a button
+  if (e.target.tagName === 'BUTTON') return;
+
+  if (_onFullscreenRequest) {
+    _onFullscreenRequest();
+  }
 }
 
 /**
