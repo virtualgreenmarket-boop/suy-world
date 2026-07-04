@@ -6,6 +6,9 @@ let _scene = null;
 let _renderer = null;
 let _mapCamera = null;
 let _mapRenderTarget = null;
+let _canvas = null;
+let _ctx = null;
+let _cameraYaw = 0;
 let _zoomLevel = 1.0;
 let _rotationMode = 'camera'; // 'camera' | 'north'
 let _isInitialized = false;
@@ -17,6 +20,147 @@ const BASE_WORLD_RADIUS = 200; // meters
 const CAMERA_HEIGHT = 1000; // y position
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
+
+// ── Helper Functions ──────────────────────────────────────────────────
+
+/**
+ * Rotate a point around origin
+ * @param {number} x - X coordinate
+ * @param {number} z - Z coordinate
+ * @param {number} angle - Rotation angle in radians
+ * @returns {Object} Rotated point {x, z}
+ */
+function _rotatePoint(x, z, angle) {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: x * cos - z * sin,
+    z: x * sin + z * cos
+  };
+}
+
+/**
+ * Convert world coordinates to screen coordinates
+ * @param {number} worldX - World X position
+ * @param {number} worldZ - World Z position
+ * @param {Object} playerPos - Player position {x, z}
+ * @param {number} worldRadius - Current world radius based on zoom
+ * @returns {Object} Screen coordinates {x, y}
+ */
+function _worldToScreen(worldX, worldZ, playerPos, worldRadius) {
+  const centerX = _canvas.width / 2;
+  const centerY = _canvas.height / 2;
+
+  let relX = worldX - playerPos.x;
+  let relZ = worldZ - playerPos.z;
+
+  // Apply rotation if in camera mode
+  if (_rotationMode === 'camera') {
+    const rotated = _rotatePoint(relX, relZ, _cameraYaw);
+    relX = rotated.x;
+    relZ = rotated.z;
+  }
+
+  const screenX = centerX + (relX / worldRadius) * centerX;
+  const screenY = centerY + (relZ / worldRadius) * centerY;
+
+  return { x: screenX, y: screenY };
+}
+
+/**
+ * Get consistent color for a player ID using hash-based palette selection
+ * @param {string} playerId - Player identifier
+ * @returns {string} Hex color
+ */
+function _getPlayerColor(playerId) {
+  const colors = [
+    '#FF5252', '#FFEB3B', '#4CAF50', '#2196F3',
+    '#9C27B0', '#FF9800', '#00BCD4', '#E91E63'
+  ];
+  const hash = playerId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return colors[hash % colors.length];
+}
+
+/**
+ * Copy WebGLRenderTarget texture to canvas with Y-flip
+ */
+function _copyRenderTargetToCanvas() {
+  const size = _canvas.width;
+
+  // Read pixels from render target
+  const buffer = new Uint8Array(size * size * 4);
+  _renderer.readRenderTargetPixels(_mapRenderTarget, 0, 0, size, size, buffer);
+
+  // Create ImageData and put on canvas
+  const imageData = new ImageData(new Uint8ClampedArray(buffer), size, size);
+
+  // Flip Y (WebGL to Canvas coordinate system)
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = size;
+  tempCanvas.height = size;
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.putImageData(imageData, 0, 0);
+
+  _ctx.save();
+  _ctx.translate(0, size);
+  _ctx.scale(1, -1);
+  _ctx.drawImage(tempCanvas, 0, 0);
+  _ctx.restore();
+}
+
+/**
+ * Draw player markers on the canvas
+ * @param {Object} playerPos - Player position {x, z}
+ * @param {number} playerRotY - Player rotation in radians
+ * @param {Array} remotePlayers - Array of remote player data [{id, x, z}, ...]
+ */
+function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers) {
+  const scale = 2;
+  const centerX = _canvas.width / 2;
+  const centerY = _canvas.height / 2;
+  const worldRadius = BASE_WORLD_RADIUS * _zoomLevel;
+
+  // Local player (blue circle + arrow)
+  _ctx.beginPath();
+  _ctx.arc(centerX, centerY, 8 * scale, 0, Math.PI * 2);
+  _ctx.fillStyle = '#4FC3F7';
+  _ctx.fill();
+  _ctx.strokeStyle = '#ffffff';
+  _ctx.lineWidth = 2 * scale;
+  _ctx.stroke();
+
+  // Direction arrow
+  const arrowLength = 12 * scale;
+  let arrowAngle = playerRotY;
+  if (_rotationMode === 'camera') {
+    arrowAngle -= _cameraYaw;
+  }
+  const arrowX = Math.sin(arrowAngle) * arrowLength;
+  const arrowY = -Math.cos(arrowAngle) * arrowLength;
+  _ctx.beginPath();
+  _ctx.moveTo(centerX, centerY);
+  _ctx.lineTo(centerX + arrowX, centerY + arrowY);
+  _ctx.strokeStyle = '#ffffff';
+  _ctx.lineWidth = 3 * scale;
+  _ctx.stroke();
+
+  // Remote players
+  for (const player of remotePlayers) {
+    const screen = _worldToScreen(player.x, player.z, playerPos, worldRadius);
+
+    // Clip to circle
+    const dist = Math.hypot(screen.x - centerX, screen.y - centerY);
+    if (dist > centerX) continue;
+
+    _ctx.beginPath();
+    _ctx.arc(screen.x, screen.y, 6 * scale, 0, Math.PI * 2);
+    _ctx.fillStyle = _getPlayerColor(player.id);
+    _ctx.fill();
+    _ctx.strokeStyle = '#ffffff';
+    _ctx.lineWidth = 1.5 * scale;
+    _ctx.stroke();
+  }
+}
 
 // ── Public API ────────────────────────────────────────────────────────
 
@@ -71,9 +215,19 @@ export function initLiveMap(scene, renderer) {
     return false;
   }
 
+  // Create canvas for display
+  _canvas = document.createElement('canvas');
+  _canvas.id = 'live-map-canvas';
+  _canvas.width = 720;
+  _canvas.height = 720;
+  _canvas.style.width = '360px';
+  _canvas.style.height = '360px';
+  _ctx = _canvas.getContext('2d');
+
   _isInitialized = true;
   console.log('[liveMap] Initialized successfully');
   console.log(`[liveMap] - Render target: ${RENDER_TARGET_SIZE}×${RENDER_TARGET_SIZE}`);
+  console.log(`[liveMap] - Canvas created: 720×720`);
   console.log(`[liveMap] - World radius: ${BASE_WORLD_RADIUS}m`);
   console.log(`[liveMap] - Camera height: ${CAMERA_HEIGHT}m`);
 
@@ -94,6 +248,9 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
     }
     return;
   }
+
+  // Store camera yaw for coordinate conversions
+  _cameraYaw = cameraYaw;
 
   // Position camera above player
   _mapCamera.position.set(playerPos.x, CAMERA_HEIGHT, playerPos.z);
@@ -121,6 +278,23 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
   _renderer.setRenderTarget(_mapRenderTarget);
   _renderer.render(_scene, _mapCamera);
   _renderer.setRenderTarget(originalRenderTarget);
+
+  // Clear canvas
+  _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
+
+  // Apply circular clip
+  _ctx.save();
+  _ctx.beginPath();
+  _ctx.arc(_canvas.width / 2, _canvas.height / 2, _canvas.width / 2, 0, Math.PI * 2);
+  _ctx.clip();
+
+  // Copy render target to canvas
+  _copyRenderTargetToCanvas();
+
+  // Draw player markers
+  _drawPlayerMarkers(playerPos, playerRotY, remotePlayers || []);
+
+  _ctx.restore();
 }
 
 /**
@@ -159,11 +333,19 @@ export function getMapRotationMode() {
 }
 
 /**
- * Get the render target texture (for Task 2 canvas display)
+ * Get the render target texture (for debugging/testing)
  * @returns {THREE.WebGLRenderTarget|null}
  */
 export function getMapRenderTarget() {
   return _mapRenderTarget;
+}
+
+/**
+ * Get the canvas element (for UI integration)
+ * @returns {HTMLCanvasElement|null}
+ */
+export function getMapCanvas() {
+  return _canvas;
 }
 
 /**
@@ -174,6 +356,12 @@ export function disposeLiveMap() {
     _mapRenderTarget.dispose();
     _mapRenderTarget = null;
   }
+
+  if (_canvas && _canvas.parentNode) {
+    _canvas.parentNode.removeChild(_canvas);
+  }
+  _canvas = null;
+  _ctx = null;
 
   _mapCamera = null;
   _scene = null;
