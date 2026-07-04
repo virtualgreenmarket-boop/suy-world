@@ -10,6 +10,8 @@ import { initPaths }                 from './world/paths.js';
 import { initHangars, updateHangars } from './world/hangars.js';
 import { initMarina, updateMarina }  from './world/marina.js';
 import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/lighthouse.js';
+import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
+import { initIslandLife, updateIslandLife } from './world/islandLife.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
@@ -201,6 +203,8 @@ clearAllBoxes(); // Clear any phantom collision boxes from previous builds
 initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
 initLighthouse(scene);
+initIslandDecor(scene); // Tropical plants + beach furniture
+initIslandLife(scene); // Fish, crabs, dolphins
 
 // Display lighthouse configuration
 const lighthouseConfig = getLighthouseConfig();
@@ -466,6 +470,8 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateLighthouse(delta);
+  updateIslandDecor(delta, playerPos); // Wind sway on plants
+  updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
   updateAnimalSystem(delta);
 
   // Ceiling fans rotation
