@@ -110,6 +110,9 @@ export function closeFullscreenMap() {
   if (!_overlay) return;
 
   window.removeEventListener('keydown', _handleKeyDown);
+  if (_canvas) {
+    _canvas.removeEventListener('click', _handleCanvasClick);
+  }
 
   if (_renderTarget) {
     _renderTarget.dispose();
@@ -159,8 +162,8 @@ function _handleCanvasClick(e) {
   const relX = (x - centerX) / centerX * worldRadius;
   const relZ = (y - centerY) / centerY * worldRadius;
 
-  const worldX = relX;
-  const worldZ = relZ;
+  const worldX = _playerPos.x + relX;
+  const worldZ = _playerPos.z + relZ;
 
   if (_setPin) {
     _setPin(worldX, worldZ);
