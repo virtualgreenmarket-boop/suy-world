@@ -61,12 +61,15 @@ function _createMinimapUI() {
 
   // Canvas
   _canvas = document.createElement('canvas');
+  _canvas.id = 'minimap-canvas'; // Give it an ID for debugging
   _canvas.width = MINIMAP_SIZE * 2; // 2x for retina
   _canvas.height = MINIMAP_SIZE * 2;
   _canvas.style.width = `${MINIMAP_SIZE}px`;
   _canvas.style.height = `${MINIMAP_SIZE}px`;
   _container.appendChild(_canvas);
   _ctx = _canvas.getContext('2d');
+
+  console.log('[minimap] Canvas created:', _canvas.id, 'size:', _canvas.width, 'x', _canvas.height);
 
   // Online count display (inside minimap, left side)
   const countDisplay = document.createElement('div');
@@ -394,7 +397,7 @@ export function renderMinimap() {
 
   _renderCount++;
   if (_renderCount % 60 === 0) {
-    console.log(`[minimap] Rendering (${_renderCount} frames), playerPos: (${_playerPos.x.toFixed(1)}, ${_playerPos.z.toFixed(1)}), radius: ${MINIMAP_WORLD_RADIUS}m`);
+    console.log(`[minimap] Frame ${_renderCount}: playerPos=(${_playerPos.x.toFixed(1)}, ${_playerPos.z.toFixed(1)}), radius=${MINIMAP_WORLD_RADIUS}m, rotation=${_rotationMode}, camera=${(_cameraRotY * 180 / Math.PI).toFixed(0)}°`);
   }
 
   const scale = 2; // Retina scaling
@@ -473,6 +476,11 @@ export function renderMinimap() {
   _ctx.translate(centerX, centerY);
   _drawPlayer(0, 0, scale);
   _ctx.restore();
+
+  // Force canvas repaint (fix for some browsers not updating)
+  if (_canvas && _renderCount % 2 === 0) {
+    _canvas.style.transform = _renderCount % 4 === 0 ? 'translateZ(0)' : 'translate3d(0,0,0)';
+  }
 }
 
 function _drawZoneBoundaries(mapRadius, scale) {

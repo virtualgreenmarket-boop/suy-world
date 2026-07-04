@@ -378,8 +378,13 @@ export function updateLighthouse(delta) {
   }
 }
 
-// Stair climbing logic - calculate Y position based on player's angle
+// Stair climbing logic - find closest step at given angle across all rotations
 export function getLighthouseStairHeight(playerX, playerZ, currentY = 0) {
+  // Input validation - prevent crashes from invalid data
+  if (!isFinite(playerX) || !isFinite(playerZ) || !isFinite(currentY)) {
+    return null;
+  }
+
   const dx = playerX - LIGHTHOUSE_X;
   const dz = playerZ - LIGHTHOUSE_Z;
   const distance = Math.sqrt(dx * dx + dz * dz);
@@ -390,29 +395,61 @@ export function getLighthouseStairHeight(playerX, playerZ, currentY = 0) {
     return null; // Not on stairs
   }
 
-  // Calculate angle (0 to 2π)
+  // Calculate angle (0 to 2π) - player's angular position
   let angle = Math.atan2(dz, dx);
   if (angle < 0) angle += Math.PI * 2;
 
-  // Determine which lap/rotation based on current height
-  // Each full rotation = 2π, we have 2.5 rotations total
-  const stepsPerRotation = TOTAL_STEPS / TOTAL_ROTATIONS; // 44 steps per rotation
-  const currentRotation = Math.max(0, Math.floor((currentY - BASE_HEIGHT) / (TOTAL_RISE / TOTAL_ROTATIONS)));
-  const clampedRotation = Math.min(currentRotation, 2); // Max 2.5 rotations
+  // CRITICAL: Collect ALL candidate steps at this angle across all 2.5 rotations
+  // Each rotation is 2π (360°), so same angle repeats 3 times (rotations 0, 1, 2)
+  const candidates = [];
+  const stepsPerRotation = TOTAL_STEPS / TOTAL_ROTATIONS; // 44 steps per full rotation
 
-  // Calculate step index on current rotation
-  const stepOnRotation = Math.floor(angle / STEP_ANGLE);
-  const stepIndex = clampedRotation * stepsPerRotation + stepOnRotation;
-  const clampedStepIndex = Math.min(Math.max(0, Math.floor(stepIndex)), TOTAL_STEPS - 1);
+  for (let rotation = 0; rotation < 3; rotation++) {
+    // Step index on this rotation: which slice of the 44 steps?
+    const stepOnRotation = Math.floor((angle / (Math.PI * 2)) * stepsPerRotation);
+    const stepIndex = rotation * stepsPerRotation + stepOnRotation;
 
-  // Height at top of this step
-  const stepTopY = BASE_HEIGHT + clampedStepIndex * STEP_RISE + STEP_HEIGHT;
+    // Stop if we've exceeded total steps
+    if (stepIndex >= TOTAL_STEPS) break;
 
-  return stepTopY;
+    // Calculate height of this candidate step
+    const stepY = BASE_HEIGHT + stepIndex * STEP_RISE + STEP_HEIGHT;
+
+    candidates.push({
+      stepIndex,
+      rotation,
+      height: stepY
+    });
+  }
+
+  // Find the candidate step closest to player's current Y (within tolerance)
+  const TOLERANCE = 1.5; // Allow stepping up/down 1.5m
+  let closestStep = null;
+  let minDist = Infinity;
+
+  for (const candidate of candidates) {
+    const dist = Math.abs(candidate.height - currentY);
+    if (dist < TOLERANCE && dist < minDist) {
+      minDist = dist;
+      closestStep = candidate;
+    }
+  }
+
+  if (closestStep) {
+    return closestStep.height;
+  }
+
+  // No step within tolerance
+  return null;
 }
 
 // Get height for entire lighthouse area (stairs + deck)
 export function getLighthouseHeight(playerX, playerZ, currentY) {
+  // Input validation - prevent crashes
+  if (!isFinite(playerX) || !isFinite(playerZ) || !isFinite(currentY)) {
+    return null;
+  }
+
   const dx = playerX - LIGHTHOUSE_X;
   const dz = playerZ - LIGHTHOUSE_Z;
   const distance = Math.sqrt(dx * dx + dz * dz);
@@ -433,8 +470,8 @@ export function getLighthouseHeight(playerX, playerZ, currentY) {
 
     // If in opening sector and on stairs radius, fall through
     if (angle >= openingStart && angle <= openingEnd && distance > STEP_INNER_RADIUS && distance <= STEP_RADIUS + 0.5) {
-      // Fall through to stairs below
-      const stairHeight = getLighthouseStairHeight(playerX, playerZ);
+      // Fall through to stairs below - PASS currentY!
+      const stairHeight = getLighthouseStairHeight(playerX, playerZ, currentY);
       if (stairHeight !== null) return stairHeight;
     }
 
