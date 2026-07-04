@@ -162,8 +162,8 @@ function _handleCanvasClick(e) {
   const relX = (x - centerX) / centerX * worldRadius;
   const relZ = (y - centerY) / centerY * worldRadius;
 
-  const worldX = _playerPos.x + relX;
-  const worldZ = _playerPos.z + relZ;
+  const worldX = relX;
+  const worldZ = relZ;
 
   if (_setPin) {
     _setPin(worldX, worldZ);

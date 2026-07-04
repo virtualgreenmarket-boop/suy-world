@@ -73,8 +73,8 @@ function getRemotePlayersData() {
 }
 
 // ── HMR cleanup ───────────────────────────────────────────────────────
-if (module.hot) {
-  module.hot.dispose(() => {
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
     disposeLiveMap();
     removeLiveMapUI();
   });
