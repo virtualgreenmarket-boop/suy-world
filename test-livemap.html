@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiveMap Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: monospace;
+      background: #1a1a1a;
+      color: #0f0;
+    }
+    #canvas {
+      border: 2px solid #0f0;
+      display: block;
+      margin: 20px auto;
+    }
+    .controls {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #2a2a2a;
+      border-radius: 8px;
+    }
+    button {
+      background: #0a0;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      font-family: monospace;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #0f0;
+    }
+    .status {
+      margin: 10px 0;
+      padding: 10px;
+      background: #1a1a1a;
+      border-left: 3px solid #0f0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🗺️ LiveMap Core Rendering Test</h1>
+
+  <canvas id="canvas" width="800" height="600"></canvas>
+
+  <div class="controls">
+    <h2>Status</h2>
+    <div id="status" class="status">Initializing...</div>
+
+    <h2>Controls</h2>
+    <div>
+      <button onclick="testInit()">Test initLiveMap()</button>
+      <button onclick="testUpdate()">Test updateLiveMap()</button>
+      <button onclick="testZoom(0.5)">Zoom 0.5x</button>
+      <button onclick="testZoom(1.0)">Zoom 1.0x</button>
+      <button onclick="testZoom(2.0)">Zoom 2.0x</button>
+    </div>
+    <div>
+      <button onclick="testRotationMode('camera')">Camera Mode</button>
+      <button onclick="testRotationMode('north')">North Mode</button>
+      <button onclick="testDispose()">Test disposeLiveMap()</button>
+    </div>
+
+    <h2>Test Results</h2>
+    <div id="results" class="status"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from './node_modules/three/build/three.module.js';
+    import {
+      initLiveMap,
+      updateLiveMap,
+      setMapZoom,
+      setMapRotationMode,
+      getMapRotationMode,
+      getMapRenderTarget,
+      disposeLiveMap
+    } from './src/ui/liveMap.js';
+
+    let scene, renderer, cube;
+    let playerPos = { x: 0, z: 0 };
+    let cameraYaw = 0;
+
+    function log(msg, isError = false) {
+      const status = document.getElementById('status');
+      const color = isError ? '#f00' : '#0f0';
+      status.style.borderLeftColor = color;
+      status.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${msg}`;
+      console.log(msg);
+    }
+
+    function addResult(msg, pass) {
+      const results = document.getElementById('results');
+      const icon = pass ? '✅' : '❌';
+      results.innerHTML += `${icon} ${msg}<br>`;
+    }
+
+    // Setup Three.js
+    function setupScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb);
+
+      const canvas = document.getElementById('canvas');
+      renderer = new THREE.WebGLRenderer({ canvas });
+      renderer.setSize(800, 600);
+
+      // Add a test cube
+      const geometry = new THREE.BoxGeometry(20, 20, 20);
+      const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      cube = new THREE.Mesh(geometry, material);
+      cube.position.set(50, 10, 30);
+      scene.add(cube);
+
+      // Add ground plane
+      const groundGeometry = new THREE.PlaneGeometry(400, 400);
+      const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x228b22 });
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+
+      // Add grid
+      const gridHelper = new THREE.GridHelper(400, 40);
+      scene.add(gridHelper);
+
+      log('Scene setup complete');
+    }
+
+    window.testInit = function() {
+      try {
+        const canvas = initLiveMap(scene, renderer);
+        if (canvas) {
+          addResult('initLiveMap() returned canvas element', true);
+          log('✅ initLiveMap() SUCCESS - canvas created');
+        } else {
+          addResult('initLiveMap() returned null', false);
+          log('❌ initLiveMap() FAILED', true);
+        }
+      } catch (err) {
+        addResult(`initLiveMap() threw error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testUpdate = function() {
+      try {
+        playerPos.x += 10;
+        playerPos.z += 5;
+        cameraYaw += 0.1;
+
+        updateLiveMap(playerPos, 0, [], cameraYaw);
+        addResult(`updateLiveMap() called with pos(${playerPos.x}, ${playerPos.z})`, true);
+        log(`✅ updateLiveMap() at (${playerPos.x}, ${playerPos.z})`);
+      } catch (err) {
+        addResult(`updateLiveMap() threw error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testZoom = function(level) {
+      try {
+        setMapZoom(level);
+        addResult(`setMapZoom(${level}) called`, true);
+        log(`✅ Zoom set to ${level}x`);
+      } catch (err) {
+        addResult(`setMapZoom() threw error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testRotationMode = function(mode) {
+      try {
+        setMapRotationMode(mode);
+        const current = getMapRotationMode();
+        const match = current === mode;
+        addResult(`setMapRotationMode('${mode}'), got '${current}'`, match);
+        log(match ? `✅ Rotation mode: ${mode}` : `❌ Mode mismatch`, !match);
+      } catch (err) {
+        addResult(`setMapRotationMode() threw error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testDispose = function() {
+      try {
+        disposeLiveMap();
+        addResult('disposeLiveMap() called', true);
+        log('✅ Resources disposed');
+      } catch (err) {
+        addResult(`disposeLiveMap() threw error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    // Auto-setup on load
+    setupScene();
+    log('Ready for testing. Click buttons above.');
+  </script>
+</body>
+</html>
