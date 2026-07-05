@@ -234,17 +234,17 @@ function _loadPinnedLocation() {
  * Initialize the live map rendering system
  * @param {THREE.Scene} scene - The main game scene to render
  * @param {THREE.WebGLRenderer} renderer - The main WebGL renderer
- * @returns {boolean} Success status
+ * @returns {HTMLCanvasElement|null} The created canvas element, or null on failure
  */
 export function initLiveMap(scene, renderer) {
   if (!scene || !renderer) {
     console.error('[liveMap] Invalid scene or renderer');
-    return false;
+    return null;
   }
 
   if (_isInitialized) {
     console.warn('[liveMap] Already initialized');
-    return true;
+    return _canvas;
   }
 
   _scene = scene;
@@ -281,7 +281,7 @@ export function initLiveMap(scene, renderer) {
     );
   } catch (err) {
     console.error('[liveMap] Failed to create WebGLRenderTarget:', err);
-    return false;
+    return null;
   }
 
   // Create canvas for display
@@ -300,7 +300,7 @@ export function initLiveMap(scene, renderer) {
   console.log(`[liveMap] - World radius: ${BASE_WORLD_RADIUS}m`);
   console.log(`[liveMap] - Camera height: ${CAMERA_HEIGHT}m`);
 
-  return true;
+  return _canvas;
 }
 
 /**

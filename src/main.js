@@ -260,9 +260,9 @@ initLeveling();
 initLevelDisplay();
 
 // Initialize live map system
-if (initLiveMap(scene, renderer)) {
-  const canvas = document.getElementById('live-map-canvas');
-  createLiveMapUI(canvas);
+const liveMapCanvas = initLiveMap(scene, renderer);
+if (liveMapCanvas) {
+  createLiveMapUI(liveMapCanvas);
 
   // M key to open fullscreen
   window.addEventListener('keydown', (e) => {
