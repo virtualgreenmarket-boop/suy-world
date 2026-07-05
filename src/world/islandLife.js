@@ -104,20 +104,21 @@ function createFishSchools(scene) {
 
     // Generate waypoints in shallow water near play areas
     // Bias toward spawn/marina/lighthouse/east beach
-    const playAreaAngles = [
-      0,           // East (spawn area)
-      Math.PI,     // West (marina)
-      Math.PI/2,   // North (lighthouse area)
-      -Math.PI/2   // South (east beach)
+    // CRITICAL: Convert angle to actual world position to account for player spawn at marina
+    const playAreaCenters = [
+      { x: 370, z: 0, name: 'East spawn area' },      // East shallow water
+      { x: -280, z: 50, name: 'Marina north' },       // Near marina spawn (-325, 0)
+      { x: -280, z: -50, name: 'Marina south' },      // Near marina spawn
+      { x: 0, z: -370, name: 'North lighthouse' },    // North shallow water
+      { x: 150, z: 320, name: 'Southeast beach' }     // Southeast shallow water
     ];
-    const baseAngle = playAreaAngles[s % playAreaAngles.length];
+    const playArea = playAreaCenters[s % playAreaCenters.length];
 
     // Generate 4 waypoints within a ~25m patrol area
     const waypoints = [];
-    const patrolCenterAngle = baseAngle + (Math.random() - 0.5) * 0.3;
-    const patrolCenterRadius = 360 + Math.random() * 15; // Shallow water band 360-375
-    const patrolCenterX = Math.cos(patrolCenterAngle) * patrolCenterRadius;
-    const patrolCenterZ = Math.sin(patrolCenterAngle) * patrolCenterRadius;
+    // Use play area center with small random offset
+    const patrolCenterX = playArea.x + (Math.random() - 0.5) * 20;
+    const patrolCenterZ = playArea.z + (Math.random() - 0.5) * 20;
 
     for (let w = 0; w < 4; w++) {
       let x, z, validPoint;
@@ -132,19 +133,11 @@ function createFishSchools(scene) {
         validPoint = isValidShallowWaterPosition(x, z);
         attempts++;
 
-        // If 50 attempts fail, resample patrol center
+        // If 50 attempts fail, use patrol center
         if (attempts >= 50 && !validPoint) {
-          console.warn(`[islandLife] School ${s} waypoint ${w} failed validation after 50 attempts, resampling`);
-          const newAngle = baseAngle + (Math.random() - 0.5) * 0.5;
-          const newRadius = 360 + Math.random() * 15;
-          x = Math.cos(newAngle) * newRadius;
-          z = Math.sin(newAngle) * newRadius;
-          validPoint = isValidShallowWaterPosition(x, z);
-          if (!validPoint) {
-            // Last resort: use patrol center
-            x = patrolCenterX;
-            z = patrolCenterZ;
-          }
+          console.warn(`[islandLife] School ${s} (${playArea.name}) waypoint ${w} failed validation, using patrol center`);
+          x = patrolCenterX;
+          z = patrolCenterZ;
           break;
         }
       } while (!validPoint && attempts < 50);
@@ -192,6 +185,8 @@ function createFishSchools(scene) {
 
     _fishSchools.push(schoolState);
     scene.add(instancedMesh);
+
+    console.log(`[islandLife] School ${s} (${playArea.name}): patrol center (${patrolCenterX.toFixed(1)}, ${patrolCenterZ.toFixed(1)}), ${waypoints.length} waypoints`);
   }
 
   console.log(`[islandLife] Created ${FISH_SCHOOLS} fish schools (${FISH_PER_SCHOOL * FISH_SCHOOLS} fish total)`);
