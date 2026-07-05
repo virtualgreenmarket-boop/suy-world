@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { BufferGeometryUtils } from 'three/addons/utils/BufferGeometryUtils.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 import { isValidShallowWaterPosition } from './mapZones.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -70,10 +70,13 @@ function createFishGeometry() {
 
   mergedGeom.setAttribute('position', new THREE.BufferAttribute(combined, 3));
 
-  // Indices
-  const bodyIndices = Array.from(bodyGeom.index.array);
-  const tailIndices = Array.from(tailGeom.index.array).map(i => i + bodyPositions.length / 3);
-  mergedGeom.setIndex([...bodyIndices, ...tailIndices]);
+  // Indices - handle case where geometry might not have index
+  const bodyIndices = bodyGeom.index ? Array.from(bodyGeom.index.array) : [];
+  const tailIndices = tailGeom.index ? Array.from(tailGeom.index.array).map(i => i + bodyPositions.length / 3) : [];
+
+  if (bodyIndices.length > 0 || tailIndices.length > 0) {
+    mergedGeom.setIndex([...bodyIndices, ...tailIndices]);
+  }
 
   mergedGeom.computeVertexNormals();
 
@@ -99,18 +102,52 @@ function createFishSchools(scene) {
     instancedMesh.castShadow = false;
     instancedMesh.receiveShadow = false;
 
-    // Generate waypoints in shallow water
+    // Generate waypoints in shallow water near play areas
+    // Bias toward spawn/marina/lighthouse/east beach
+    const playAreaAngles = [
+      0,           // East (spawn area)
+      Math.PI,     // West (marina)
+      Math.PI/2,   // North (lighthouse area)
+      -Math.PI/2   // South (east beach)
+    ];
+    const baseAngle = playAreaAngles[s % playAreaAngles.length];
+
+    // Generate 4 waypoints within a ~25m patrol area
     const waypoints = [];
+    const patrolCenterAngle = baseAngle + (Math.random() - 0.5) * 0.3;
+    const patrolCenterRadius = 360 + Math.random() * 15; // Shallow water band 360-375
+    const patrolCenterX = Math.cos(patrolCenterAngle) * patrolCenterRadius;
+    const patrolCenterZ = Math.sin(patrolCenterAngle) * patrolCenterRadius;
+
     for (let w = 0; w < 4; w++) {
-      let x, z;
+      let x, z, validPoint;
       let attempts = 0;
+
       do {
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 370 + Math.random() * 100; // Shallow water 350-500
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
+        // Waypoint within 25m patrol area around patrol center
+        const offsetAngle = Math.random() * Math.PI * 2;
+        const offsetDist = Math.random() * 12.5; // Up to 12.5m from center
+        x = patrolCenterX + Math.cos(offsetAngle) * offsetDist;
+        z = patrolCenterZ + Math.sin(offsetAngle) * offsetDist;
+        validPoint = isValidShallowWaterPosition(x, z);
         attempts++;
-      } while (!isValidShallowWaterPosition(x, z) && attempts < 50);
+
+        // If 50 attempts fail, resample patrol center
+        if (attempts >= 50 && !validPoint) {
+          console.warn(`[islandLife] School ${s} waypoint ${w} failed validation after 50 attempts, resampling`);
+          const newAngle = baseAngle + (Math.random() - 0.5) * 0.5;
+          const newRadius = 360 + Math.random() * 15;
+          x = Math.cos(newAngle) * newRadius;
+          z = Math.sin(newAngle) * newRadius;
+          validPoint = isValidShallowWaterPosition(x, z);
+          if (!validPoint) {
+            // Last resort: use patrol center
+            x = patrolCenterX;
+            z = patrolCenterZ;
+          }
+          break;
+        }
+      } while (!validPoint && attempts < 50);
 
       waypoints.push(new THREE.Vector3(x, 0, z));
     }
@@ -134,6 +171,24 @@ function createFishSchools(scene) {
       });
       schoolState.fishPhases.push(Math.random() * Math.PI * 2);
     }
+
+    // CRITICAL: Initialize all fish positions immediately (bug fix #1)
+    // Without this, fish stay at (0,0,0) until updateIslandLife runs and player is within 90m
+    const matrix = new THREE.Matrix4();
+    for (let f = 0; f < schoolSize; f++) {
+      const offset = schoolState.fishOffsets[f];
+      const phase = schoolState.fishPhases[f];
+
+      const x = schoolState.centerPos.x + offset.x;
+      const z = schoolState.centerPos.z + offset.z;
+      const y = -offset.depth;
+
+      matrix.identity();
+      matrix.makeRotationY(0); // Initial facing
+      matrix.setPosition(x, y, z);
+      instancedMesh.setMatrixAt(f, matrix);
+    }
+    instancedMesh.instanceMatrix.needsUpdate = true;
 
     _fishSchools.push(schoolState);
     scene.add(instancedMesh);
