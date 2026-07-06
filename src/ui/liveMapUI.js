@@ -79,19 +79,6 @@ export function createLiveMapUI(canvas, onFullscreenRequest = null) {
   rotationToggle.addEventListener('click', _handleRotationToggle);
   _container.appendChild(rotationToggle);
 
-  // Fullscreen button (M key alternative)
-  const fullscreenBtn = document.createElement('button');
-  fullscreenBtn.id = 'live-map-fullscreen-btn';
-  fullscreenBtn.title = 'Open Full Map (M)';
-  fullscreenBtn.textContent = '🗺️';
-  fullscreenBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (_onFullscreenRequest) {
-      _onFullscreenRequest();
-    }
-  });
-  _container.appendChild(fullscreenBtn);
-
   // Inject styles
   _injectStyles();
 
@@ -280,7 +267,7 @@ function _injectStyles() {
     #live-map-rotation-toggle {
       position: absolute;
       top: 10px;
-      right: 60px;
+      right: 10px;
       width: 48px;
       height: 48px;
       background: rgba(0, 0, 0, 0.85);
@@ -305,36 +292,6 @@ function _injectStyles() {
     }
 
     #live-map-rotation-toggle:active {
-      transform: scale(0.95);
-    }
-
-    #live-map-fullscreen-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 48px;
-      height: 48px;
-      background: rgba(0, 0, 0, 0.85);
-      border: 2px solid rgba(255,255,255,0.8);
-      border-radius: 50%;
-      font-size: 24px;
-      cursor: pointer;
-      z-index: 10001;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-    }
-
-    #live-map-fullscreen-btn:hover {
-      background: rgba(255, 255, 255, 0.95);
-      border-color: white;
-      transform: scale(1.1);
-    }
-
-    #live-map-fullscreen-btn:active {
       transform: scale(0.95);
     }
 
