@@ -21,7 +21,7 @@ export function initHud() {
   topLeft.appendChild(coinEl);
   _init3DCoin(coinEl.querySelector('.hud-coin-icon'));
 
-  // Action buttons row (below coins) - only emoji button
+  // Action buttons row (below coins) - emoji + settings
   const buttonsRow = el('div', { class: 'hud-action-buttons' });
 
   // Emoji button
@@ -31,17 +31,15 @@ export function initHud() {
   emojiBtn.addEventListener('click', toggleEmojiPicker);
   buttonsRow.appendChild(emojiBtn);
 
+  // Settings button
+  const gearBtn = el('button', { id: 'hud-gear' });
+  gearBtn.title = 'Settings';
+  gearBtn.innerHTML = '⚙';
+  gearBtn.addEventListener('click', toggleSettingsPanel);
+  buttonsRow.appendChild(gearBtn);
+
   topLeft.appendChild(buttonsRow);
   document.body.appendChild(topLeft);
-
-  // Settings button will be added to minimap corner by minimap.js
-  window._createSettingsButton = () => {
-    const gearBtn = el('button', { id: 'hud-gear' });
-    gearBtn.title = 'Settings';
-    gearBtn.innerHTML = '⚙';
-    gearBtn.addEventListener('click', toggleSettingsPanel);
-    return gearBtn;
-  };
 
   // Emoji picker (hidden by default) - 8 custom emoji expressions
   const emojiPicker = el('div', { id: 'hud-emoji-picker' });
