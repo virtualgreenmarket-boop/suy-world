@@ -19,6 +19,10 @@ let _mapOverheadLight = null; // Overhead light for minimap rendering
 let _frameCount = 0;
 let _totalRenderTime = 0;
 
+// Reusable temp canvas for render-target copy (avoids per-frame allocation)
+let _tempCanvas = null;
+let _tempCtx = null;
+
 // ── Constants ──────────────────────────────────────────────────────────
 
 const RENDER_TARGET_SIZE = 720; // 720×720 (2x for 360px display)
@@ -108,17 +112,19 @@ function _copyRenderTargetToCanvas() {
   // Create ImageData and put on canvas
   const imageData = new ImageData(new Uint8ClampedArray(buffer), size, size);
 
-  // Flip Y (WebGL to Canvas coordinate system)
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = size;
-  tempCanvas.height = size;
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCtx.putImageData(imageData, 0, 0);
+  // Flip Y (WebGL to Canvas coordinate system) — temp canvas is reused across frames
+  if (!_tempCanvas || _tempCanvas.width !== size) {
+    _tempCanvas = document.createElement('canvas');
+    _tempCanvas.width = size;
+    _tempCanvas.height = size;
+    _tempCtx = _tempCanvas.getContext('2d');
+  }
+  _tempCtx.putImageData(imageData, 0, 0);
 
   _ctx.save();
   _ctx.translate(0, size);
   _ctx.scale(1, -1);
-  _ctx.drawImage(tempCanvas, 0, 0);
+  _ctx.drawImage(_tempCanvas, 0, 0);
   _ctx.restore();
 }
 
@@ -139,8 +145,8 @@ function _drawPin(playerPos, worldRadius) {
   const dist = Math.hypot(screen.x - centerX, screen.y - centerY);
   if (dist > centerX) return;
 
-  // Draw red pin
-  _ctx.fillStyle = '#FF5252';
+  // Draw red pin (island red)
+  _ctx.fillStyle = '#E8564A';
   _ctx.strokeStyle = '#ffffff';
   _ctx.lineWidth = 2 * scale;
 
@@ -181,7 +187,7 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers, npcs = []) {
       .slice(0, MAX_VISIBLE_PLAYERS);
   }
 
-  // NPCs (soft warm markers)
+  // NPCs — leaf green (island language). npc.static === true → diamond (standing), else dot (wandering)
   for (const npc of npcs) {
     const screen = _worldToScreen(npc.x, npc.z, playerPos, worldRadius);
 
@@ -189,48 +195,62 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers, npcs = []) {
     const dist = Math.hypot(screen.x - centerX, screen.y - centerY);
     if (dist > centerX) continue;
 
-    // Soft glow background
+    // Soft glow background (subtle, leaf-toned)
     _ctx.beginPath();
     _ctx.arc(screen.x, screen.y, 7 * scale, 0, Math.PI * 2);
     const gradient = _ctx.createRadialGradient(screen.x, screen.y, 0, screen.x, screen.y, 7 * scale);
-    gradient.addColorStop(0, 'rgba(255, 183, 77, 0.3)');
-    gradient.addColorStop(1, 'rgba(255, 183, 77, 0)');
+    gradient.addColorStop(0, 'rgba(122, 203, 94, 0.25)');
+    gradient.addColorStop(1, 'rgba(122, 203, 94, 0)');
     _ctx.fillStyle = gradient;
     _ctx.fill();
 
-    // Main marker
-    _ctx.beginPath();
-    _ctx.arc(screen.x, screen.y, 4.5 * scale, 0, Math.PI * 2);
-    _ctx.fillStyle = '#E8A057'; // Softer warm orange
-    _ctx.fill();
-    _ctx.strokeStyle = 'rgba(255, 243, 224, 0.6)'; // Subtle cream border
+    _ctx.fillStyle = '#7ACB5E';
+    _ctx.strokeStyle = 'rgba(244, 231, 195, 0.7)'; // sand border
     _ctx.lineWidth = 1.2 * scale;
-    _ctx.stroke();
+
+    if (npc.static) {
+      // Standing NPC — diamond
+      const r = 4.5 * scale;
+      _ctx.save();
+      _ctx.translate(screen.x, screen.y);
+      _ctx.rotate(Math.PI / 4);
+      _ctx.beginPath();
+      _ctx.rect(-r * 0.78, -r * 0.78, r * 1.56, r * 1.56);
+      _ctx.fill();
+      _ctx.stroke();
+      _ctx.restore();
+    } else {
+      // Wandering NPC — dot
+      _ctx.beginPath();
+      _ctx.arc(screen.x, screen.y, 4.5 * scale, 0, Math.PI * 2);
+      _ctx.fill();
+      _ctx.stroke();
+    }
   }
 
-  // Local player (blue circle + arrow)
-  _ctx.beginPath();
-  _ctx.arc(centerX, centerY, 8 * scale, 0, Math.PI * 2);
-  _ctx.fillStyle = '#4FC3F7';
-  _ctx.fill();
-  _ctx.strokeStyle = '#ffffff';
-  _ctx.lineWidth = 2 * scale;
-  _ctx.stroke();
-
-  // Direction arrow
-  const arrowLength = 12 * scale;
+  // Local player — coral direction arrow with white outline (island language)
   let arrowAngle = playerRotY;
   if (_rotationMode === 'camera') {
     arrowAngle -= _cameraYaw;
   }
-  const arrowX = Math.sin(arrowAngle) * arrowLength;
-  const arrowY = -Math.cos(arrowAngle) * arrowLength;
-  _ctx.beginPath();
-  _ctx.moveTo(centerX, centerY);
-  _ctx.lineTo(centerX + arrowX, centerY + arrowY);
+  const aSize = 9 * scale;
+  _ctx.save();
+  _ctx.translate(centerX, centerY);
+  _ctx.rotate(arrowAngle);
+  _ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+  _ctx.shadowBlur = 4 * scale;
+  _ctx.fillStyle = '#FF6B4A';
   _ctx.strokeStyle = '#ffffff';
-  _ctx.lineWidth = 3 * scale;
+  _ctx.lineWidth = 1.6 * scale;
+  _ctx.beginPath();
+  _ctx.moveTo(0, -aSize * 1.35);          // tip (forward)
+  _ctx.lineTo(aSize * 0.9, aSize);         // right base
+  _ctx.lineTo(0, aSize * 0.45);            // notch
+  _ctx.lineTo(-aSize * 0.9, aSize);        // left base
+  _ctx.closePath();
+  _ctx.fill();
   _ctx.stroke();
+  _ctx.restore();
 
   // Remote players
   for (const player of playersToRender) {
@@ -333,8 +353,9 @@ export function initLiveMap(scene, renderer) {
   _canvas.id = 'live-map-canvas';
   _canvas.width = 720;
   _canvas.height = 720;
-  _canvas.style.width = '360px';
-  _canvas.style.height = '360px';
+  // Sized by the UI container (ring adds padding); inline px here would override the stylesheet
+  _canvas.style.width = '100%';
+  _canvas.style.height = '100%';
   _ctx = _canvas.getContext('2d');
 
   _isInitialized = true;
@@ -480,6 +501,14 @@ export function setMapRotationMode(mode) {
  */
 export function getMapRotationMode() {
   return _rotationMode;
+}
+
+/**
+ * Get the current camera yaw (radians) — used by the UI north-compass
+ * @returns {number}
+ */
+export function getCameraYaw() {
+  return _cameraYaw;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { setMapZoom, setMapRotationMode, getMapRotationMode } from './liveMap.js';
+import { setMapZoom, setMapRotationMode, getMapRotationMode, getCameraYaw } from './liveMap.js';
 
 // ── Private Module State ──────────────────────────────────────────────
 
@@ -6,6 +6,8 @@ let _container = null;
 let _countDisplay = null;
 let _zoomLevel = 0.6; // Default closer zoom to see more details
 let _onFullscreenRequest = null; // Callback when user clicks to open fullscreen
+let _northPin = null;            // North compass pin element
+let _compassInterval = null;     // Interval syncing the N pin in camera mode
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -79,6 +81,32 @@ export function createLiveMapUI(canvas, onFullscreenRequest = null) {
   rotationToggle.addEventListener('click', _handleRotationToggle);
   _container.appendChild(rotationToggle);
 
+  // North compass pin (rotates to true north in camera mode)
+  _northPin = document.createElement('div');
+  _northPin.id = 'live-map-north';
+  _northPin.textContent = 'N';
+  _container.appendChild(_northPin);
+
+  // Fullscreen affordance chip (same action as clicking the map)
+  if (_onFullscreenRequest) {
+    const expandBtn = document.createElement('button');
+    expandBtn.id = 'live-map-expand';
+    expandBtn.title = 'Full Map';
+    expandBtn.textContent = '⛶';
+    expandBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _onFullscreenRequest();
+    });
+    _container.appendChild(expandBtn);
+  }
+
+  // Compass sync — in camera mode the map rotates, so N must point to true north
+  _compassInterval = setInterval(() => {
+    if (!_northPin) return;
+    const yaw = getMapRotationMode() === 'camera' ? getCameraYaw() : 0;
+    _northPin.style.transform = `rotate(${yaw}rad) translateY(-${MINIMAP_SIZE / 2 - 2}px) rotate(${-yaw}rad)`;
+  }, 100);
+
   // Inject styles
   _injectStyles();
 
@@ -103,11 +131,16 @@ export function updateOnlineCount(count) {
  * Remove the live map UI from the DOM
  */
 export function removeLiveMapUI() {
+  if (_compassInterval) {
+    clearInterval(_compassInterval);
+    _compassInterval = null;
+  }
   if (_container && _container.parentNode) {
     _container.parentNode.removeChild(_container);
   }
   _container = null;
   _countDisplay = null;
+  _northPin = null;
 }
 
 // ── Private Functions ──────────────────────────────────────────────────
@@ -184,7 +217,12 @@ function _injectStyles() {
   const style = document.createElement('style');
   style.id = 'live-map-styles';
   style.textContent = `
+    /* ═══ SUY WORLD live map — lifebuoy edition ═══
+       Language: lagoon glass rgba(13,36,40,.78) · facet corner cut ·
+       sun highlight · Coral #FF6B4A · Leaf #7ACB5E · Gold #F0B429 · Wood #C98F14 */
+
     #live-map-container {
+      box-sizing: border-box; /* padding = ring thickness, total stays ${MINIMAP_SIZE}px */
       position: fixed;
       top: 20px;
       right: 20px;
@@ -192,32 +230,39 @@ function _injectStyles() {
       height: ${MINIMAP_SIZE}px;
       border-radius: 50%;
       overflow: visible;
-      /* Soft tropical border - subtle gradient fade */
-      background:
-        radial-gradient(
-          circle,
-          rgba(15, 20, 25, 0.85) 0%,
-          rgba(15, 20, 25, 0.85) 88%,
-          rgba(139, 111, 71, 0.4) 92%,
-          rgba(212, 175, 55, 0.3) 95%,
-          rgba(139, 111, 71, 0.2) 98%,
-          transparent 100%
-        );
-      backdrop-filter: blur(12px);
+      /* Lifebuoy ring: 8 × 45° muted red/cream segments, wood inner rim */
+      background: conic-gradient(
+        rgba(232, 86, 74, 0.92) 0deg 45deg,   rgba(246, 241, 228, 0.92) 45deg 90deg,
+        rgba(232, 86, 74, 0.92) 90deg 135deg,  rgba(246, 241, 228, 0.92) 135deg 180deg,
+        rgba(232, 86, 74, 0.92) 180deg 225deg, rgba(246, 241, 228, 0.92) 225deg 270deg,
+        rgba(232, 86, 74, 0.92) 270deg 315deg, rgba(246, 241, 228, 0.92) 315deg 360deg
+      );
+      padding: 10px; /* ring thickness */
       cursor: pointer;
       z-index: 9999;
-      transition: all 0.3s ease;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
       box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.25),
-        inset 0 0 40px rgba(139, 111, 71, 0.08);
+        0 8px 28px rgba(8, 24, 27, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    #live-map-container::before {
+      /* thin wood rim between the lifebuoy and the map — bridges the old brass look */
+      content: '';
+      position: absolute;
+      inset: 7px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(201, 143, 20, 0.85);
+      pointer-events: none;
+      z-index: 1000;
     }
 
     #live-map-container:hover {
       transform: scale(1.02);
       box-shadow:
-        0 12px 40px rgba(0, 0, 0, 0.3),
-        inset 0 0 50px rgba(139, 111, 71, 0.12),
-        0 0 60px rgba(212, 175, 55, 0.08);
+        0 12px 36px rgba(8, 24, 27, 0.45),
+        inset 0 2px 0 rgba(255, 255, 255, 0.4),
+        0 0 46px rgba(240, 180, 41, 0.1);
     }
 
     #live-map-canvas {
@@ -225,117 +270,115 @@ function _injectStyles() {
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      /* Soft inner border mask */
-      mask-image: radial-gradient(
-        circle,
-        black 0%,
-        black 94%,
-        transparent 100%
-      );
-      -webkit-mask-image: radial-gradient(
-        circle,
-        black 0%,
-        black 94%,
-        transparent 100%
-      );
+      box-shadow: inset 0 0 30px rgba(8, 24, 27, 0.45);
+      mask-image: radial-gradient(circle, black 0%, black 96%, transparent 100%);
+      -webkit-mask-image: radial-gradient(circle, black 0%, black 96%, transparent 100%);
+    }
+
+    #live-map-north {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 26px;
+      height: 26px;
+      margin: -13px 0 0 -13px;
+      border-radius: 50%;
+      background: rgba(13, 36, 40, 0.92);
+      border: 2px solid #F0B429;
+      color: #F0B429;
+      font-family: 'Fredoka', -apple-system, sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 1001;
+      transform: translateY(-${MINIMAP_SIZE / 2 - 2}px);
+      box-shadow: 0 2px 8px rgba(8, 24, 27, 0.5);
     }
 
     #live-map-count {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      color: #F5E6D3;
+      top: 16px;
+      left: 22px;
+      color: #F4E7C3;
       font-size: 13px;
       font-weight: 600;
-      text-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.6),
-        0 0 8px rgba(139, 111, 71, 0.4);
+      text-shadow: 0 2px 4px rgba(8, 24, 27, 0.7);
       pointer-events: none;
       z-index: 1001;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: 'Fredoka', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0.3px;
+    }
+
+    /* ── shared chip look: lagoon glass + facet corner (the signature) ── */
+    #live-map-zoom-in,
+    #live-map-zoom-out,
+    #live-map-rotation-toggle,
+    #live-map-expand {
+      position: absolute;
+      background: rgba(13, 36, 40, 0.78);
+      border: 1.5px solid rgba(244, 231, 195, 0.28);
+      border-radius: 11px;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      color: #F4E7C3;
+      font-family: 'Fredoka', -apple-system, sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 10001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: all 0.2s ease;
+      user-select: none;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2);
     }
 
     #live-map-zoom-in,
     #live-map-zoom-out {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
+      bottom: 14px;
+      left: 14px;
       width: 40px;
       height: 40px;
-      background: linear-gradient(135deg, rgba(139, 111, 71, 0.9) 0%, rgba(101, 83, 56, 0.9) 100%);
-      border: 2px solid rgba(212, 175, 55, 0.6);
-      border-radius: 50%;
-      color: #F5E6D3;
-      font-size: 22px;
-      font-weight: 600;
-      cursor: pointer;
-      z-index: 10001;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      transition: all 0.25s ease;
-      user-select: none;
-      box-shadow:
-        0 3px 12px rgba(0, 0, 0, 0.4),
-        inset 0 1px 2px rgba(255, 255, 255, 0.15);
+      font-size: 21px;
     }
 
-    #live-map-zoom-out {
-      bottom: 56px;
+    #live-map-zoom-out { bottom: 62px; }
+
+    #live-map-rotation-toggle {
+      top: 14px;
+      right: 14px;
+      width: 44px;
+      height: 44px;
+      font-size: 20px;
+    }
+
+    #live-map-expand {
+      bottom: 14px;
+      right: 14px;
+      width: 40px;
+      height: 40px;
+      font-size: 17px;
     }
 
     #live-map-zoom-in:hover,
-    #live-map-zoom-out:hover {
-      background: linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%);
-      color: #1a1410;
-      border-color: rgba(212, 175, 55, 0.9);
-      transform: scale(1.08);
+    #live-map-zoom-out:hover,
+    #live-map-rotation-toggle:hover,
+    #live-map-expand:hover {
+      color: #F0B429;
+      border-color: #F0B429;
       box-shadow:
-        0 4px 16px rgba(212, 175, 55, 0.3),
-        inset 0 1px 3px rgba(255, 255, 255, 0.25);
+        inset 0 2px 0 rgba(255, 255, 255, 0.25),
+        0 0 14px rgba(240, 180, 41, 0.25);
     }
 
     #live-map-zoom-in:active,
-    #live-map-zoom-out:active {
-      transform: scale(0.96);
-    }
-
-    #live-map-rotation-toggle {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 44px;
-      height: 44px;
-      background: linear-gradient(135deg, rgba(139, 111, 71, 0.9) 0%, rgba(101, 83, 56, 0.9) 100%);
-      border: 2px solid rgba(212, 175, 55, 0.6);
-      border-radius: 50%;
-      font-size: 22px;
-      cursor: pointer;
-      z-index: 10001;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      transition: all 0.25s ease;
-      user-select: none;
-      box-shadow:
-        0 3px 12px rgba(0, 0, 0, 0.4),
-        inset 0 1px 2px rgba(255, 255, 255, 0.15);
-    }
-
-    #live-map-rotation-toggle:hover {
-      background: linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%);
-      border-color: rgba(212, 175, 55, 0.9);
-      transform: scale(1.08) rotate(15deg);
-      box-shadow:
-        0 4px 16px rgba(212, 175, 55, 0.3),
-        inset 0 1px 3px rgba(255, 255, 255, 0.25);
-    }
-
-    #live-map-rotation-toggle:active {
-      transform: scale(0.96);
+    #live-map-zoom-out:active,
+    #live-map-rotation-toggle:active,
+    #live-map-expand:active {
+      transform: scale(0.94);
     }
 
     /* Mobile-friendly adjustments */
@@ -345,6 +388,9 @@ function _injectStyles() {
         right: 10px;
         width: 280px;
         height: 280px;
+      }
+      #live-map-north {
+        transform: translateY(-138px);
       }
     }
   `;
