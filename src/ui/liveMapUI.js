@@ -192,27 +192,32 @@ function _injectStyles() {
       height: ${MINIMAP_SIZE}px;
       border-radius: 50%;
       overflow: visible;
-      /* Tropical subtle design - warm wood border with golden gradient */
-      border: 4px solid;
-      border-image: linear-gradient(135deg, #8B6F47 0%, #D4AF37 50%, #8B6F47 100%) 1;
-      border-radius: 50%;
-      box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 0 20px rgba(139, 111, 71, 0.15),
-        0 0 40px rgba(212, 175, 55, 0.1);
-      background: rgba(15, 20, 25, 0.75);
-      backdrop-filter: blur(8px);
+      /* Soft tropical border - subtle gradient fade */
+      background:
+        radial-gradient(
+          circle,
+          rgba(15, 20, 25, 0.85) 0%,
+          rgba(15, 20, 25, 0.85) 88%,
+          rgba(139, 111, 71, 0.4) 92%,
+          rgba(212, 175, 55, 0.3) 95%,
+          rgba(139, 111, 71, 0.2) 98%,
+          transparent 100%
+        );
+      backdrop-filter: blur(12px);
       cursor: pointer;
       z-index: 9999;
       transition: all 0.3s ease;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.25),
+        inset 0 0 40px rgba(139, 111, 71, 0.08);
     }
 
     #live-map-container:hover {
-      transform: scale(1.03);
+      transform: scale(1.02);
       box-shadow:
-        0 12px 40px rgba(0, 0, 0, 0.4),
-        inset 0 0 25px rgba(139, 111, 71, 0.2),
-        0 0 50px rgba(212, 175, 55, 0.15);
+        0 12px 40px rgba(0, 0, 0, 0.3),
+        inset 0 0 50px rgba(139, 111, 71, 0.12),
+        0 0 60px rgba(212, 175, 55, 0.08);
     }
 
     #live-map-canvas {
@@ -220,6 +225,19 @@ function _injectStyles() {
       width: 100%;
       height: 100%;
       border-radius: 50%;
+      /* Soft inner border mask */
+      mask-image: radial-gradient(
+        circle,
+        black 0%,
+        black 94%,
+        transparent 100%
+      );
+      -webkit-mask-image: radial-gradient(
+        circle,
+        black 0%,
+        black 94%,
+        transparent 100%
+      );
     }
 
     #live-map-count {

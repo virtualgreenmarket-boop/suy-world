@@ -242,17 +242,27 @@ function _drawMarkers() {
     const dist = Math.hypot(screenX - centerX, screenY - centerY);
     if (dist > centerX) continue;
 
+    // Soft glow
     _ctx.beginPath();
-    _ctx.arc(screenX, screenY, 4 * scale, 0, Math.PI * 2);
-    _ctx.fillStyle = '#FFB74D'; // Warm orange
+    _ctx.arc(screenX, screenY, 6 * scale, 0, Math.PI * 2);
+    const gradient = _ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 6 * scale);
+    gradient.addColorStop(0, 'rgba(232, 160, 87, 0.35)');
+    gradient.addColorStop(1, 'rgba(232, 160, 87, 0)');
+    _ctx.fillStyle = gradient;
     _ctx.fill();
-    _ctx.strokeStyle = '#FFF3E0'; // Light cream
-    _ctx.lineWidth = 1.5 * scale;
+
+    // Main marker
+    _ctx.beginPath();
+    _ctx.arc(screenX, screenY, 3.5 * scale, 0, Math.PI * 2);
+    _ctx.fillStyle = '#E8A057'; // Softer warm orange
+    _ctx.fill();
+    _ctx.strokeStyle = 'rgba(255, 243, 224, 0.6)';
+    _ctx.lineWidth = 1.2 * scale;
     _ctx.stroke();
   }
 
-  // Remote players
-  const colors = ['#FF5252', '#FFEB3B', '#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#00BCD4', '#E91E63'];
+  // Remote players (soft tropical palette)
+  const colors = ['#E57373', '#FFD54F', '#81C784', '#64B5F6', '#BA68C8', '#FFB74D', '#4DD0E1', '#F06292'];
   for (const player of _remotePlayers) {
     const screenX = centerX + (player.x / worldRadius) * centerX;
     const screenY = centerY + (player.z / worldRadius) * centerY;

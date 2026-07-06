@@ -80,9 +80,16 @@ function _worldToScreen(worldX, worldZ, playerPos, worldRadius) {
  * @returns {string} Hex color
  */
 function _getPlayerColor(playerId) {
+  // Soft, natural colors that blend with tropical theme
   const colors = [
-    '#FF5252', '#FFEB3B', '#4CAF50', '#2196F3',
-    '#9C27B0', '#FF9800', '#00BCD4', '#E91E63'
+    '#E57373', // Soft coral
+    '#FFD54F', // Warm sand
+    '#81C784', // Soft palm green
+    '#64B5F6', // Ocean blue
+    '#BA68C8', // Soft purple (tropical flower)
+    '#FFB74D', // Sunset orange
+    '#4DD0E1', // Lagoon cyan
+    '#F06292'  // Hibiscus pink
   ];
   const hash = playerId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return colors[hash % colors.length];
@@ -174,7 +181,7 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers, npcs = []) {
       .slice(0, MAX_VISIBLE_PLAYERS);
   }
 
-  // NPCs (yellow-orange markers)
+  // NPCs (soft warm markers)
   for (const npc of npcs) {
     const screen = _worldToScreen(npc.x, npc.z, playerPos, worldRadius);
 
@@ -182,12 +189,22 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers, npcs = []) {
     const dist = Math.hypot(screen.x - centerX, screen.y - centerY);
     if (dist > centerX) continue;
 
+    // Soft glow background
     _ctx.beginPath();
-    _ctx.arc(screen.x, screen.y, 5 * scale, 0, Math.PI * 2);
-    _ctx.fillStyle = '#FFB74D'; // Warm orange
+    _ctx.arc(screen.x, screen.y, 7 * scale, 0, Math.PI * 2);
+    const gradient = _ctx.createRadialGradient(screen.x, screen.y, 0, screen.x, screen.y, 7 * scale);
+    gradient.addColorStop(0, 'rgba(255, 183, 77, 0.3)');
+    gradient.addColorStop(1, 'rgba(255, 183, 77, 0)');
+    _ctx.fillStyle = gradient;
     _ctx.fill();
-    _ctx.strokeStyle = '#FFF3E0'; // Light cream border
-    _ctx.lineWidth = 1.5 * scale;
+
+    // Main marker
+    _ctx.beginPath();
+    _ctx.arc(screen.x, screen.y, 4.5 * scale, 0, Math.PI * 2);
+    _ctx.fillStyle = '#E8A057'; // Softer warm orange
+    _ctx.fill();
+    _ctx.strokeStyle = 'rgba(255, 243, 224, 0.6)'; // Subtle cream border
+    _ctx.lineWidth = 1.2 * scale;
     _ctx.stroke();
   }
 
