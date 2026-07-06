@@ -6,53 +6,53 @@ const LIGHTHOUSE_X = -272.19;
 const LIGHTHOUSE_Z = 107.62;
 const LIGHTHOUSE_Y = 0;
 
-// Tower dimensions
-const TOWER_RADIUS = 4.2;
+// Tower dimensions (15% wider)
+const TOWER_RADIUS = 4.83; // 4.2 * 1.15
 const TOWER_HEIGHT = 34;
 const STRIPE_COUNT = 6;
 const STRIPE_HEIGHT = TOWER_HEIGHT / STRIPE_COUNT;
 
-// Base platform
-const BASE_RADIUS_BOTTOM = 6.2;
-const BASE_RADIUS_TOP = 5.6;
+// Base platform (15% wider)
+const BASE_RADIUS_BOTTOM = 7.13; // 6.2 * 1.15
+const BASE_RADIUS_TOP = 6.44; // 5.6 * 1.15
 const BASE_HEIGHT = 0.3; // Lowered from 1.2 to allow player to step onto first stair
 
-// Spiral stairs
+// Spiral stairs (15% wider)
 const TOTAL_STEPS = 110;
 const TOTAL_ROTATIONS = 2.5;
 const TOTAL_ANGLE = TOTAL_ROTATIONS * Math.PI * 2; // 5π
 const STEP_ANGLE = TOTAL_ANGLE / TOTAL_STEPS;
 const TOTAL_RISE = 32.8;
 const STEP_RISE = TOTAL_RISE / TOTAL_STEPS; // ≈ 0.298
-const STEP_RADIUS = 6.2;
+const STEP_RADIUS = 7.13; // 6.2 * 1.15
 const STEP_HEIGHT = 0.22;
-const STEP_INNER_RADIUS = TOWER_RADIUS; // 4.2
-const STEP_WIDTH = STEP_RADIUS - STEP_INNER_RADIUS; // 2.0
+const STEP_INNER_RADIUS = TOWER_RADIUS; // 4.83
+const STEP_WIDTH = STEP_RADIUS - STEP_INNER_RADIUS; // 2.3
 
-// Observation deck
-const DECK_RADIUS = 6.8;
+// Observation deck (15% wider)
+const DECK_RADIUS = 7.82; // 6.8 * 1.15
 const DECK_THICKNESS = 1.0;
 const DECK_Y = BASE_HEIGHT + TOTAL_RISE; // ≈ 34.0
 const DECK_FLOOR_Y = DECK_Y - DECK_THICKNESS;
 const DECK_OPENING_ANGLE = 0.95;
 const END_ANGLE = (TOTAL_ANGLE % (Math.PI * 2)); // π
 
-// Deck walls and roof
+// Deck walls and roof (15% wider)
 const DECK_WALL_HEIGHT = 1.05;
 const PILLAR_COUNT = 6;
-const PILLAR_RADIUS = 0.22;
+const PILLAR_RADIUS = 0.253; // 0.22 * 1.15
 const PILLAR_HEIGHT = 4.4;
 const ROOF_THICKNESS = 0.5;
 
-// Beacon
+// Beacon (15% wider)
 const BEACON_BASE_HEIGHT = 0.6;
 const BEACON_GLASS_HEIGHT = 2.2;
-const BEACON_GLASS_RADIUS = 1.4;
-const BEACON_LIGHT_RADIUS = 0.8;
+const BEACON_GLASS_RADIUS = 1.61; // 1.4 * 1.15
+const BEACON_LIGHT_RADIUS = 0.92; // 0.8 * 1.15
 const BEACON_ROOF_HEIGHT = 1.2;
-const BEACON_ROOF_RADIUS_BOTTOM = 1.6;
-const BEACON_ROOF_RADIUS_TOP = 0.4;
-const BEAM_CONE_RADIUS_BOTTOM = 3.0;
+const BEACON_ROOF_RADIUS_BOTTOM = 1.84; // 1.6 * 1.15
+const BEACON_ROOF_RADIUS_TOP = 0.46; // 0.4 * 1.15
+const BEAM_CONE_RADIUS_BOTTOM = 3.45; // 3.0 * 1.15
 const BEAM_CONE_HEIGHT = 40;
 
 // Materials

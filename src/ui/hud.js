@@ -247,55 +247,68 @@ function _injectStyles() {
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      align-items: center;
       gap: 8px;
       z-index: 100;
       pointer-events: none;
       user-select: none;
     }
     .level-badge {
-      background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.2));
-      border: 2px solid rgba(255,215,0,0.4);
-      border-radius: 24px;
-      padding: 8px 16px;
-      display: flex; align-items: center; gap: 8px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    .level-icon {
-      font-size: 24px; line-height: 1;
+      width: 34px;
+      height: 34px;
+      background: rgba(20, 20, 20, 0.75);
+      border: 2px solid #e6b13d;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     }
     .level-number {
       font: 700 16px 'Segoe UI', Arial, sans-serif;
-      color: #FFD700; letter-spacing: 0.5px;
+      color: #fff;
+      line-height: 1;
     }
     .exp-bar-container {
-      background: rgba(0,0,0,0.6);
-      border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 12px;
-      padding: 6px;
-      backdrop-filter: blur(8px);
+      flex-shrink: 0;
     }
     .exp-bar-background {
-      width: 200px; height: 12px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 6px;
+      width: 130px;
+      height: 16px;
+      background: rgba(20, 20, 20, 0.6);
+      border-radius: 8px;
       overflow: hidden;
       position: relative;
     }
     .exp-bar-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
       height: 100%;
-      background: linear-gradient(90deg, #4CAF50, #8BC34A);
-      border-radius: 6px;
+      background: #4caf50;
+      border-radius: 8px;
       transition: width 0.3s ease;
-      box-shadow: 0 0 10px rgba(76,175,80,0.5);
     }
     .exp-bar-text {
-      text-align: center;
-      font: 600 11px 'Segoe UI', Arial, sans-serif;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font: 700 11px 'Segoe UI', Arial, sans-serif;
       color: #fff;
-      margin-top: 4px;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      z-index: 1;
+    }
+    @media (max-width: 380px) {
+      .exp-bar-background {
+        width: 100px;
+      }
     }
     /* Level Up Notification */
     .level-up-notification {

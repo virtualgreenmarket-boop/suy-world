@@ -13,6 +13,7 @@ let _zoomLevel = 1.0;
 let _rotationMode = 'camera'; // 'camera' | 'north'
 let _isInitialized = false;
 let _pinnedLocation = null; // {x, z} world coordinates
+let _mapOverheadLight = null; // Overhead light for minimap rendering
 
 // Performance monitoring
 let _frameCount = 0;
@@ -263,6 +264,14 @@ export function initLiveMap(scene, renderer) {
   _mapCamera.lookAt(0, 0, 0);
   _mapCamera.up.set(0, 0, -1); // Z-up for top-down view
 
+  // Create overhead directional light for minimap rendering
+  // This ensures objects are visible from above (main lights are angled for ground view)
+  _mapOverheadLight = new THREE.DirectionalLight(0xffffff, 2.5);
+  _mapOverheadLight.position.set(0, CAMERA_HEIGHT - 100, 0); // Directly above
+  _mapOverheadLight.layers.enableAll(); // See all layers
+  _mapOverheadLight.visible = false; // Only enabled during minimap render
+  scene.add(_mapOverheadLight);
+
   // Load pinned location from localStorage
   _loadPinnedLocation();
 
@@ -344,11 +353,28 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
   _mapCamera.bottom = -worldRadius;
   _mapCamera.updateProjectionMatrix();
 
-  // Render scene to texture
+  // Render scene to texture with optimizations for overhead view
   const originalRenderTarget = _renderer.getRenderTarget();
+  const originalFog = _scene.fog;
+
+  // Temporarily disable fog for minimap (prevents objects from being hidden at distance)
+  _scene.fog = null;
+
+  // Enable overhead light for better visibility from above
+  if (_mapOverheadLight) {
+    _mapOverheadLight.visible = true;
+    _mapOverheadLight.position.set(playerPos.x, CAMERA_HEIGHT - 100, playerPos.z);
+  }
+
   _renderer.setRenderTarget(_mapRenderTarget);
   _renderer.render(_scene, _mapCamera);
   _renderer.setRenderTarget(originalRenderTarget);
+
+  // Restore original state
+  _scene.fog = originalFog;
+  if (_mapOverheadLight) {
+    _mapOverheadLight.visible = false;
+  }
 
   // Clear canvas
   _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
@@ -478,6 +504,12 @@ export function disposeLiveMap() {
   }
   _canvas = null;
   _ctx = null;
+
+  // Remove overhead light from scene
+  if (_mapOverheadLight && _scene) {
+    _scene.remove(_mapOverheadLight);
+    _mapOverheadLight = null;
+  }
 
   _mapCamera = null;
   _scene = null;
