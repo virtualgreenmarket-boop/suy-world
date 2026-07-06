@@ -35,7 +35,19 @@ export function registerGround(...objects) {
  * fallback for areas where no mesh has been registered yet.
  * Results are cached on a 0.5 m grid — safe because terrain is static.
  */
-export function getSurfaceY(x, z) {
+export function getSurfaceY(x, z, currentY = 0) {
+  // Check lighthouse stairs/deck first (dynamic height based on angle/position)
+  if (window._getLighthouseHeight) {
+    const lighthouseY = window._getLighthouseHeight(x, z, currentY);
+    if (lighthouseY !== null) {
+      // DEBUG: Log when lighthouse returns a height
+      if (Math.random() < 0.02) {
+        console.log(`[terrain] Lighthouse returned Y=${lighthouseY.toFixed(2)} for (${x.toFixed(1)}, ${z.toFixed(1)})`);
+      }
+      return lighthouseY;
+    }
+  }
+
   const key = `${Math.round(x / CELL)},${Math.round(z / CELL)}`;
   const hit = _cache.get(key);
   if (hit !== undefined) return hit;

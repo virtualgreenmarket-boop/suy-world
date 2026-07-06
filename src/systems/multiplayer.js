@@ -7,6 +7,7 @@ import {
 import { addChatMessage, addSpeechBubble, addPlayerJoinedMessage } from '../ui/chatUI.js';
 import { updateOnlineCount, updateCoinDisplay } from '../ui/hud.js';
 import { getUuid } from './economy.js';
+import { awardChatMessageEXP } from './leveling.js';
 
 const MOVE_THROTTLE_MS = 50;
 
@@ -85,6 +86,8 @@ export function updateMultiplayer(position, rotY) {
 
 export function sendChat(message) {
   socket?.emit('chat', { message });
+  // Award chat message EXP (1 EXP, max 25 per day)
+  awardChatMessageEXP();
 }
 
 export function getLocalId() { return localId; }

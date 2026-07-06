@@ -9,6 +9,9 @@ import { initPlaza,  updatePlaza }   from './world/plaza.js';
 import { initPaths }                 from './world/paths.js';
 import { initHangars, updateHangars } from './world/hangars.js';
 import { initMarina, updateMarina }  from './world/marina.js';
+import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/lighthouse.js';
+import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
+import { initIslandLife, updateIslandLife } from './world/islandLife.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
@@ -20,7 +23,7 @@ import { initMultiplayer, updateMultiplayer, sendChat, getSocket }
 import { initEconomy }      from './systems/economy.js';
 import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
-import { initCollision }    from './systems/collision.js';
+import { initCollision, clearAllBoxes } from './systems/collision.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
 import { initLoadingScreen } from './ui/loadingScreen.js';
@@ -28,14 +31,20 @@ import { initInventoryButton } from './ui/inventoryButton.js';
 
 import { initDecor }                      from './world/decor.js';
 import { initBeach, updateBeach }         from './world/beach.js';
-import { preloadTrees, spawnPlazaTree }   from './world/trees.js';
+import { preloadTrees, spawnPlazaTree, spawnTree }   from './world/trees.js';
 import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
 import { AnimalManager } from './world/AnimalLoader.js';
-import { initRoamingNPCs, updateRoamingNPCs } from './world/roamingNPCs.js';
+import { initRoamingNPCs, updateRoamingNPCs, getRoamingNPCs } from './world/roamingNPCs.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
+import { initLeveling, awardStepEXP } from './systems/leveling.js';
+import { initLevelDisplay } from './ui/levelDisplay.js';
+
+// Step tracking for EXP
+let _lastPlayerPosition = null;
+let _totalStepsThisSession = 0;
 import { initShopUI } from './ui/ShopUI.js';
 import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
@@ -44,7 +53,48 @@ import { initInventoryPanel, onEquipChange }             from './ui/inventoryPan
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
-import { initMinimap, updateMinimapPlayer, updateMinimapOnlineCount, renderMinimap } from './ui/minimap.js';
+import { initLiveMap, updateLiveMap, disposeLiveMap, getMapPin, setMapPin } from './ui/liveMap.js';
+import { createLiveMapUI, updateOnlineCount as updateLiveMapOnlineCount, removeLiveMapUI } from './ui/liveMapUI.js';
+import { openFullscreenMap } from './ui/liveMapFullscreen.js';
+
+// ── Helper: Extract remote player data for live map ──────────────────
+function getRemotePlayersData() {
+  const remotePlayers = [];
+  for (const [id, player] of Object.entries(window._remotePlayers || {})) {
+    if (player.mesh && player.mesh.position) {
+      remotePlayers.push({
+        id,
+        x: player.mesh.position.x,
+        z: player.mesh.position.z
+      });
+    }
+  }
+  return remotePlayers;
+}
+
+// ── Helper: Extract NPC data for live map ─────────────────────────────
+function getNPCsData() {
+  const npcs = [];
+  const roamingNPCs = getRoamingNPCs();
+  for (const npc of roamingNPCs) {
+    if (npc.group && npc.group.position) {
+      npcs.push({
+        name: npc.name,
+        x: npc.group.position.x,
+        z: npc.group.position.z
+      });
+    }
+  }
+  return npcs;
+}
+
+// ── HMR cleanup ───────────────────────────────────────────────────────
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    disposeLiveMap();
+    removeLiveMapUI();
+  });
+}
 
 // ── Wait for DOM to be ready ──────────────────────────────────────────
 
@@ -190,17 +240,59 @@ composer.addPass(new OutputPass());
 initIsland(scene, { lowQuality: isMobile, maxTrees: isMobile ? 28 : 55 });
 initPlaza(scene);
 initPaths(scene);
-initHangars(scene, camera);
+clearAllBoxes(); // Clear any phantom collision boxes from previous builds
+initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
+initLighthouse(scene);
+
+// Island decor & life initialization (optional features, don't block startup)
+try {
+  initIslandDecor(scene); // Tropical plants + beach furniture
+  initIslandLife(scene); // Fish, crabs, dolphins
+} catch (err) {
+  console.error('[main] Island init error (non-critical):', err);
+}
+
+// Display lighthouse configuration
+const lighthouseConfig = getLighthouseConfig();
+console.log('[main] ═══════════════════════════════════════════════════════');
+console.log('[main] LIGHTHOUSE CONFIGURATION:');
+console.log(`[main] Position: X=${lighthouseConfig.position.x}, Y=${lighthouseConfig.position.y}, Z=${lighthouseConfig.position.z}`);
+console.log(`[main] Tower: Radius=${lighthouseConfig.towerRadius}m, Height=${lighthouseConfig.towerHeight}m`);
+console.log(`[main] Base: Radius=${lighthouseConfig.baseRadius}m`);
+console.log(`[main] Stairs: ${lighthouseConfig.totalSteps} steps, Rise=${lighthouseConfig.stepRise.toFixed(3)}m per step`);
+console.log(`[main] Observation Deck: Y=${lighthouseConfig.deckY.toFixed(2)}m, Radius=${lighthouseConfig.deckRadius}m`);
+console.log(`[main] Collision: ${lighthouseConfig.collisionBoxes} boxes tagged "${lighthouseConfig.collisionTag}"`);
+console.log('[main] ═══════════════════════════════════════════════════════');
 initDecor(scene);
 initBeach(scene);
-initCollision();
+initCollision(); // Adds hangar wall collision boxes AFTER kiosk boxes
 spawnPlazaTree(scene);
 initPetSystem(scene);
 
 // ── UI (initialize early, before character loads) ─────────────────────
 initHud();
-initMinimap();
+initLeveling();
+initLevelDisplay();
+
+// Initialize live map system
+const liveMapCanvas = initLiveMap(scene, renderer);
+if (liveMapCanvas) {
+  createLiveMapUI(liveMapCanvas);
+
+  // M key to open fullscreen
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'm' || e.key === 'M') {
+      const playerPos = getLocalPlayerPosition();
+      const remotePlayers = getRemotePlayersData();
+      const npcs = getNPCsData();
+      openFullscreenMap(scene, renderer, playerPos, remotePlayers, getMapPin, setMapPin, npcs);
+    }
+  });
+} else {
+  console.error('[main] Failed to initialize live map');
+}
+
 initShopUI();
 initChatUI();
 bindSendChat(sendChat);
@@ -232,48 +324,93 @@ const animalManager = new AnimalManager({
 // Pass animalManager to localPlayer for collision detection
 setGLBAnimalManager(animalManager);
 
-// ZONE-AWARE ANIMAL SPAWNING: Scatter animals across ENTIRE GRASS ZONE
-// Using randomGrassPosition from mapZones.js for natural, even distribution
-console.log('[main] 🦌 Spawning GLB animals across grass zone...');
+// 4-ZONE ANIMAL SPAWNING: Relocate all animals to 4 designated zones
+// Dogs and cats excluded - all other animals relocated
+console.log('[main] 🦌 Spawning animals at 4 designated zones...');
 
-import('./world/mapZones.js').then(({ randomGrassPosition }) => {
-  const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Husky', 'ShibaInu', 'Stag', 'Wolf'];
-  const totalAnimals = 40; // Increased from 30 to fill larger grass zone
-  const spawnPromises = [];
-
-  for (let i = 0; i < totalAnimals; i++) {
-    // Get random valid position in grass zone
-    const pos = randomGrassPosition(100);
-    if (!pos) {
-      console.warn(`[main] Could not find valid grass position for animal ${i + 1}`);
-      continue;
-    }
-
-    // Random species, scale, rotation
-    const species = animalSpecies[Math.floor(Math.random() * animalSpecies.length)];
-    const scale = 0.9 + Math.random() * 0.25;
-    const rotationY = Math.random() * Math.PI * 2;
-    const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk'; // 1/3 idle, 2/3 walk
-
-    spawnPromises.push(
-      animalManager.spawn(species, { x: pos.x, y: 0, z: pos.z }, {
-        scale,
-        rotationY,
-        startAnimation,
-        wanderRadius: 30 + Math.random() * 20 // Wander 30-50 units from spawn
-      }).catch(err => {
-        console.error(`[main] Failed to spawn ${species}:`, err);
-      })
-    );
+// CRITICAL: Clear all existing animals first
+animalManager.instances.forEach((instance, id) => {
+  if (instance.root && instance.root.parent) {
+    instance.root.parent.remove(instance.root);
   }
+});
+animalManager.instances.clear();
+console.log('[main] Cleared all existing animals for re-spawn');
 
-  Promise.all(spawnPromises).then(() => {
-    console.log(`[main] ✅ GLB animals spawned successfully across grass zone (${spawnPromises.length} total)`);
-  }).catch(err => {
-    console.error('[main] ❌ Failed to spawn some animals:', err);
+// Define 4 spawn zones (center point + 10m wander radius)
+const SPAWN_ZONES = [
+  { x: 98.82,   z: -147.17, name: 'North-East grass' },
+  { x: 113.75,  z: 150.19,  name: 'South grass' },
+  { x: -198.10, z: 59.15,   name: 'West coast/marina' },
+  { x: -203.28, z: -49.81,  name: 'Northwest plaza' }
+];
+
+// Animals to spawn (excluding dogs/cats: Husky, ShibaInu)
+const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Stag', 'Wolf'];
+const totalAnimals = 40;
+const spawnPromises = [];
+const zoneAnimalCounts = [0, 0, 0, 0];
+
+for (let i = 0; i < totalAnimals; i++) {
+  // Assign to zone (round-robin for even distribution)
+  const zoneIndex = i % SPAWN_ZONES.length;
+  const zone = SPAWN_ZONES[zoneIndex];
+  zoneAnimalCounts[zoneIndex]++;
+
+  // Random position within 50m radius of zone center (×5 from 10m)
+  const angle = Math.random() * Math.PI * 2;
+  const distance = Math.random() * 50; // 0-50m from center
+  const spawnX = zone.x + Math.cos(angle) * distance;
+  const spawnZ = zone.z + Math.sin(angle) * distance;
+
+  // Random species, scale, rotation
+  const species = animalSpecies[Math.floor(Math.random() * animalSpecies.length)];
+  const scale = 0.9 + Math.random() * 0.25;
+  const rotationY = Math.random() * Math.PI * 2;
+  const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk';
+
+  spawnPromises.push(
+    animalManager.spawn(species, { x: spawnX, y: 0, z: spawnZ }, {
+      scale,
+      rotationY,
+      startAnimation,
+      wanderRadius: 50 // Stay within 50m of spawn point (×5 from 10m)
+    }).catch(err => {
+      console.error(`[main] Failed to spawn ${species} in zone ${zoneIndex}:`, err);
+    })
+  );
+}
+
+Promise.all(spawnPromises).then(() => {
+  console.log(`[main] ✅ Animals spawned at 4 zones:`);
+  SPAWN_ZONES.forEach((zone, i) => {
+    console.log(`  Zone ${i + 1} (${zone.name}): ${zoneAnimalCounts[i]} animals`);
   });
 }).catch(err => {
-  console.error('[main] ❌ Failed to load mapZones:', err);
+  console.error('[main] ❌ Failed to spawn some animals:', err);
+});
+
+// PART 2: Place 5 trees around each zone (20 trees total)
+console.log('[main] 🌳 Placing 5 trees around each of 4 zones (20 total)...');
+preloadTrees().then(() => {
+  let totalTreesPlaced = 0;
+  SPAWN_ZONES.forEach((zone, zoneIndex) => {
+    for (let t = 0; t < 5; t++) {
+      // Random angle and distance: 50-100m from zone center (×5 from 10-20m)
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 50 + Math.random() * 50; // 50-100m from center
+      const treeX = zone.x + Math.cos(angle) * distance;
+      const treeZ = zone.z + Math.sin(angle) * distance;
+
+      // Spawn tree at position
+      spawnTree(scene, treeX, treeZ, 0, 1.0);
+      totalTreesPlaced++;
+    }
+    console.log(`[main]   Zone ${zoneIndex + 1} (${zone.name}): 5 trees placed at 50-100m radius`);
+  });
+  console.log(`[main] ✅ Total trees placed: ${totalTreesPlaced}`);
+}).catch(err => {
+  console.error('[main] ❌ Failed to preload trees:', err);
 });
 
 // Preload selected character (no GLB loading, just store the type)
@@ -371,6 +508,20 @@ function animate() {
   // Update coordinates display
   if (pos) {
     updateCoordinates(pos);
+
+    // Track steps for EXP (award every meter moved)
+    if (_lastPlayerPosition) {
+      const dx = pos.x - _lastPlayerPosition.x;
+      const dz = pos.z - _lastPlayerPosition.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      if (distance >= 1.0) {
+        _totalStepsThisSession++;
+        awardStepEXP(1);
+        _lastPlayerPosition = { x: pos.x, z: pos.z };
+      }
+    } else {
+      _lastPlayerPosition = { x: pos.x, z: pos.z };
+    }
   }
 
   // ── Every frame: physics, networking, core animation ─────────────────
@@ -383,7 +534,15 @@ function animate() {
   updatePlaza(delta, npcTime);
   updateHangars(delta);
   updateMarina(delta);
+  updateLighthouse(delta);
   updateAnimalSystem(delta);
+
+  // Ceiling fans rotation
+  scene.traverse(obj => {
+    if (obj.userData.isCeilingFan) {
+      obj.rotation.y += delta * obj.userData.rotationSpeed;
+    }
+  });
   updateRoamingNPCs(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
@@ -431,16 +590,31 @@ function animate() {
   if (_tUI >= 3) {
     const onlineCount = 1 + getRemotePlayerCount();
     updateOnlineCount(onlineCount);
-    updateMinimapOnlineCount(onlineCount);
+    updateLiveMapOnlineCount(onlineCount);
     _tUI = 0;
   }
 
-  // ── Minimap updates every frame ───────────────────────────────────────
+  // ── Live map updates every frame ──────────────────────────────────────
+  // Only update live map if player exists (avoid race condition during startup)
   const playerPos = getLocalPlayerPosition();
-  const playerRotY = getLocalPlayerRotY();
-  const cameraYaw = getCameraYaw();
-  updateMinimapPlayer(playerPos.x, playerPos.z, playerRotY, cameraYaw);
-  renderMinimap();
+  if (playerPos) {
+    const playerRotY = getLocalPlayerRotY();
+    const remotePlayers = getRemotePlayersData();
+    const npcs = getNPCsData();
+    const cameraYaw = getCameraYaw();
+    updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
+
+    // Island decor & life updates (after playerPos is defined)
+    try {
+      updateIslandDecor(delta, playerPos); // Wind sway on plants
+      updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
+    } catch (err) {
+      if (!window._islandUpdateErrorLogged) {
+        console.error('[main] Island update error:', err);
+        window._islandUpdateErrorLogged = true;
+      }
+    }
+  }
 
   composer.render();
 }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { isChatOpen } from './chatUI.js';
+import { awardNPCChatEXP } from '../systems/leveling.js';
 
 // Floating interaction button — appears in world space when the local player
 // walks within range of an NPC, bench, or other interactable.
@@ -107,12 +108,14 @@ function _buildDom() {
  *   label     — button text, e.g. "Talk", "Shop", "Sit"
  *   range     — activation radius in metres (default 4.5)
  *   callback  — called when player presses E or taps the button
+ *   talkCallback — optional callback for G key
+ *   anchorY   — height above worldPos to show button (default 2.5)
  */
-export function registerInteraction(worldPos, label, range = 4.5, callback, talkCallback = null) {
+export function registerInteraction(worldPos, label, range = 4.5, callback, talkCallback = null, anchorY = 2.5) {
   const pos = worldPos instanceof THREE.Vector3
     ? worldPos.clone()
     : new THREE.Vector3(...worldPos);
-  _targets.push({ worldPos: pos, label, range, callback, talkCallback });
+  _targets.push({ worldPos: pos, label, range, callback, talkCallback, anchorY });
 }
 
 /**
@@ -239,6 +242,9 @@ export function showNpcDialog(paragraphs, title = 'Welcome to Suy-World') {
     </div>
   `;
   document.body.appendChild(overlay);
+
+  // Award NPC chat EXP (4 EXP, max 3 per hour)
+  awardNPCChatEXP(title);
 
   const box = overlay.querySelector('#npc-dialog-box');
 

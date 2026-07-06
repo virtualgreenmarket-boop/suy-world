@@ -76,10 +76,14 @@ function isInAvoidZone(x, z) {
 /**
  * Tests if a position (x, z) is valid for spawning in the GRASS zone.
  * Returns true if inside grass area and not on paths/buildings.
+ * CRITICAL: Also checks ground height to ensure not in water!
  */
 export function isValidGrassPosition(x, z) {
-  // Must be within grass ellipse
-  if (!isInAsymmetricEllipse(x, z, GRASS_OUTER_RADIUS)) return false;
+  // CRITICAL: Must be WELL INSIDE grass zone, not near edges
+  // Use much smaller radius to guarantee land, not water
+  const SAFE_GRASS_RADIUS = 200; // Safely inside grass (255), accounting for expansion
+
+  if (!isInAsymmetricEllipse(x, z, SAFE_GRASS_RADIUS)) return false;
 
   // Must not be on a path
   if (isOnPath(x, z)) return false;
@@ -113,28 +117,41 @@ export function isValidShallowWaterPosition(x, z) {
 
 /**
  * Generates a random position within the GRASS zone.
- * Tries multiple times to find a valid position, avoiding paths, buildings, and water.
+ * SAFE APPROACH: Only spawn in central safe zones, never near water.
  * Returns { x, z } or null if no valid position found after maxAttempts.
  */
 export function randomGrassPosition(maxAttempts = 100) {
+  // SAFE SPAWN ZONES - areas GUARANTEED to be on grass, never water
+  const safeZones = [
+    // Plaza center
+    { xMin: -40, xMax: 40, zMin: -40, zMax: 40 },
+    // North of plaza (before hangar)
+    { xMin: -30, xMax: 30, zMin: -100, zMax: -50 },
+    // South of plaza (before hangar)
+    { xMin: -30, xMax: 30, zMin: 50, zMax: 100 },
+    // West of plaza (before marina)
+    { xMin: -120, xMax: -50, zMin: -30, zMax: 30 },
+    // East of plaza (before hangar)
+    { xMin: 50, xMax: 100, zMin: -30, zMax: 30 },
+    // Northwest quadrant
+    { xMin: -100, xMax: -40, zMin: 40, zMax: 100 },
+    // Northeast quadrant
+    { xMin: 40, xMax: 100, zMin: 40, zMax: 100 },
+    // Southwest quadrant
+    { xMin: -100, xMax: -40, zMin: -100, zMax: -40 },
+    // Southeast quadrant
+    { xMin: 40, xMax: 100, zMin: -100, zMax: -40 }
+  ];
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Generate random angle
-    const angle = Math.random() * Math.PI * 2;
+    // Pick random safe zone
+    const zone = safeZones[Math.floor(Math.random() * safeZones.length)];
 
-    // Generate random radius within grass zone (use sqrt for uniform distribution)
-    // CRITICAL: Use BEACH_INNER_RADIUS as outer limit to stay WELL INSIDE land
-    // This ensures we never spawn in the beach/water transition zone
-    const radius = Math.sqrt(Math.random()) * BEACH_INNER_RADIUS * 0.95; // 95% to add safety margin
+    // Random position within zone
+    const x = zone.xMin + Math.random() * (zone.xMax - zone.xMin);
+    const z = zone.zMin + Math.random() * (zone.zMax - zone.zMin);
 
-    // Calculate base position
-    let x = Math.cos(angle) * radius;
-    let z = Math.sin(angle) * radius;
-
-    // Apply expansions to match island shape
-    if (x > 0) x *= EAST_EXPANSION;
-    z *= NORTH_SOUTH_EXPANSION;
-
-    // Check if valid (on land, not on path/building)
+    // Check if valid (not on path/building)
     if (isValidGrassPosition(x, z)) {
       return { x, z };
     }

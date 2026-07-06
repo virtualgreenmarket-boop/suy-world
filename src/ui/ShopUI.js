@@ -1,5 +1,6 @@
 import { attachHat, attachHandItem, HATS, HAND_ITEMS } from '../player/CharacterBuilder.js';
 import { spawnPet, removePet } from '../world/PetSystem.js';
+import { awardPurchaseEXP } from '../systems/leveling.js';
 
 // Shop items data - all 5 categories with 20 items each, sorted by price
 const SHOP_ITEMS = {
@@ -534,6 +535,9 @@ function _buyItem(item, category) {
   // Save to localStorage
   localStorage.setItem('player_coins', window.playerCoins);
   localStorage.setItem('owned_items', JSON.stringify([..._ownedItems]));
+
+  // Award purchase EXP (1 EXP per coin spent)
+  awardPurchaseEXP(item.price);
 
   // Update display
   _updateBalanceDisplay();

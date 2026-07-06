@@ -1,14 +1,13 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
 import { attachLabel, createLabel } from '../ui/labels.js';
-import { registerMapEntity } from '../ui/minimapRegistry.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
 const TEX_BASE = '/models/nature/trees/HighPoly%20Tree%20Model/Textures/';
 
-const _loader    = new GLTFLoader();
+const _loader    = createGLTFLoader();
 const _texLoader = new THREE.TextureLoader();
 let   _template  = null;
 let   _promise   = null;
@@ -30,15 +29,17 @@ export function preloadTrees() {
 
   const trunkMat = new THREE.MeshStandardMaterial({
     map: trunkColor, normalMap: trunkNorm,
+    color: new THREE.Color(0x8B6F47), // Rich brown trunk color
     roughness: 0.85, metalness: 0.0,
-    emissive: new THREE.Color(0x0a0a08), // Slight warm emissive for better color
-    emissiveIntensity: 0.15,
+    emissive: new THREE.Color(0x3a2817), // Warm brown emissive
+    emissiveIntensity: 0.2,
   });
   const leafMat = new THREE.MeshStandardMaterial({
     map: leafColor, alphaTest: 0.45,
+    color: new THREE.Color(0x4a8a2a), // Vibrant green leaves
     side: THREE.DoubleSide, roughness: 0.8, metalness: 0.0,
-    emissive: new THREE.Color(0x0a1008), // Slight green emissive for vibrant leaves
-    emissiveIntensity: 0.2,
+    emissive: new THREE.Color(0x1a4010), // Deep green emissive
+    emissiveIntensity: 0.3,
   });
 
   _promise = new Promise((resolve, reject) =>
@@ -142,7 +143,13 @@ export function spawnPlazaTree(scene) {
           mat.alphaTest   = 0.28; // was 0.65 — too aggressive, cut most leaf pixels
           mat.transparent = false;
           mat.depthWrite  = true;
-          mat.color.setHex(0x5a8a3a); // warm green tint
+          mat.color.setHex(0x4a8a2a); // Vibrant green (matching regular trees)
+          mat.emissive    = new THREE.Color(0x1a4010); // Deep green emissive
+          mat.emissiveIntensity = 0.25;
+        } else {
+          mat.color.setHex(0x8B6F47); // Rich brown trunk
+          mat.emissive    = new THREE.Color(0x3a2817); // Warm brown emissive
+          mat.emissiveIntensity = 0.15;
         }
         mat.roughness = isLeaf ? 0.80 : 0.90;
         mat.metalness = 0.0;
@@ -165,9 +172,9 @@ export function spawnPlazaTree(scene) {
     const h    = Math.max(box1.max.y - box1.min.y, 0.01);
     fbx.scale.setScalar(27.5 / h);
 
-    // Seat on ground
+    // Seat on ground at plaza location
     const box2 = new THREE.Box3().setFromObject(fbx);
-    fbx.position.set(0, -box2.min.y, 0);
+    fbx.position.set(-50, -box2.min.y, 0); // Plaza offset: -50m toward marina
     scene.add(fbx);
 
     // Procedural leaf canopy — guarantees visible foliage regardless of FBX mesh names
@@ -175,7 +182,7 @@ export function spawnPlazaTree(scene) {
 
     _treeCount++;
     const plazaLabel = createLabel(`TREE ${_treeCount}`);
-    plazaLabel.position.set(0, 32.5, 0); // 26 * 1.25 = 32.5 (adjusted for 25% larger tree)
+    plazaLabel.position.set(-50, 32.5, 0); // Plaza offset + tree height
     scene.add(plazaLabel);
 
     // Ground AO shadow decal
@@ -190,7 +197,7 @@ export function spawnPlazaTree(scene) {
       })
     );
     aoDecal.rotation.x = -Math.PI / 2;
-    aoDecal.position.set(0, 0.03, 0);
+    aoDecal.position.set(-50, 0.03, 0); // Plaza offset
     scene.add(aoDecal);
 
     console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 27.5 m (25% larger)');
@@ -210,7 +217,9 @@ function _addPlazaLeafCanopy(scene, leafTex) {
     metalness:   0.0,
     transparent: false,
     depthWrite:  true,
-    color:       new THREE.Color(0x5a8a3a),
+    color:       new THREE.Color(0x4a8a2a), // Vibrant green (matching other trees)
+    emissive:    new THREE.Color(0x1a4010), // Deep green emissive
+    emissiveIntensity: 0.25,
   });
 
   let s = 31;
@@ -226,7 +235,7 @@ function _addPlazaLeafCanopy(scene, leafTex) {
       const w    = (2.8 + rng() * 2.8) * 1.25;  // 3.5–7 m card width (25% larger)
       const card = new THREE.Mesh(new THREE.PlaneGeometry(w, w), mat);
       card.position.set(
-        Math.cos(angle) * radius + (rng() - 0.5) * 2.0,
+        -50 + Math.cos(angle) * radius + (rng() - 0.5) * 2.0, // Plaza offset X
         baseH            + (rng() - 0.5) * 2.5,
         Math.sin(angle) * radius + (rng() - 0.5) * 2.0
       );
@@ -248,16 +257,11 @@ export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
     tree.position.set(x, y, z);
     tree.scale.setScalar(scale);
     tree.rotation.y = (rotY !== undefined) ? rotY : Math.random() * Math.PI * 2;
+    tree.userData._isTree = true; // Mark for identification/cleanup
     scene.add(tree);
     if (scale > 0) {
       _treeCount++;
       attachLabel(tree, `TREE ${_treeCount}`, 17);
-      // Register on minimap
-      registerMapEntity(
-        `tree_${_treeCount}`,
-        'tree',
-        () => ({ x: tree.position.x, z: tree.position.z })
-      );
     }
   };
 

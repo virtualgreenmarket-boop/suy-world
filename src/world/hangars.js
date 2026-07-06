@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { buildNpcCharacter } from './npc.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { registerGround } from '../systems/terrain.js';
+import { registerBox, clearCollisionsByTag } from '../systems/collision.js';
 
 // ── Enhance model quality helper ─────────────────────────────────────
 
@@ -54,7 +55,7 @@ function enhanceModelQuality(model) {
 // ── GLB NPC loader (North hangar) ────────────────────────────────────
 
 async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 model with embedded animation
 
   return new Promise((resolve, reject) => {
@@ -108,7 +109,7 @@ async function _loadNorthHangarNpc(scene, localX, localY, localZ, rotY) {
 // ── GLB NPC loader (Center hangar - Skylar Breeze) ───────────────────
 
 async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 (same as north)
 
   return new Promise((resolve, reject) => {
@@ -158,7 +159,7 @@ async function _loadCenterHangarNpc(scene, localX, localY, localZ, rotY) {
 // ── GLB NPC loader (South hangar - starfish necklace) ────────────────
 
 async function _loadSouthHangarNpc(scene, localX, localY, localZ, rotY) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/hangar1/Keren2.glb.glb'; // Keren2 (same as north)
 
   return new Promise((resolve, reject) => {
@@ -291,31 +292,30 @@ function getBrickMat() {
 
 // ── Dimensions ────────────────────────────────────────────────────────
 // Per-hangar exterior dimensions: [North, East/Center, South].
-// North resized per spec: 84m wide × 330m long, 14m walls, 1.5m roof (~15.5m total height).
+// ALL HANGARS: 190m wide × 143.85m deep × 17.5m tall (unified dimensions)
 export const HANGAR_DIMS = [
-  { W: 84,   D: 330,   H: 14,   TH: 1.5  }, // North
-  { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // East / Center
-  { W: 72.9, D: 126.9, H: 18.9, TH: 1.62 }, // South
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - centered at X=0
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // East/Center - centered at X=162.6, Z=0
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // South - centered at X=0, Z=162.6
 ];
 
 // ── Positions ─────────────────────────────────────────────────────────
-// Hangar positions - moved 20% further from plaza for elliptical island
-// (135.5 × 1.2 = 162.6m from center).
-// North hangar is much longer than East/South (330m vs 126.9m); its z position is
-// pushed further from the plaza so its entrance (south-facing side) stays at the same
-// world position as the original layout (-99.15), with the extra length extending
-// away from the plaza.
+// ALL HANGARS: Unified 190m × 143.85m × 17.5m dimensions, each centered at their position.
+// Plaza moved -50m (toward marina), North and South hangars follow.
+// North: entrance at z=-99.15, extends to z=-243
+// East/Center: rotated 90°, entrance faces west (toward plaza at x=-50)
+// South: rotated 180°, entrance faces north (toward plaza at x=-50)
 // Exported so collision.js can build wall colliders that always match the real geometry.
 export const HANGAR_CONFIGS = [
-  { x:   0, z: -99.15 - HANGAR_DIMS[0].D / 2, rotY: 0,           name: 'North Hangar' }, // z = -264.15
-  { x: 162.6, z:    0, rotY: -Math.PI / 2, name: 'East Hangar'  },
-  { x:   0, z:  162.6, rotY: Math.PI,      name: 'South Hangar' },
+  { x:  -50,    z: -171.075, rotY: 0,           name: 'North Hangar' }, // moved -50m with plaza
+  { x: 162.6,   z: 0,        rotY: -Math.PI / 2, name: 'East Hangar'  }, // unchanged - perpendicular to plaza movement
+  { x:  -50,    z: 162.6,    rotY: Math.PI,      name: 'South Hangar' }, // moved -50m with plaza
 ];
 
 // ── Room constants (15 rooms per side, 30 total — North hangar only) ──
 const ROOM_W     = 20;    // room width along Z axis
 const ROOM_D     = 24;    // room depth along X axis (into hangar from side wall)
-const ROOM_H     = 14;    // room interior height (matches North hangar wall height)
+const ROOM_H     = 17.5;  // room interior height (matches North hangar PHASE 2 wall height)
 const ROOM_COUNT = 15;    // rooms per side
 const DOOR_W     = 6;     // door opening width (world Z)
 const DOOR_H     = 5.5;   // door opening height
@@ -325,10 +325,11 @@ const WALL_T     = 0.3;   // interior wall thickness
 // Central corridor width = W - 2*ROOM_D = 84 - 2*24 = 36 m (matches spec)
 const ROOM_GAP   = (HANGAR_DIMS[0].D - ROOM_COUNT * ROOM_W) / (ROOM_COUNT + 1);
 
-// Far-wall store slots (unchanged)
+// Far-wall store slots
+// For North hangar (index 0): use full width for more slots
+// For other hangars: use original 67.5m span
 const FRONT_SPAN  = 67.5;
 const FRONT_COUNT = 10;
-const SLOT_W_FRONT = FRONT_SPAN / FRONT_COUNT; // 6.75 m
 
 // Accent colours per hangar
 const ACCENT = [0xC0392B, 0x27AE60, 0xF1C40F]; // red, green, yellow
@@ -363,7 +364,7 @@ export function initHangars(scene, camera) {
       'Take your time, look around, and click on anything that interests you to learn more.',
       'Enjoy your visit to the North Hangar!',
     ], 'North Hangar');
-  });
+  }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
   // Center: x=162.6, z=0, rotY=-PI/2 (10m closer to plaza)
   registerInteraction([162.6 + halfD[1]*sinNE, 0, 0 + halfD[1]*cosNE], 'Talk', 7, () => {
     showNpcDialog([
@@ -372,7 +373,7 @@ export function initHangars(scene, camera) {
       'Browse both sides and the far wall — there is always something new to discover here.',
       'Enjoy your visit to the Central Hangar!',
     ], 'Central Hangar');
-  });
+  }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
   // South: x=0, z=162.6, rotY=PI (10m closer to plaza)
   registerInteraction([0 + halfD[2]*sinS, 0, 162.6 + halfD[2]*cosS], 'Talk', 7, () => {
     showNpcDialog([
@@ -381,7 +382,7 @@ export function initHangars(scene, camera) {
       'Walk in, explore, and click on anything that catches your eye.',
       'Enjoy your visit to the South Hangar!',
     ], 'South Hangar');
-  });
+  }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
 }
 
 // ── Build one hangar ──────────────────────────────────────────────────
@@ -402,15 +403,15 @@ function buildHangar(scene, { x, z, rotY }, hangarIndex) {
   // ── Shell ─────────────────────────────────────────────────────────
   buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangarIndex);
 
+  // ── Ceiling fan (center of hangar) ────────────────────────────────
+  buildCeilingFan(group, hangarIndex);
+
   // ── Store slots ───────────────────────────────────────────────────
   const slotSignMat = stdMat(0xBDBDBD, 0.82); // default: available (gray)
   const counterMat  = stdMat(0x90A4AE, 0.88);
 
-  if (hangarIndex === 0) {
-    buildRooms(group, 'left',  hangarIndex);
-    buildRooms(group, 'right', hangarIndex);
-  }
-  buildFarSlots(group, hangarIndex, slotSignMat, counterMat);
+  // All hangars: 40 market kiosks
+  buildKiosks(group, hangarIndex, x, z, rotY);
 
   // ── Entrance NPC character ────────────────────────────────────────
   // Floor top surface is at y=0.5 (floor center at 0.25 + thickness/2)
@@ -471,23 +472,100 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
   registerGround(floor);
 
   // Left wall
-  addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);
+  const leftWall = addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);
+  leftWall.name = `Hangar${hangarIndex}_LeftWall`;
+
   // Right wall
-  addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat,  W / 2, H / 2, 0);
+  const rightWall = addWall(group, new THREE.BoxGeometry(0.6, H, D), wallMat,  W / 2, H / 2, 0);
+  rightWall.name = `Hangar${hangarIndex}_RightWall`;
+
   // Far wall (with door opening — 10 m gap)
   const fwSide = (W - 12) / 2;
-  addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat, -(W / 2 - fwSide / 2), H / 2, -D / 2);
-  addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat,  W / 2 - fwSide / 2,   H / 2, -D / 2);
-  addWall(group, new THREE.BoxGeometry(12, H * 0.35, 0.6), wallMat, 0, H - H * 0.35 / 2, -D / 2);
+  const farLeft = addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat, -(W / 2 - fwSide / 2), H / 2, -D / 2);
+  farLeft.name = `Hangar${hangarIndex}_FarLeft`;
 
-  // Entrance: four columns instead of wall
-  [-(W / 2 - 1.5), -10, 10, W / 2 - 1.5].forEach(cx => {
+  const farRight = addWall(group, new THREE.BoxGeometry(fwSide, H, 0.6), wallMat,  W / 2 - fwSide / 2,   H / 2, -D / 2);
+  farRight.name = `Hangar${hangarIndex}_FarRight`;
+
+  const farTop = addWall(group, new THREE.BoxGeometry(12, H * 0.35, 0.6), wallMat, 0, H - H * 0.35 / 2, -D / 2);
+  farTop.name = `Hangar${hangarIndex}_FarTop`;
+
+  console.log(`[hangars] Hangar ${hangarIndex}: Created 5 wall meshes (left, right, far-left, far-right, far-top)`);
+
+  // Entrance: columns scaled proportionally to hangar width
+  // For narrow hangars: 4 columns. For wide hangars (W>150): add more columns
+  const columnCount = W > 150 ? 8 : 4;
+  const columnSpacing = W / (columnCount + 1);
+  for (let i = 1; i <= columnCount; i++) {
+    const cx = -W / 2 + i * columnSpacing;
     const col = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, H, 10), colMat);
     col.position.set(cx, H / 2, D / 2);
     col.castShadow = false; // No shadows
     col.receiveShadow = false;
     group.add(col);
+  }
+
+  // Glass panels on entrance wall (between columns AND corner gaps)
+  // Light blue glass with shine, 50% transparent
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x87CEEB,        // Light blue (sky blue)
+    transparent: true,
+    opacity: 0.5,           // 50% transparent
+    metalness: 0.1,
+    roughness: 0.1,         // Shiny/glossy
+    side: THREE.DoubleSide
   });
+
+  // Find center two columns indices (where NPC is)
+  const centerColumnIndex1 = Math.floor(columnCount / 2);
+
+  // Glass between columns
+  for (let i = 0; i < columnCount - 1; i++) {
+    const col1X = -W / 2 + (i + 1) * columnSpacing;
+    const col2X = -W / 2 + (i + 2) * columnSpacing;
+    const panelCenterX = (col1X + col2X) / 2;
+    const panelWidth = columnSpacing - 2.4; // Gap minus column diameter
+
+    // Skip ONLY the panel between the two center columns (closest to NPC)
+    if (i + 1 === centerColumnIndex1) {
+      continue; // Skip center panel
+    }
+
+    const glassPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(panelWidth, H - 1, 0.15), // Thin glass
+      glassMat
+    );
+    glassPanel.position.set(panelCenterX, H / 2, D / 2);
+    glassPanel.castShadow = false;
+    glassPanel.receiveShadow = true;
+    group.add(glassPanel);
+  }
+
+  // Corner glass panels: left side (wall to first column)
+  const firstColumnX = -W / 2 + columnSpacing;
+  const leftCornerPanelWidth = columnSpacing - 1.2 - 0.3; // spacing - half column diameter - wall thickness
+  const leftCornerPanelX = -W / 2 + leftCornerPanelWidth / 2 + 0.3;
+  const leftCornerGlass = new THREE.Mesh(
+    new THREE.BoxGeometry(leftCornerPanelWidth, H - 1, 0.15),
+    glassMat
+  );
+  leftCornerGlass.position.set(leftCornerPanelX, H / 2, D / 2);
+  leftCornerGlass.castShadow = false;
+  leftCornerGlass.receiveShadow = true;
+  group.add(leftCornerGlass);
+
+  // Corner glass panels: right side (last column to wall)
+  const lastColumnX = -W / 2 + columnCount * columnSpacing;
+  const rightCornerPanelWidth = columnSpacing - 1.2 - 0.3;
+  const rightCornerPanelX = W / 2 - rightCornerPanelWidth / 2 - 0.3;
+  const rightCornerGlass = new THREE.Mesh(
+    new THREE.BoxGeometry(rightCornerPanelWidth, H - 1, 0.15),
+    glassMat
+  );
+  rightCornerGlass.position.set(rightCornerPanelX, H / 2, D / 2);
+  rightCornerGlass.castShadow = false;
+  rightCornerGlass.receiveShadow = true;
+  group.add(rightCornerGlass);
 
   // Roof
   add(group, new THREE.BoxGeometry(W + 1, TH, D + 1), roofMat, 0, H + TH / 2, 0, true);
@@ -501,11 +579,28 @@ function buildShell(group, wallMat, roofMat, accentMat, floorMat, colMat, hangar
 
 // ── Room number sign ─────────────────────────────────────────────────
 
+// Cache for sign materials to prevent WebGL uniform errors
+const _signMaterialCache = new Map();
+
 function _buildRoomNumberSign(number) {
+  // Check cache first
+  if (_signMaterialCache.has(number)) {
+    const cachedMat = _signMaterialCache.get(number);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), cachedMat);
+    return plane;
+  }
+
   const canvas  = document.createElement('canvas');
   canvas.width  = 256;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
+
+  // Null-safety check - verify canvas is valid
+  if (!ctx || canvas.width === 0 || canvas.height === 0) {
+    console.warn('[hangars] Invalid canvas for sign', number);
+    // Return empty mesh with no material
+    return new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+  }
 
   // Background
   ctx.fillStyle = '#2C2C2C';
@@ -527,11 +622,26 @@ function _buildRoomNumberSign(number) {
   ctx.textBaseline = 'middle';
   ctx.fillText(String(number), 128, 128);
 
+  // CRITICAL: Create material with map: null first, assign texture AFTER drawing is complete
+  const mat = new THREE.MeshBasicMaterial({
+    map: null,  // Start with null
+    side: THREE.DoubleSide,
+    transparent: true
+  });
+
+  // Now create texture AFTER all drawing is done
   const tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
 
-  const mat   = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true });
+  // Assign texture to material AFTER it's created
+  mat.map = tex;
+  mat.needsUpdate = true; // Mark material for update
+  tex.needsUpdate = true; // Mark texture for upload
+
+  // Cache the material
+  _signMaterialCache.set(number, mat);
+
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
   return plane;
 }
@@ -799,13 +909,20 @@ async function _placeDoorModels() {
 }
 
 function buildFarSlots(group, hangarIndex, signMat, counterMat) {
-  const { H, D } = HANGAR_DIMS[hangarIndex];
+  const { H, D, W } = HANGAR_DIMS[hangarIndex];
   const wallZ  = -(D / 2 - 0.3);
 
-  for (let i = 0; i < FRONT_COUNT; i++) {
-    const slotX = -FRONT_SPAN / 2 + (i + 0.5) * SLOT_W_FRONT;
+  // For North hangar (index 0): use full width and add more slots to reach 50 total
+  // 15 left + 15 right + 20 far = 50 slots
+  const isNorthHangar = hangarIndex === 0;
+  const slotCount = isNorthHangar ? 20 : FRONT_COUNT;
+  const spanWidth = isNorthHangar ? (W - 4) : FRONT_SPAN; // Use almost full width for North
+  const slotWidth = spanWidth / slotCount;
 
-    const pillarX = -FRONT_SPAN / 2 + i * SLOT_W_FRONT;
+  for (let i = 0; i < slotCount; i++) {
+    const slotX = -spanWidth / 2 + (i + 0.5) * slotWidth;
+
+    const pillarX = -spanWidth / 2 + i * slotWidth;
     const pillar = new THREE.Mesh(
       new THREE.BoxGeometry(0.35, H * 0.85, 0.35),
       new THREE.MeshStandardMaterial({ color: 0xC8C0B8, roughness: 0.88 })
@@ -814,7 +931,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     group.add(pillar);
 
     const sign = new THREE.Mesh(
-      new THREE.BoxGeometry(SLOT_W_FRONT - 0.35, 1.2, 0.15),
+      new THREE.BoxGeometry(slotWidth - 0.35, 1.2, 0.15),
       signMat.clone()
     );
     sign.position.set(slotX, 5.5, wallZ + 0.1);
@@ -822,7 +939,7 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     group.add(sign);
 
     const counter = new THREE.Mesh(
-      new THREE.BoxGeometry(SLOT_W_FRONT - 0.45, 0.9, 1.6),
+      new THREE.BoxGeometry(slotWidth - 0.45, 0.9, 1.6),
       counterMat
     );
     counter.position.set(slotX, 0.45, wallZ + 1.4);
@@ -845,8 +962,274 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
     new THREE.BoxGeometry(0.35, H * 0.85, 0.35),
     new THREE.MeshStandardMaterial({ color: 0xC8C0B8, roughness: 0.88 })
   );
-  pillar.position.set(FRONT_SPAN / 2, H * 0.85 / 2, wallZ + 1.5);
+  pillar.position.set(spanWidth / 2, H * 0.85 / 2, wallZ + 1.5);
   group.add(pillar);
+}
+
+// ── Market Kiosks (North Hangar only) — 50 open-front stalls ─────────
+
+function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRotY) {
+  // Clear ALL previously registered kiosk collision boxes before building new ones
+  // This prevents phantom boxes from hot-reloads accumulating
+  clearCollisionsByTag('kiosk');
+
+  const { W, D } = HANGAR_DIMS[hangarIndex];
+
+  // Kiosk dimensions (+5% width, +20% height from original)
+  const KIOSK_WIDTH = 10.5;  // Was 10m, +5% = 10.5m
+  const KIOSK_DEPTH = 8;     // Unchanged
+  const KIOSK_HEIGHT = 5.4;  // Was 4.5m, +20% = 5.4m (increased from 4.725m)
+  const WALL_OFFSET = 0.3;   // Distance from hangar wall
+
+  // Roof color palette (6 colors, cycling)
+  const ROOF_COLORS = [0xE67E22, 0x16A085, 0xC0392B, 0x2980B9, 0x8E44AD, 0x27AE60];
+
+  // CRITICAL: Use ONLY MeshLambertMaterial to avoid EffectComposer crashes
+  // Create materials ONCE and reuse across all kiosks
+  // All materials are SOLID (opaque, no transparency)
+  const postMat = new THREE.MeshLambertMaterial({
+    color: 0x8B6914,        // Dark wood
+    transparent: false,
+    opacity: 1.0,
+    side: THREE.FrontSide
+  });
+  const wallMat = new THREE.MeshLambertMaterial({
+    color: 0xF5F0E8,        // Warm white
+    transparent: false,
+    opacity: 1.0,
+    side: THREE.DoubleSide, // Double-sided for solid walls
+    depthWrite: true,       // Ensure proper depth rendering
+    depthTest: true
+  });
+  const counterMat = new THREE.MeshLambertMaterial({
+    color: 0x8B6914,        // Dark wood
+    transparent: false,
+    opacity: 1.0,
+    side: THREE.FrontSide
+  });
+
+  // Create 6 roof materials (one per color) - all SOLID
+  const roofMaterials = ROOF_COLORS.map(color =>
+    new THREE.MeshLambertMaterial({
+      color,
+      transparent: false,
+      opacity: 1.0,
+      side: THREE.FrontSide
+    })
+  );
+
+  let kioskNumber = 0;
+
+  // Helper: add one kiosk
+  function addKiosk(x, z, rotY, wallName) {
+    kioskNumber++;
+    const roofMat = roofMaterials[(kioskNumber - 1) % 6];
+
+    const kiosk = new THREE.Group();
+    kiosk.position.set(x, 0, z);
+    kiosk.rotation.y = rotY;
+
+    // 4 corner posts
+    const postGeo = new THREE.CylinderGeometry(0.25, 0.25, KIOSK_HEIGHT, 8);
+    const postPositions = [
+      [-KIOSK_WIDTH/2, -KIOSK_DEPTH/2],
+      [KIOSK_WIDTH/2, -KIOSK_DEPTH/2],
+      [-KIOSK_WIDTH/2, KIOSK_DEPTH/2],
+      [KIOSK_WIDTH/2, KIOSK_DEPTH/2]
+    ];
+    postPositions.forEach(([px, pz]) => {
+      const post = new THREE.Mesh(postGeo, postMat);
+      post.position.set(px, KIOSK_HEIGHT/2, pz);
+      post.castShadow = true;
+      kiosk.add(post);
+    });
+
+    // Back wall
+    const backWall = new THREE.Mesh(
+      new THREE.BoxGeometry(KIOSK_WIDTH, KIOSK_HEIGHT, 0.15),
+      wallMat
+    );
+    backWall.position.set(0, KIOSK_HEIGHT/2, KIOSK_DEPTH/2);
+    backWall.castShadow = true;
+    backWall.receiveShadow = true;
+    kiosk.add(backWall);
+
+    // Side walls
+    const sideWallGeo = new THREE.BoxGeometry(0.15, KIOSK_HEIGHT, KIOSK_DEPTH);
+    [-KIOSK_WIDTH/2, KIOSK_WIDTH/2].forEach(sx => {
+      const sideWall = new THREE.Mesh(sideWallGeo, wallMat);
+      sideWall.position.set(sx, KIOSK_HEIGHT/2, 0);
+      sideWall.castShadow = true;
+      sideWall.receiveShadow = true;
+      kiosk.add(sideWall);
+    });
+
+    // Roof (slightly sloped)
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(KIOSK_WIDTH + 0.5, 0.2, KIOSK_DEPTH + 0.5),
+      roofMat
+    );
+    roof.position.set(0, KIOSK_HEIGHT, 0);
+    roof.rotation.x = 0.05; // Gentle slope
+    roof.castShadow = true;
+    kiosk.add(roof);
+
+    // Front counter
+    const counter = new THREE.Mesh(
+      new THREE.BoxGeometry(KIOSK_WIDTH, 1.0, 0.8),
+      counterMat
+    );
+    counter.position.set(0, 0.5, -KIOSK_DEPTH/2 + 0.4);
+    counter.castShadow = true;
+    counter.receiveShadow = true;
+    kiosk.add(counter);
+
+    // Simple placeholder sign — no canvas texture (prevents EffectComposer crash)
+    // TODO: Re-enable _buildRoomNumberSign() after fixing canvas texture timing
+    const signGeo = new THREE.BoxGeometry(2, 1.2, 0.05);
+    const signMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+    const numSign = new THREE.Mesh(signGeo, signMat);
+    numSign.position.set(0, KIOSK_HEIGHT - 0.5, -KIOSK_DEPTH/2 - 0.1);
+    numSign.castShadow = true;
+    kiosk.add(numSign);
+
+    group.add(kiosk);
+
+    // SOLID WALL COLLISION - 3 boxes (back + left side + right side)
+    // Front face is OPEN - no collision
+    // CRITICAL: Convert from LOCAL (inside hangar group) to WORLD coordinates
+    const c = Math.cos(rotY);
+    const s = Math.sin(rotY);
+    const hc = Math.cos(hangarRotY);
+    const hs = Math.sin(hangarRotY);
+
+    // Convert local kiosk position to world coordinates
+    const worldKioskX = hangarCenterX + hc * x - hs * z;
+    const worldKioskZ = hangarCenterZ + hs * x + hc * z;
+
+    // Back wall collision (full width, thin depth at back)
+    const backWallThickness = 0.2;
+    const backWallOffset = KIOSK_DEPTH / 2 - backWallThickness / 2;
+    const backWallCenterX = worldKioskX + c * 0 + s * backWallOffset;
+    const backWallCenterZ = worldKioskZ + s * 0 + c * backWallOffset;
+
+    const hwb = KIOSK_WIDTH / 2;
+    const hdb = backWallThickness / 2;
+    const backCorners = [
+      [backWallCenterX + c * -hwb - s * -hdb, backWallCenterZ + s * -hwb + c * -hdb],
+      [backWallCenterX + c *  hwb - s * -hdb, backWallCenterZ + s *  hwb + c * -hdb],
+      [backWallCenterX + c * -hwb - s *  hdb, backWallCenterZ + s * -hwb + c *  hdb],
+      [backWallCenterX + c *  hwb - s *  hdb, backWallCenterZ + s *  hwb + c *  hdb]
+    ];
+    registerBox(
+      Math.min(...backCorners.map(p => p[0])),
+      Math.max(...backCorners.map(p => p[0])),
+      Math.min(...backCorners.map(p => p[1])),
+      Math.max(...backCorners.map(p => p[1])),
+      'kiosk' // Tag for cleanup
+    );
+
+    // Left side wall collision (thin width, runs from back to ~middle)
+    const sideWallThickness = 0.2;
+    const sideWallDepth = KIOSK_DEPTH * 0.6; // 60% of depth (back + partial sides)
+    const sideWallOffset = KIOSK_DEPTH / 2 - sideWallDepth / 2;
+
+    const leftSideX = worldKioskX + c * (-KIOSK_WIDTH/2 + sideWallThickness/2) + s * sideWallOffset;
+    const leftSideZ = worldKioskZ + s * (-KIOSK_WIDTH/2 + sideWallThickness/2) + c * sideWallOffset;
+    const hws = sideWallThickness / 2;
+    const hds = sideWallDepth / 2;
+    const leftCorners = [
+      [leftSideX + c * -hws - s * -hds, leftSideZ + s * -hws + c * -hds],
+      [leftSideX + c *  hws - s * -hds, leftSideZ + s *  hws + c * -hds],
+      [leftSideX + c * -hws - s *  hds, leftSideZ + s * -hws + c *  hds],
+      [leftSideX + c *  hws - s *  hds, leftSideZ + s *  hws + c *  hds]
+    ];
+    registerBox(
+      Math.min(...leftCorners.map(p => p[0])),
+      Math.max(...leftCorners.map(p => p[0])),
+      Math.min(...leftCorners.map(p => p[1])),
+      Math.max(...leftCorners.map(p => p[1])),
+      'kiosk' // Tag for cleanup
+    );
+
+    // Right side wall collision
+    const rightSideX = worldKioskX + c * (KIOSK_WIDTH/2 - sideWallThickness/2) + s * sideWallOffset;
+    const rightSideZ = worldKioskZ + s * (KIOSK_WIDTH/2 - sideWallThickness/2) + c * sideWallOffset;
+    const rightCorners = [
+      [rightSideX + c * -hws - s * -hds, rightSideZ + s * -hws + c * -hds],
+      [rightSideX + c *  hws - s * -hds, rightSideZ + s *  hws + c * -hds],
+      [rightSideX + c * -hws - s *  hds, rightSideZ + s * -hws + c *  hds],
+      [rightSideX + c *  hws - s *  hds, rightSideZ + s *  hws + c *  hds]
+    ];
+    registerBox(
+      Math.min(...rightCorners.map(p => p[0])),
+      Math.max(...rightCorners.map(p => p[0])),
+      Math.min(...rightCorners.map(p => p[1])),
+      Math.max(...rightCorners.map(p => p[1])),
+      'kiosk' // Tag for cleanup
+    );
+
+    // Register slot
+    allSlots.push({
+      id: allSlots.length,
+      hangarIndex,
+      wall: wallName,
+      slotIndex: kioskNumber - 1,
+      localPos: new THREE.Vector3(x, 0, z),
+      signMesh: numSign,
+      status: 'available',
+      worldPos: new THREE.Vector3()
+    });
+
+    // DEBUG: Log collision boxes near entrance wall for hangar 0
+    if (hangarIndex === 0 && wallName === 'east' && (kioskNumber === 1 || kioskNumber >= 11)) {
+      console.log(`[hangars] DEBUG Kiosk ${kioskNumber} (${wallName}):`, {
+        localPos: { x, z },
+        worldPos: { x: worldKioskX.toFixed(2), z: worldKioskZ.toFixed(2) },
+        backWall: `Z[${Math.min(...backCorners.map(p => p[1])).toFixed(2)}, ${Math.max(...backCorners.map(p => p[1])).toFixed(2)}]`,
+        leftSide: `Z[${Math.min(...leftCorners.map(p => p[1])).toFixed(2)}, ${Math.max(...leftCorners.map(p => p[1])).toFixed(2)}]`,
+        rightSide: `Z[${Math.min(...rightCorners.map(p => p[1])).toFixed(2)}, ${Math.max(...rightCorners.map(p => p[1])).toFixed(2)}]`
+      });
+    }
+  }
+
+  // NO kiosks on entrance wall - keep it clear for entry
+
+  // Rear wall (north, 16 kiosks @ 10.5m width = 168m total)
+  // Wall: 190m - 168m = 22m gap space → distribute evenly
+  const rearZ = -D/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
+  const rearTotalWidth = 16 * KIOSK_WIDTH; // 168m
+  const rearGapSpace = W - rearTotalWidth; // 22m
+  const rearGap = rearGapSpace / (16 + 1); // 1.29m per gap (17 gaps total)
+  for (let i = 0; i < 16; i++) {
+    const x = -W/2 + rearGap + (i * (KIOSK_WIDTH + rearGap)) + KIOSK_WIDTH/2;
+    addKiosk(x, rearZ, Math.PI, 'rear');
+  }
+
+  // East side wall (10 kiosks - skip first to avoid rear wall overlap)
+  // Start from 2nd position to clear rear wall corner
+  const eastX = W/2 - KIOSK_DEPTH/2 - WALL_OFFSET;
+  const eastKioskCount = 10; // Reduced from 11, skip first
+  const eastTotalWidth = eastKioskCount * KIOSK_WIDTH; // 105m
+  const eastGap = 2.5; // Fixed 2.5m spacing between kiosks
+  for (let i = 1; i <= eastKioskCount; i++) { // Start from i=1 to skip first position
+    const z = -D/2 + eastGap + (i * (KIOSK_WIDTH + eastGap)) + KIOSK_WIDTH/2;
+    addKiosk(eastX, z, Math.PI/2, 'east');
+  }
+
+  // West side wall (10 kiosks - skip first to avoid rear wall overlap)
+  // Start from 2nd position to clear rear wall corner
+  const westX = -W/2 + KIOSK_DEPTH/2 + WALL_OFFSET;
+  const westKioskCount = 10; // Same as east
+  const westGap = 2.5; // Fixed 2.5m spacing between kiosks (same as east)
+  for (let i = 1; i <= westKioskCount; i++) { // Start from i=1 to skip first position
+    const z = -D/2 + westGap + (i * (KIOSK_WIDTH + westGap)) + KIOSK_WIDTH/2;
+    addKiosk(westX, z, -Math.PI/2, 'west');
+  }
+
+  const kioskCollisionBoxes = kioskNumber * 3; // 3 boxes per kiosk (back + 2 sides)
+  console.log('[hangars] Hangar', hangarIndex, ': Built', kioskNumber, 'market kiosks (16 rear + 10 east + 10 west = 36 total, 10.5m wide each)');
+  console.log('[hangars] Hangar', hangarIndex, ': Registered', kioskCollisionBoxes, 'kiosk collision boxes (3 per kiosk)');
 }
 
 function finaliseSlotPositions(group, hangarIndex) {
@@ -857,6 +1240,76 @@ function finaliseSlotPositions(group, hangarIndex) {
       s.worldPos.copy(s.localPos).applyMatrix4(group.matrixWorld);
       s.worldPos.y = 0;
     });
+}
+
+// ── Ceiling Fan (large rotating fan in center of hangar) ─────────────
+
+function buildCeilingFan(group, hangarIndex) {
+  const { H } = HANGAR_DIMS[hangarIndex];
+
+  const FAN_DIAMETER = 48; // 48m diameter fan (-20% from 60m)
+  const FAN_HEIGHT = H - 1; // 1m below ceiling (16.5m)
+  const BLADE_COUNT = 4;
+  const BLADE_WIDTH = FAN_DIAMETER / 2 - 2; // Radius minus hub (scaled -20%)
+  const BLADE_DEPTH = 4.8; // 4.8m blade depth (-20% from 6m)
+  const BLADE_THICKNESS = 0.32; // 0.32m thick (-20% from 0.4m)
+
+  const fanGroup = new THREE.Group();
+  fanGroup.position.set(0, FAN_HEIGHT, 0);
+
+  // Central hub (motor housing) - WHITE
+  const hubMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF }); // White
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.6, 2, 3.2, 12), // -20% from (2, 2.5, 4)
+    hubMat
+  );
+  hub.castShadow = true;
+  fanGroup.add(hub);
+
+  // Rod connecting to ceiling - WHITE
+  const rod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.32, 0.32, 4, 8), // -20% from (0.4, 0.4, 5)
+    hubMat
+  );
+  rod.position.y = 3.6; // -20% from 4.5
+  rod.castShadow = true;
+  fanGroup.add(rod);
+
+  // 4 blades - WHITE
+  const bladeMat = new THREE.MeshLambertMaterial({
+    color: 0xFFFFFF, // White
+    side: THREE.DoubleSide
+  });
+
+  for (let i = 0; i < BLADE_COUNT; i++) {
+    const angle = (i / BLADE_COUNT) * Math.PI * 2;
+
+    // Blade geometry
+    const bladeGeo = new THREE.BoxGeometry(BLADE_WIDTH, BLADE_THICKNESS, BLADE_DEPTH);
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+
+    // All blades emerge from same point: bottom of hub (motor base)
+    // Hub is at y=0 with height=3.2, so bottom is at y=-1.6
+    // Blade extends outward from center point
+    blade.position.set(
+      Math.cos(angle) * (BLADE_WIDTH / 2),
+      -1.6, // Bottom of hub (base of motor, -20% from -2)
+      Math.sin(angle) * (BLADE_WIDTH / 2)
+    );
+
+    // Rotate blade to align radially (no tilt - perfectly flat)
+    blade.rotation.y = angle;
+
+    blade.castShadow = true;
+    blade.receiveShadow = true;
+    fanGroup.add(blade);
+  }
+
+  group.add(fanGroup);
+
+  // Store reference for animation
+  fanGroup.userData.isCeilingFan = true;
+  fanGroup.userData.rotationSpeed = 0.3; // Radians per second
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -902,6 +1355,8 @@ function add(group, geo, mat, x, y, z, castShadow = false) {
   m.position.set(x, y, z);
   m.receiveShadow = false; // No shadows on hangar structures
   m.castShadow = false;    // Hangars don't cast shadows
+  m.visible = true;        // Ensure mesh is visible
+  m.frustumCulled = true;  // Enable frustum culling (default)
   group.add(m);
   return m;
 }

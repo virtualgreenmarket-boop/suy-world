@@ -164,6 +164,7 @@ export function spawnPlant(scene, x, z, y = 0, type = 'random') {
   if (!plant) return;
 
   plant.position.set(x, y, z);
+  plant.userData._isPlant = true; // Mark for identification/cleanup
 
   // Random rotation for variety
   plant.rotation.y = Math.random() * Math.PI * 2;

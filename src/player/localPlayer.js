@@ -230,7 +230,9 @@ export function updateLocalPlayer(delta) {
       blockedByAnimal = true;
     }
 
-    if (!blockedByAnimal && rx * rx + rz * rz < ISLAND_R * ISLAND_R) {
+    // FIXED: Use asymmetric ellipse boundary instead of simple circle
+    // This allows players to swim/walk 20-50m into deep water around the entire island
+    if (!blockedByAnimal && isWithinPlayableBounds(rx, rz)) {
       const destGroundY = getSurfaceY(rx, rz);
       const stepDelta   = destGroundY - playerGroup.position.y;
       if (!_isJumping && stepDelta > 0 && stepDelta <= MAX_STEP) {
@@ -244,12 +246,12 @@ export function updateLocalPlayer(delta) {
   }
 
   if (consumeJump()) {
-    const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z);
+    const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y);
     if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
   }
 
   // Gravity
-  const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z);
+  const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y);
   velocityY += GRAVITY * delta;
   playerGroup.position.y = Math.max(groundY, playerGroup.position.y + velocityY * delta);
   if (playerGroup.position.y <= groundY) {
@@ -357,8 +359,10 @@ function updatePlayerAppearance(changes) {
 }
 
 function computeIslandRadius() {
-  const BASE_R = 396; // original world/terrain boundary (unrelated to hangars)
-  const MARGIN = 20;  // walking room past the farthest hangar corner
+  // DEPRECATED: Simple circular boundary is replaced by asymmetric ellipse check
+  // This function kept for backward compatibility but is no longer used
+  const BASE_R = 396;
+  const MARGIN = 20;
 
   let maxCornerDist = 0;
   HANGAR_CONFIGS.forEach(({ x, z }, i) => {
@@ -371,12 +375,34 @@ function computeIslandRadius() {
   return Math.max(BASE_R, maxCornerDist + MARGIN);
 }
 
+/**
+ * Tests if position (x, z) is within playable bounds.
+ * Uses asymmetric ellipse shape matching the actual island geometry.
+ * Boundary positioned in deep water, allowing free movement on island, beach, and shallow water.
+ */
+function isWithinPlayableBounds(x, z) {
+  // Island expansion factors (from island.js)
+  const EAST_EXPANSION = 1.4;
+  const NORTH_SOUTH_EXPANSION = 2.38;
+
+  // Playable boundary: far into deep water
+  // Grass: 255, Beach: 350, Shallow water: 500
+  // Boundary at 650 allows full access to island + beach + shallow water + swimming room
+  const PLAYABLE_RADIUS = 650;
+
+  // Normalize coordinates for asymmetric ellipse
+  const normalizedX = x > 0 ? x / EAST_EXPANSION : x;
+  const normalizedZ = z / NORTH_SOUTH_EXPANSION;
+  const distance = Math.hypot(normalizedX, normalizedZ);
+
+  return distance <= PLAYABLE_RADIUS;
+}
+
 function _loadSpawn() {
-  try {
-    const raw = localStorage.getItem('suy_spawn');
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { x: 0, y: 0.7, z: 20 };
+  // Always spawn at Marina deck - ignoring localStorage
+  // Marina deck: group at (-325.2, 0, 0), rot.y=PI/2
+  // Deck center local (0, DECK_Y, 0) → world (-325.2, 3.2, 0)
+  return { x: -325, y: 3.5, z: 0 };
 }
 
 export function setLocalPlayerPosition(x, z) {

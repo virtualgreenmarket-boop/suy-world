@@ -1,10 +1,9 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { registerBox } from '../systems/collision.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
-import { registerMapEntity } from '../ui/minimapRegistry.js';
 
 const HOUSE_URL = '/models/nature/marina/Medieval%20Village%20Houses%20GLB/Medieval%20Village%20Houses.glb';
 
@@ -57,7 +56,7 @@ export function initMarina(scene) {
   addStairs(group);
   addLandStairs(group);
   addFishingPier(group);
-  _registerDeckCollision();
+  _registerDeckCollision(group);
 
   _loadHouse(group);
   _loadFishermanNpc(group);
@@ -67,7 +66,7 @@ export function initMarina(scene) {
 // ── House (added to group so it inherits deck position) ───────────────
 
 function _loadHouse(group) {
-  new GLTFLoader().load(HOUSE_URL, gltf => {
+  createGLTFLoader().load(HOUSE_URL, gltf => {
     const model = gltf.scene;
     model.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
 
@@ -155,14 +154,26 @@ function addElevatedDeck(group) {
     });
   }
 
-  // ── Deck railings (sea-facing front with stair gap + both sides) ─────
+  // ── Deck railings (all 4 sides with gaps for stairs) ─────────────────
   const frontZ    = DZ - DL / 2;       // z = −21 (sea edge)
+  const backZ     = DZ + DL / 2;       // z = +23 (land edge)
   const deckSurf  = DECK_Y + 0.38;     // top of deck planks
-  const gapHalf   = STEP_W / 2;        // 12.5 m — matches stair width
-  const sideLen   = DW / 2 - gapHalf;  // 52.5 m each side of gap
-  const sideCX    = (DW / 2 + gapHalf) / 2; // 38.75 m from centre
-  _railSegment(group, -sideCX, frontZ, sideLen, 'x', deckSurf);   // front left
-  _railSegment(group,  sideCX, frontZ, sideLen, 'x', deckSurf);   // front right
+
+  // Front (sea) side: two segments with gap for sea stairs (25m wide)
+  const seaGapHalf   = STEP_W / 2;        // 12.5 m — matches stair width
+  const seaSideLen   = DW / 2 - seaGapHalf;  // 52.5 m each side of gap
+  const seaSideCX    = (DW / 2 + seaGapHalf) / 2; // 38.75 m from centre
+  _railSegment(group, -seaSideCX, frontZ, seaSideLen, 'x', deckSurf);   // front left
+  _railSegment(group,  seaSideCX, frontZ, seaSideLen, 'x', deckSurf);   // front right
+
+  // Back (land) side: two segments with gap for land stairs (9.5m wide)
+  const landGapHalf  = LAND_STEP_W / 2;      // 4.75 m — matches land stair width
+  const landSideLen  = DW / 2 - landGapHalf; // 60.25 m each side of gap
+  const landSideCX   = (DW / 2 + landGapHalf) / 2; // 34.625 m from centre
+  _railSegment(group, -landSideCX, backZ, landSideLen, 'x', deckSurf);  // back left
+  _railSegment(group,  landSideCX, backZ, landSideLen, 'x', deckSurf);  // back right
+
+  // Side railings: full length (no gaps)
   _railSegment(group, DX - DW / 2, DZ, DL, 'z', deckSurf);       // left side full length
   _railSegment(group, DX + DW / 2, DZ, DL, 'z', deckSurf);       // right side full length
 }
@@ -200,14 +211,15 @@ function _railSegment(group, cx, cz, length, axis, baseY = DECK_Y + 0.38) {
   midRail.position.set(cx, rY + postH * 0.55, cz);
   group.add(midRail);
 
-  // Collision box in world space (group rot PI/2: worldX=-230+localZ, worldZ=-localX)
+  // Collision box in world space (group rot PI/2: worldX=-325.2+localZ, worldZ=-localX)
   const PAD = 0.25;
+  const GROUP_X = -325.2; // Marina group X position
   if (axis === 'x') {
     // runs along local X → worldZ spans [-cx-length/2, -cx+length/2]
-    registerBox(-230 + cz - PAD, -230 + cz + PAD, -cx - length / 2, -cx + length / 2);
+    registerBox(GROUP_X + cz - PAD, GROUP_X + cz + PAD, -cx - length / 2, -cx + length / 2);
   } else {
-    // runs along local Z → worldX spans [-230+cz-length/2, -230+cz+length/2]
-    registerBox(-230 + cz - length / 2, -230 + cz + length / 2, -cx - PAD, -cx + PAD);
+    // runs along local Z → worldX spans [GROUP_X+cz-length/2, GROUP_X+cz+length/2]
+    registerBox(GROUP_X + cz - length / 2, GROUP_X + cz + length / 2, -cx - PAD, -cx + PAD);
   }
 }
 
@@ -218,6 +230,9 @@ const STEP_W     = 25.0;
 const STEP_H     = (DECK_Y - PIER_Y) / STEP_COUNT;  // ≈ 0.33 m each
 const STEP_D     = 0.85;
 const STAIRS_Z   = DZ - DL / 2 - 0.2;  // just past front edge of deck
+
+// Land stairs constants (needed early for deck railing gap calculation)
+const LAND_STEP_W = 9.5;   // matches path width
 
 function addStairs(group) {
   const mat = woodMat(STEP_W / 2.0, 1.0);
@@ -250,7 +265,6 @@ function addStairs(group) {
 const LAND_STEP_COUNT = 10;
 const LAND_STEP_H     = (DECK_Y - 0.2) / LAND_STEP_COUNT;  // 0.30 m
 const LAND_STEP_D     = 0.5;
-const LAND_STEP_W     = 9.5;   // matches path width
 const LAND_STAIRS_Z   = DZ + DL / 2;  // = 1 + 22 = 23 (deck land edge)
 
 function addLandStairs(group) {
@@ -361,25 +375,16 @@ function addFishingPier(group) {
 // Stairs opening: localX∈[-12.5,+12.5] → worldZ∈[-12.5,+12.5]
 
 function _registerDeckCollision() {
-  // Group at (-230,0,0) rot.y=PI/2 → worldX=-230+localZ, worldZ=-localX
-  // Deck: localZ∈[-21,+23] → worldX∈[-251,-207], localX∈[-65,+65] → worldZ∈[-65,+65]
-  // Back wall — two halves with 9.5 m stair gap (worldZ∈[-5,+5])
-  registerBox(-208, -206, -66, -5);
-  registerBox(-208, -206,   5, 66);
-  // Left side wall (localX=-65 → worldZ=+65)
-  registerBox(-252, -206, 64, 66);
-  // Right side wall (localX=+65 → worldZ=-65)
-  registerBox(-252, -206, -66, -64);
-  // Front wall — left of stair gap (worldZ∈[13,66])
-  registerBox(-252.5, -249.5, 13, 66);
-  // Front wall — right of stair gap (worldZ∈[-66,-13])
-  registerBox(-252.5, -249.5, -66, -13);
+  // REMOVED: All wall meshes and collision boxes that were blocking the grass path
+  // The marina building itself provides the visual walls
+  // No collision boxes needed here - they were blocking access to marina
+  console.log('[marina] Marina collision boxes removed - path to marina is now clear');
 }
 
 // ── Fisherman NPC ─────────────────────────────────────────────────────
 
 function _loadFishermanNpc(group) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/Fisherman/fisherman.glb';
 
   loader.load(modelPath, gltf => {
@@ -448,24 +453,13 @@ function _loadFishermanNpc(group) {
       showNpcDialog(['ברוך הבא למרינה'], 'הדייג');
     });
 
-    // Register on minimap
-    registerMapEntity(
-      'marina_fisherman',
-      'npc',
-      () => {
-        const pos = new THREE.Vector3();
-        model.getWorldPosition(pos);
-        return { x: pos.x, z: pos.z };
-      }
-    );
-
   }, undefined, err => {
     console.error('[marina] Fisherman NPC load failed:', err?.message ?? err);
   });
 }
 
 function _loadSkylarNpc(group) {
-  const loader = new GLTFLoader();
+  const loader = createGLTFLoader();
   const modelPath = '/models/characters/npcs/skylar_breeze_a_casual_summer_character_scan.glb';
 
   loader.load(modelPath, gltf => {
@@ -527,17 +521,6 @@ function _loadSkylarNpc(group) {
     registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'Talk', 3, () => {
       showNpcDialog(['Welcome to the marina!'], 'Skylar');
     });
-
-    // Register on minimap
-    registerMapEntity(
-      'marina_skylar',
-      'npc',
-      () => {
-        const pos = new THREE.Vector3();
-        model.getWorldPosition(pos);
-        return { x: pos.x, z: pos.z };
-      }
-    );
 
   }, undefined, err => {
     console.error('[marina] Skylar NPC load failed:', err?.message ?? err);

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiveMap UI Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: monospace;
+      background: #1a1a1a;
+      color: #0f0;
+      overflow-x: hidden;
+    }
+    #canvas {
+      border: 2px solid #0f0;
+      display: block;
+      margin: 20px auto;
+    }
+    .controls {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #2a2a2a;
+      border-radius: 8px;
+      margin-bottom: 100px;
+    }
+    button {
+      background: #0a0;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      font-family: monospace;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #0f0;
+    }
+    .status {
+      margin: 10px 0;
+      padding: 10px;
+      background: #1a1a1a;
+      border-left: 3px solid #0f0;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #333;
+      border-radius: 4px;
+    }
+    h3 {
+      margin-top: 0;
+      color: #0ff;
+    }
+  </style>
+</head>
+<body>
+  <h1>🗺️ LiveMap UI Controls Test</h1>
+
+  <canvas id="canvas" width="800" height="600"></canvas>
+
+  <div class="controls">
+    <h2>Status</h2>
+    <div id="status" class="status">Initializing...</div>
+
+    <div class="section">
+      <h3>Setup & Initialization</h3>
+      <button onclick="setupLiveMap()">1. Setup LiveMap</button>
+      <button onclick="createUI()">2. Create UI</button>
+      <button onclick="testRemoveUI()">Remove UI</button>
+    </div>
+
+    <div class="section">
+      <h3>Online Count Tests</h3>
+      <button onclick="testUpdateCount(1)">1 online</button>
+      <button onclick="testUpdateCount(5)">5 online</button>
+      <button onclick="testUpdateCount(42)">42 online</button>
+      <button onclick="testUpdateCount(999)">999 online</button>
+    </div>
+
+    <div class="section">
+      <h3>Zoom Tests (via UI buttons)</h3>
+      <p style="color: #ff0;">Click the +/− buttons on the minimap in the bottom-right corner</p>
+      <button onclick="checkZoom()">Check Current Zoom Level</button>
+      <button onclick="resetZoom()">Reset Zoom to 1.0x</button>
+    </div>
+
+    <div class="section">
+      <h3>Rotation Tests (via UI button)</h3>
+      <p style="color: #ff0;">Click the 🧭 button on the minimap</p>
+      <button onclick="checkRotation()">Check Current Rotation Mode</button>
+      <button onclick="resetRotation()">Reset to Camera Mode</button>
+    </div>
+
+    <div class="section">
+      <h3>LocalStorage Persistence Tests</h3>
+      <button onclick="saveTestSettings()">Save Test Settings (zoom: 1.5, rotation: north)</button>
+      <button onclick="checkLocalStorage()">Check LocalStorage</button>
+      <button onclick="clearLocalStorage()">Clear LocalStorage</button>
+      <button onclick="reloadWithSettings()">Reload UI (should restore settings)</button>
+    </div>
+
+    <div class="section">
+      <h3>Visual Tests</h3>
+      <button onclick="testContainerSize()">Check Container Size (should be 360×360)</button>
+      <button onclick="testButtonSizes()">Check Button Sizes (should be 48×48)</button>
+      <button onclick="testCircularClip()">Check Circular Clipping</button>
+    </div>
+
+    <h2>Test Results</h2>
+    <div id="results" class="status"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from './node_modules/three/build/three.module.js';
+    import {
+      initLiveMap,
+      updateLiveMap,
+      setMapZoom,
+      setMapRotationMode,
+      getMapRotationMode,
+      getMapCanvas,
+      disposeLiveMap
+    } from './src/ui/liveMap.js';
+    import {
+      createLiveMapUI,
+      updateOnlineCount,
+      removeLiveMapUI
+    } from './src/ui/liveMapUI.js';
+
+    let scene, renderer, cube;
+    let playerPos = { x: 0, z: 0 };
+    let cameraYaw = 0;
+    let uiCreated = false;
+
+    function log(msg, isError = false) {
+      const status = document.getElementById('status');
+      const color = isError ? '#f00' : '#0f0';
+      status.style.borderLeftColor = color;
+      status.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${msg}`;
+      console.log(msg);
+    }
+
+    function addResult(msg, pass) {
+      const results = document.getElementById('results');
+      const icon = pass ? '✅' : '❌';
+      results.innerHTML += `${icon} ${msg}<br>`;
+    }
+
+    // Setup Three.js scene
+    function setupScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb);
+
+      const canvas = document.getElementById('canvas');
+      renderer = new THREE.WebGLRenderer({ canvas });
+      renderer.setSize(800, 600);
+
+      // Add a test cube
+      const geometry = new THREE.BoxGeometry(20, 20, 20);
+      const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      cube = new THREE.Mesh(geometry, material);
+      cube.position.set(50, 10, 30);
+      scene.add(cube);
+
+      // Add ground plane
+      const groundGeometry = new THREE.PlaneGeometry(400, 400);
+      const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x228b22 });
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+
+      // Add grid
+      const gridHelper = new THREE.GridHelper(400, 40);
+      scene.add(gridHelper);
+
+      log('Scene setup complete');
+    }
+
+    window.setupLiveMap = function() {
+      try {
+        const result = initLiveMap(scene, renderer);
+        if (result) {
+          addResult('initLiveMap() initialized', true);
+          log('✅ LiveMap initialized');
+
+          // Start update loop
+          updateLiveMap(playerPos, 0, [], cameraYaw);
+          addResult('updateLiveMap() first update called', true);
+        } else {
+          addResult('initLiveMap() failed', false);
+          log('❌ initLiveMap() FAILED', true);
+        }
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.createUI = function() {
+      try {
+        const canvas = getMapCanvas();
+        if (!canvas) {
+          addResult('getMapCanvas() returned null - run Setup first!', false);
+          log('❌ No canvas available - run Setup first!', true);
+          return;
+        }
+
+        const container = createLiveMapUI(canvas);
+        if (container) {
+          uiCreated = true;
+          addResult('createLiveMapUI() created container', true);
+          addResult(`Container ID: ${container.id}`, true);
+          log('✅ UI created - check bottom-right corner!');
+        } else {
+          addResult('createLiveMapUI() returned null', false);
+          log('❌ UI creation failed', true);
+        }
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testRemoveUI = function() {
+      try {
+        removeLiveMapUI();
+        uiCreated = false;
+        addResult('removeLiveMapUI() called', true);
+        log('✅ UI removed');
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testUpdateCount = function(count) {
+      try {
+        updateOnlineCount(count);
+        const display = document.getElementById('live-map-count');
+        const expected = `${count} online`;
+        const actual = display ? display.textContent : 'null';
+        const pass = actual === expected;
+        addResult(`updateOnlineCount(${count}) → "${actual}"`, pass);
+        log(pass ? `✅ Count updated to ${count}` : `❌ Expected "${expected}", got "${actual}"`, !pass);
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.checkZoom = function() {
+      try {
+        const saved = localStorage.getItem('liveMapZoom');
+        const msg = saved ? `Saved zoom: ${parseFloat(saved).toFixed(2)}x` : 'No saved zoom';
+        addResult(msg, !!saved);
+        log(msg);
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.resetZoom = function() {
+      try {
+        setMapZoom(1.0);
+        localStorage.setItem('liveMapZoom', '1.0');
+        addResult('Zoom reset to 1.0x', true);
+        log('✅ Zoom reset to 1.0x');
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.checkRotation = function() {
+      try {
+        const current = getMapRotationMode();
+        const saved = localStorage.getItem('liveMapRotation');
+        addResult(`Current mode: ${current}, Saved: ${saved || 'none'}`, true);
+        log(`Current rotation: ${current}`);
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.resetRotation = function() {
+      try {
+        setMapRotationMode('camera');
+        localStorage.setItem('liveMapRotation', 'camera');
+        addResult('Rotation reset to camera mode', true);
+        log('✅ Rotation reset to camera mode');
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.saveTestSettings = function() {
+      try {
+        localStorage.setItem('liveMapZoom', '1.5');
+        localStorage.setItem('liveMapRotation', 'north');
+        addResult('Saved: zoom=1.5, rotation=north', true);
+        log('✅ Test settings saved');
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.checkLocalStorage = function() {
+      try {
+        const zoom = localStorage.getItem('liveMapZoom');
+        const rotation = localStorage.getItem('liveMapRotation');
+        addResult(`LocalStorage: zoom=${zoom}, rotation=${rotation}`, true);
+        log(`LocalStorage: zoom=${zoom}, rotation=${rotation}`);
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.clearLocalStorage = function() {
+      try {
+        localStorage.removeItem('liveMapZoom');
+        localStorage.removeItem('liveMapRotation');
+        addResult('LocalStorage cleared', true);
+        log('✅ LocalStorage cleared');
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.reloadWithSettings = function() {
+      try {
+        if (!uiCreated) {
+          addResult('UI not created - create it first!', false);
+          log('❌ Create UI first!', true);
+          return;
+        }
+        testRemoveUI();
+        createUI();
+        addResult('UI reloaded - check if settings were restored', true);
+        log('✅ UI reloaded - settings should be restored');
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testContainerSize = function() {
+      try {
+        const container = document.getElementById('live-map-container');
+        if (!container) {
+          addResult('Container not found - create UI first!', false);
+          log('❌ Container not found', true);
+          return;
+        }
+        const rect = container.getBoundingClientRect();
+        const pass = rect.width === 360 && rect.height === 360;
+        addResult(`Container size: ${rect.width}×${rect.height}px (expected 360×360)`, pass);
+        log(pass ? '✅ Container size correct' : `❌ Wrong size: ${rect.width}×${rect.height}`, !pass);
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testButtonSizes = function() {
+      try {
+        const buttons = ['live-map-zoom-in', 'live-map-zoom-out', 'live-map-rotation-toggle'];
+        let allPass = true;
+        for (const id of buttons) {
+          const btn = document.getElementById(id);
+          if (!btn) {
+            addResult(`Button #${id} not found`, false);
+            allPass = false;
+            continue;
+          }
+          const rect = btn.getBoundingClientRect();
+          const pass = rect.width === 48 && rect.height === 48;
+          addResult(`#${id}: ${rect.width}×${rect.height}px (expected 48×48)`, pass);
+          if (!pass) allPass = false;
+        }
+        log(allPass ? '✅ All buttons correct size' : '❌ Some buttons wrong size', !allPass);
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    window.testCircularClip = function() {
+      try {
+        const container = document.getElementById('live-map-container');
+        if (!container) {
+          addResult('Container not found', false);
+          log('❌ Container not found', true);
+          return;
+        }
+        const style = getComputedStyle(container);
+        const pass = style.borderRadius === '50%' && style.overflow === 'hidden';
+        addResult(`borderRadius: ${style.borderRadius}, overflow: ${style.overflow}`, pass);
+        log(pass ? '✅ Circular clipping applied' : '❌ Circular clipping missing', !pass);
+      } catch (err) {
+        addResult(`Error: ${err.message}`, false);
+        log('❌ ERROR: ' + err.message, true);
+      }
+    };
+
+    // Auto-setup on load
+    setupScene();
+    log('Ready for testing. Follow the numbered steps in order.');
+  </script>
+</body>
+</html>

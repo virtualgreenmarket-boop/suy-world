@@ -1,5 +1,5 @@
 import { isChatOpen } from './chatUI.js';
-import { setMinimapRotationMode, getMinimapRotationMode } from './minimap.js';
+import { setMapRotationMode, getMapRotationMode } from './liveMap.js';
 
 const STORAGE_KEY = 'suy_settings';
 
@@ -939,7 +939,7 @@ function _minimapRotationRow() {
   });
   sel.addEventListener('change', () => {
     _settings.minimapRotation = sel.value;
-    setMinimapRotationMode(sel.value);
+    setMapRotationMode(sel.value);
     _save();
   });
   wrap.appendChild(sel);

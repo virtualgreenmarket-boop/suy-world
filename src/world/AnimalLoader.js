@@ -31,7 +31,7 @@
  */
 
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { isValidGrassPosition } from './mapZones.js';
 
 // ----------------------------------------------------------------
@@ -340,7 +340,7 @@ export class AnimalManager {
     this.basePath = opts.basePath;
     this.scene = opts.scene || null;
 
-    this.loader = new GLTFLoader();
+    this.loader = createGLTFLoader();
     this._gltfCache = new Map(); // species -> Promise<GLTF> (so repeated spawns reuse the parsed file)
     this.instances = new Map(); // id -> AnimalInstance
     this._nextId = 1;

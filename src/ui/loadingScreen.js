@@ -1,7 +1,7 @@
 // Loading Screen with REAL asset loading
 
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 
 let _loadingContainer = null;
 let _progressBar = null;
@@ -22,7 +22,7 @@ export function initLoadingScreen(onComplete) {
         left: 0;
         width: 100%;
         height: 100%;
-        background-image: url('/models/ui/pic/913ace22-ffad-4026-bfdd-4f53e9e272d2.webp');
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -142,7 +142,8 @@ export function initLoadingScreen(onComplete) {
 
 async function startRealLoading() {
   const loadingManager = new THREE.LoadingManager();
-  const managedLoader = new GLTFLoader(loadingManager);
+  const managedLoader = createGLTFLoader();
+  // Note: LoadingManager integration is handled internally by the loader
 
   try {
     updateProgress(5, 'Starting asset loading...');
@@ -164,12 +165,13 @@ async function startRealLoading() {
     }
 
     updateProgress(30, 'Loading environment models...');
-    // Preload trees
+    // Preload trees (both regular and plaza tree)
     try {
-      await managedLoader.loadAsync('/models/environment/trees/tree_1.glb');
+      const { preloadTrees } = await import('../world/trees.js');
+      await preloadTrees();
       console.log('[loading] ✅ Trees loaded');
     } catch (err) {
-      console.log('[loading] Trees not found (optional)');
+      console.log('[loading] Trees failed (optional):', err.message);
     }
 
     updateProgress(50, 'Loading NPCs...');
@@ -191,7 +193,7 @@ async function startRealLoading() {
       console.log('[loading] Furniture not found (optional)');
     }
 
-    updateProgress(80, 'Loading animals...');
+    updateProgress(60, 'Loading animals...');
     // Preload GLB animals
     const animalModels = [
       'Alpaca.gltf',
@@ -218,10 +220,62 @@ async function startRealLoading() {
       console.log('[loading] Animals failed (optional):', err.message);
     }
 
-    updateProgress(90, 'Preparing world...');
+    updateProgress(75, 'Loading character models...');
+    // Preload player character
+    try {
+      const { preloadPlayerCharacter } = await import('../player/playerCharacterLoader.js');
+      await preloadPlayerCharacter();
+      console.log('[loading] ✅ Character models loaded');
+    } catch (err) {
+      console.log('[loading] Character models failed (optional):', err.message);
+    }
 
-    // Small delay to show 90%
-    await new Promise(resolve => setTimeout(resolve, 300));
+    updateProgress(82, 'Loading building textures...');
+    // Preload hangar and marina textures
+    try {
+      await Promise.all([
+        textureLoader.loadAsync('textures/hangar-concrete-floor/Rock035_2K-JPG_Color.jpg').catch(() => null),
+        textureLoader.loadAsync('textures/hangar-concrete-floor/Rock035_2K-JPG_Roughness.jpg').catch(() => null),
+      ]);
+      console.log('[loading] ✅ Building textures loaded');
+    } catch (err) {
+      console.log('[loading] Building textures failed (optional):', err.message);
+    }
+
+    updateProgress(88, 'Loading characters...');
+    // Preload NPC characters
+    try {
+      await Promise.all([
+        managedLoader.loadAsync('/models/characters/Keren2.glb').catch(() => null),
+        managedLoader.loadAsync('/models/characters/ithappy/Sitting_Idle.glb').catch(() => null),
+        managedLoader.loadAsync('/models/characters/ithappy/Dancing.glb').catch(() => null),
+      ]);
+      console.log('[loading] ✅ NPC characters loaded');
+    } catch (err) {
+      console.log('[loading] NPC characters failed (optional):', err.message);
+    }
+
+    updateProgress(92, 'Loading buildings...');
+    // Preload marina house
+    try {
+      await managedLoader.loadAsync('/models/house/house.glb').catch(() => null);
+      console.log('[loading] ✅ Buildings loaded');
+    } catch (err) {
+      console.log('[loading] Buildings failed (optional):', err.message);
+    }
+
+    updateProgress(96, 'Loading UI assets...');
+    // Preload 3D coin model for HUD
+    try {
+      await managedLoader.loadAsync('/models/ui/coin.glb').catch(() => null);
+      console.log('[loading] ✅ UI assets loaded');
+    } catch (err) {
+      console.log('[loading] UI assets failed (optional):', err.message);
+    }
+
+    updateProgress(98, 'Finalizing...');
+    // Small delay to show progress
+    await new Promise(resolve => setTimeout(resolve, 150));
 
     updateProgress(100, 'Complete!');
 
