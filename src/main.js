@@ -36,7 +36,7 @@ import { preloadAllNpcs }                  from './world/npcGlb.js';
 import { initAnimalSystem, updateAnimalSystem } from './world/AnimalSystem.js';
 import { initPetSystem, updatePet } from './world/PetSystem.js';
 import { AnimalManager } from './world/AnimalLoader.js';
-import { initRoamingNPCs, updateRoamingNPCs } from './world/roamingNPCs.js';
+import { initRoamingNPCs, updateRoamingNPCs, getRoamingNPCs } from './world/roamingNPCs.js';
 
 import { initHud, updateOnlineCount, updateCoinDisplay } from './ui/hud.js';
 import { initLeveling, awardStepEXP } from './systems/leveling.js';
@@ -70,6 +70,22 @@ function getRemotePlayersData() {
     }
   }
   return remotePlayers;
+}
+
+// ── Helper: Extract NPC data for live map ─────────────────────────────
+function getNPCsData() {
+  const npcs = [];
+  const roamingNPCs = getRoamingNPCs();
+  for (const npc of roamingNPCs) {
+    if (npc.group && npc.group.position) {
+      npcs.push({
+        name: npc.name,
+        x: npc.group.position.x,
+        z: npc.group.position.z
+      });
+    }
+  }
+  return npcs;
 }
 
 // ── HMR cleanup ───────────────────────────────────────────────────────
@@ -269,7 +285,8 @@ if (liveMapCanvas) {
     if (e.key === 'm' || e.key === 'M') {
       const playerPos = getLocalPlayerPosition();
       const remotePlayers = getRemotePlayersData();
-      openFullscreenMap(scene, renderer, playerPos, remotePlayers, getMapPin, setMapPin);
+      const npcs = getNPCsData();
+      openFullscreenMap(scene, renderer, playerPos, remotePlayers, getMapPin, setMapPin, npcs);
     }
   });
 } else {
@@ -583,8 +600,9 @@ function animate() {
   if (playerPos) {
     const playerRotY = getLocalPlayerRotY();
     const remotePlayers = getRemotePlayersData();
+    const npcs = getNPCsData();
     const cameraYaw = getCameraYaw();
-    updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw);
+    updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
 
     // Island decor & life updates (after playerPos is defined)
     try {

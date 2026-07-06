@@ -192,15 +192,27 @@ function _injectStyles() {
       height: ${MINIMAP_SIZE}px;
       border-radius: 50%;
       overflow: visible;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      background: rgba(20, 25, 30, 0.9);
+      /* Tropical subtle design - warm wood border with golden gradient */
+      border: 4px solid;
+      border-image: linear-gradient(135deg, #8B6F47 0%, #D4AF37 50%, #8B6F47 100%) 1;
+      border-radius: 50%;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 0 20px rgba(139, 111, 71, 0.15),
+        0 0 40px rgba(212, 175, 55, 0.1);
+      background: rgba(15, 20, 25, 0.75);
+      backdrop-filter: blur(8px);
       cursor: pointer;
       z-index: 9999;
-      transition: transform 0.2s ease;
+      transition: all 0.3s ease;
     }
 
     #live-map-container:hover {
-      transform: scale(1.02);
+      transform: scale(1.03);
+      box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.4),
+        inset 0 0 25px rgba(139, 111, 71, 0.2),
+        0 0 50px rgba(212, 175, 55, 0.15);
     }
 
     #live-map-canvas {
@@ -214,13 +226,16 @@ function _injectStyles() {
       position: absolute;
       top: 10px;
       left: 10px;
-      color: white;
-      font-size: 14px;
-      font-weight: bold;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      color: #F5E6D3;
+      font-size: 13px;
+      font-weight: 600;
+      text-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.6),
+        0 0 8px rgba(139, 111, 71, 0.4);
       pointer-events: none;
       z-index: 1001;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.3px;
     }
 
     #live-map-zoom-in,
@@ -228,71 +243,81 @@ function _injectStyles() {
       position: absolute;
       bottom: 10px;
       left: 10px;
-      width: 48px;
-      height: 48px;
-      background: rgba(0, 0, 0, 0.85);
-      border: 2px solid rgba(255,255,255,0.8);
-      border-radius: 8px;
-      color: white;
-      font-size: 28px;
-      font-weight: bold;
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, rgba(139, 111, 71, 0.9) 0%, rgba(101, 83, 56, 0.9) 100%);
+      border: 2px solid rgba(212, 175, 55, 0.6);
+      border-radius: 50%;
+      color: #F5E6D3;
+      font-size: 22px;
+      font-weight: 600;
       cursor: pointer;
       z-index: 10001;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
-      transition: all 0.2s ease;
+      transition: all 0.25s ease;
       user-select: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      box-shadow:
+        0 3px 12px rgba(0, 0, 0, 0.4),
+        inset 0 1px 2px rgba(255, 255, 255, 0.15);
     }
 
     #live-map-zoom-out {
-      bottom: 64px;
+      bottom: 56px;
     }
 
     #live-map-zoom-in:hover,
     #live-map-zoom-out:hover {
-      background: rgba(255, 255, 255, 0.95);
-      color: black;
-      border-color: white;
-      transform: scale(1.1);
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%);
+      color: #1a1410;
+      border-color: rgba(212, 175, 55, 0.9);
+      transform: scale(1.08);
+      box-shadow:
+        0 4px 16px rgba(212, 175, 55, 0.3),
+        inset 0 1px 3px rgba(255, 255, 255, 0.25);
     }
 
     #live-map-zoom-in:active,
     #live-map-zoom-out:active {
-      transform: scale(0.95);
+      transform: scale(0.96);
     }
 
     #live-map-rotation-toggle {
       position: absolute;
       top: 10px;
       right: 10px;
-      width: 48px;
-      height: 48px;
-      background: rgba(0, 0, 0, 0.85);
-      border: 2px solid rgba(255,255,255,0.8);
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, rgba(139, 111, 71, 0.9) 0%, rgba(101, 83, 56, 0.9) 100%);
+      border: 2px solid rgba(212, 175, 55, 0.6);
       border-radius: 50%;
-      font-size: 24px;
+      font-size: 22px;
       cursor: pointer;
       z-index: 10001;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
-      transition: all 0.2s ease;
+      transition: all 0.25s ease;
       user-select: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      box-shadow:
+        0 3px 12px rgba(0, 0, 0, 0.4),
+        inset 0 1px 2px rgba(255, 255, 255, 0.15);
     }
 
     #live-map-rotation-toggle:hover {
-      background: rgba(255, 255, 255, 0.95);
-      border-color: white;
-      transform: scale(1.1);
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%);
+      border-color: rgba(212, 175, 55, 0.9);
+      transform: scale(1.08) rotate(15deg);
+      box-shadow:
+        0 4px 16px rgba(212, 175, 55, 0.3),
+        inset 0 1px 3px rgba(255, 255, 255, 0.25);
     }
 
     #live-map-rotation-toggle:active {
-      transform: scale(0.95);
+      transform: scale(0.96);
     }
 
     /* Mobile-friendly adjustments */

@@ -9,10 +9,11 @@ let _scene = null;
 let _renderer = null;
 let _playerPos = null;
 let _remotePlayers = [];
+let _npcs = [];
 let _getPin = null;
 let _setPin = null;
 
-export function openFullscreenMap(scene, renderer, playerPos, remotePlayers, getPin, setPin) {
+export function openFullscreenMap(scene, renderer, playerPos, remotePlayers, getPin, setPin, npcs = []) {
   if (_overlay) {
     console.warn('[liveMapFullscreen] Already open');
     return;
@@ -22,6 +23,7 @@ export function openFullscreenMap(scene, renderer, playerPos, remotePlayers, get
   _renderer = renderer;
   _playerPos = playerPos;
   _remotePlayers = remotePlayers;
+  _npcs = npcs;
   _getPin = getPin;
   _setPin = setPin;
 
@@ -231,6 +233,23 @@ function _drawMarkers() {
   _ctx.strokeStyle = '#ffffff';
   _ctx.lineWidth = 2 * scale;
   _ctx.stroke();
+
+  // NPCs (draw first, under players)
+  for (const npc of _npcs) {
+    const screenX = centerX + (npc.x / worldRadius) * centerX;
+    const screenY = centerY + (npc.z / worldRadius) * centerY;
+
+    const dist = Math.hypot(screenX - centerX, screenY - centerY);
+    if (dist > centerX) continue;
+
+    _ctx.beginPath();
+    _ctx.arc(screenX, screenY, 4 * scale, 0, Math.PI * 2);
+    _ctx.fillStyle = '#FFB74D'; // Warm orange
+    _ctx.fill();
+    _ctx.strokeStyle = '#FFF3E0'; // Light cream
+    _ctx.lineWidth = 1.5 * scale;
+    _ctx.stroke();
+  }
 
   // Remote players
   const colors = ['#FF5252', '#FFEB3B', '#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#00BCD4', '#E91E63'];

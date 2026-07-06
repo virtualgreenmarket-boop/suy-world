@@ -154,8 +154,9 @@ function _drawPin(playerPos, worldRadius) {
  * @param {Object} playerPos - Player position {x, z}
  * @param {number} playerRotY - Player rotation in radians
  * @param {Array} remotePlayers - Array of remote player data [{id, x, z}, ...]
+ * @param {Array} npcs - Array of NPC data [{x, z, name}, ...]
  */
-function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers) {
+function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers, npcs = []) {
   const scale = 2;
   const centerX = _canvas.width / 2;
   const centerY = _canvas.height / 2;
@@ -171,6 +172,23 @@ function _drawPlayerMarkers(playerPos, playerRotY, remotePlayers) {
       }))
       .sort((a, b) => a.dist - b.dist)
       .slice(0, MAX_VISIBLE_PLAYERS);
+  }
+
+  // NPCs (yellow-orange markers)
+  for (const npc of npcs) {
+    const screen = _worldToScreen(npc.x, npc.z, playerPos, worldRadius);
+
+    // Clip to circle
+    const dist = Math.hypot(screen.x - centerX, screen.y - centerY);
+    if (dist > centerX) continue;
+
+    _ctx.beginPath();
+    _ctx.arc(screen.x, screen.y, 5 * scale, 0, Math.PI * 2);
+    _ctx.fillStyle = '#FFB74D'; // Warm orange
+    _ctx.fill();
+    _ctx.strokeStyle = '#FFF3E0'; // Light cream border
+    _ctx.lineWidth = 1.5 * scale;
+    _ctx.stroke();
   }
 
   // Local player (blue circle + arrow)
@@ -318,8 +336,9 @@ export function initLiveMap(scene, renderer) {
  * @param {number} playerRotY - Player rotation (radians, Y-axis)
  * @param {Array} remotePlayers - Array of remote player data
  * @param {number} cameraYaw - Camera yaw angle (radians)
+ * @param {Array} npcs - Array of NPC data [{x, z, name}, ...]
  */
-export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
+export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs = []) {
   if (!_isInitialized || !playerPos || !_mapCamera || !_mapRenderTarget) {
     if (!_isInitialized) {
       console.warn('[liveMap] updateLiveMap called before initialization');
@@ -388,8 +407,8 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw) {
   // Copy render target to canvas
   _copyRenderTargetToCanvas();
 
-  // Draw player markers
-  _drawPlayerMarkers(playerPos, playerRotY, remotePlayers || []);
+  // Draw player markers and NPCs
+  _drawPlayerMarkers(playerPos, playerRotY, remotePlayers || [], npcs);
 
   // Draw pin
   _drawPin(playerPos, worldRadius);
