@@ -4,7 +4,7 @@ import { setMapZoom, setMapRotationMode, getMapRotationMode } from './liveMap.js
 
 let _container = null;
 let _countDisplay = null;
-let _zoomLevel = 1.0;
+let _zoomLevel = 0.6; // Default closer zoom to see more details
 let _onFullscreenRequest = null; // Callback when user clicks to open fullscreen
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -198,11 +198,11 @@ function _injectStyles() {
       width: ${MINIMAP_SIZE}px;
       height: ${MINIMAP_SIZE}px;
       border-radius: 50%;
-      overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      background: rgba(20, 25, 30, 0.9);
+      overflow: visible;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6), 0 0 0 3px rgba(255,255,255,0.2);
+      background: rgba(20, 25, 30, 0.95);
       cursor: pointer;
-      z-index: 1000;
+      z-index: 9999;
       transition: transform 0.2s ease;
     }
 
@@ -214,6 +214,8 @@ function _injectStyles() {
       display: block;
       width: 100%;
       height: 100%;
+      border-radius: 50%;
+      filter: brightness(1.2) contrast(1.1) saturate(1.3);
     }
 
     #live-map-count {
@@ -236,20 +238,21 @@ function _injectStyles() {
       left: 10px;
       width: 48px;
       height: 48px;
-      background: rgba(30, 35, 40, 0.9);
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px solid rgba(255,255,255,0.8);
+      border-radius: 8px;
       color: white;
-      font-size: 24px;
+      font-size: 28px;
       font-weight: bold;
       cursor: pointer;
-      z-index: 1001;
+      z-index: 10001;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
       transition: all 0.2s ease;
       user-select: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     }
 
     #live-map-zoom-out {
@@ -258,8 +261,9 @@ function _injectStyles() {
 
     #live-map-zoom-in:hover,
     #live-map-zoom-out:hover {
-      background: rgba(40, 45, 50, 0.95);
-      border-color: rgba(255,255,255,0.5);
+      background: rgba(255, 255, 255, 0.95);
+      color: black;
+      border-color: white;
       transform: scale(1.1);
     }
 
@@ -271,26 +275,27 @@ function _injectStyles() {
     #live-map-rotation-toggle {
       position: absolute;
       top: 10px;
-      right: 50px;
+      right: 60px;
       width: 48px;
       height: 48px;
-      background: rgba(30, 35, 40, 0.9);
-      border: 2px solid rgba(255,255,255,0.3);
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px solid rgba(255,255,255,0.8);
       border-radius: 50%;
-      font-size: 20px;
+      font-size: 24px;
       cursor: pointer;
-      z-index: 1001;
+      z-index: 10001;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
       transition: all 0.2s ease;
       user-select: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     }
 
     #live-map-rotation-toggle:hover {
-      background: rgba(40, 45, 50, 0.95);
-      border-color: rgba(255,255,255,0.5);
+      background: rgba(255, 255, 255, 0.95);
+      border-color: white;
       transform: scale(1.1);
     }
 
@@ -304,18 +309,19 @@ function _injectStyles() {
       right: 10px;
       width: 48px;
       height: 48px;
-      background: rgba(30, 35, 40, 0.9);
-      border: 2px solid rgba(255,255,255,0.3);
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px solid rgba(255,255,255,0.8);
       border-radius: 50%;
-      font-size: 20px;
+      font-size: 24px;
       cursor: pointer;
-      z-index: 1001;
+      z-index: 10001;
       transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     }
 
     #live-map-settings:hover {
-      background: rgba(40, 45, 50, 0.95);
-      border-color: rgba(255,255,255,0.5);
+      background: rgba(255, 255, 255, 0.95);
+      border-color: white;
       transform: scale(1.1);
     }
 
