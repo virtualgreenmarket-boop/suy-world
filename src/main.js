@@ -248,19 +248,17 @@ initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
 initLighthouse(scene);
 
-// Initialize fishing spots
+// Initialize fishing system
 try {
   initFishingSpots(scene);
 
-  // Register fishing spot interactions
-  FISHING_SPOTS.forEach((spot, index) => {
-    registerInteraction([spot.x, spot.y + 1, spot.z], 'לדוג 🎣', 3, () => {
-      const playerPos = getLocalPlayerPosition();
-      if (playerPos) {
-        tryStartFishing(index, scene, playerPos);
-      }
-    });
-  });
+  // Global function for marina alcoves to call
+  window.startFishingFromAlcove = (alcoveIndex) => {
+    const playerPos = getLocalPlayerPosition();
+    if (playerPos) {
+      tryStartFishing(alcoveIndex, scene, playerPos);
+    }
+  };
 
   // Register space key for pulling rod
   window.addEventListener('keydown', (e) => {
@@ -269,7 +267,7 @@ try {
     }
   });
 
-  console.log('[main] Fishing spots initialized');
+  console.log('[main] Fishing system initialized with', FISHING_SPOTS.length, 'alcove spots');
 } catch (err) {
   if (!window._fishingSpotsError) {
     console.error('[main] Fishing spots init error:', err);

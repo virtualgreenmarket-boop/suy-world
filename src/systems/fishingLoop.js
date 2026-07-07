@@ -18,13 +18,17 @@ import {
 import { showFishingMeter, hideFishingMeter, showCatchScreen, showEscapeScreen } from '../ui/fishingUI.js';
 import { getSocket } from './multiplayer.js';
 
-// ── Fishing Spots (4 locations on marina dock) ────────────────────────
+// ── Fishing Spots (6 alcoves on marina pier) ──────────────────────────
+// Positions match the black square fishing alcoves
+// North side (worldZ≈+24), South side (worldZ≈-24)
 
 export const FISHING_SPOTS = [
-  { x: -325, y: 3.5, z: -8, name: 'Marina North' },
-  { x: -325, y: 3.5, z: -4, name: 'Marina Center-North' },
-  { x: -325, y: 3.5, z: 4, name: 'Marina Center-South' },
-  { x: -325, y: 3.5, z: 8, name: 'Marina South' }
+  { x: -397.9, y: 0.9, z: 24.0, name: 'North Alcove 1' },
+  { x: -383.9, y: 0.9, z: 24.0, name: 'North Alcove 2' },
+  { x: -369.9, y: 0.9, z: 24.0, name: 'North Alcove 3' },
+  { x: -397.9, y: 0.9, z: -24.0, name: 'South Alcove 1' },
+  { x: -383.9, y: 0.9, z: -24.0, name: 'South Alcove 2' },
+  { x: -369.9, y: 0.9, z: -24.0, name: 'South Alcove 3' }
 ];
 
 // ── Visual Elements ───────────────────────────────────────────────────
@@ -46,29 +50,9 @@ let _biteEffects = [];
 
 export function initFishingSpots(scene) {
   try {
-    // Create spot markers (simple glowing rings on water)
-    FISHING_SPOTS.forEach((spot, index) => {
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.8, 1.0, 32),
-        new THREE.MeshBasicMaterial({
-          color: 0x4DD0E1,
-          transparent: true,
-          opacity: 0.4,
-          side: THREE.DoubleSide
-        })
-      );
-      ring.position.set(spot.x, spot.y - 3, spot.z); // Below water surface
-      ring.rotation.x = -Math.PI / 2;
-      ring.userData.fishingSpot = true;
-      ring.userData.spotIndex = index;
-      scene.add(ring);
-      _spotMarkers.push(ring);
-
-      // Pulse animation
-      ring.userData.pulseTime = Math.random() * Math.PI * 2;
-    });
-
-    console.log('[fishingLoop] Initialized', FISHING_SPOTS.length, 'fishing spots');
+    // Fishing spots are now integrated with marina alcoves
+    // No visual markers needed - the black squares serve as markers
+    console.log('[fishingLoop] Initialized', FISHING_SPOTS.length, 'fishing spots (marina alcoves)');
   } catch (err) {
     console.error('[fishingLoop] Init error:', err);
   }
@@ -76,12 +60,7 @@ export function initFishingSpots(scene) {
 
 export function updateFishingSpots(delta) {
   try {
-    // Animate spot markers
-    _spotMarkers.forEach(marker => {
-      marker.userData.pulseTime += delta * 2;
-      const pulse = 0.4 + Math.sin(marker.userData.pulseTime) * 0.2;
-      marker.material.opacity = pulse;
-    });
+    // No visual markers to animate - alcoves are static
 
     // Update fishing state
     if (_fishingState === 'casting') {

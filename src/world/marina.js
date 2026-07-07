@@ -463,9 +463,9 @@ function addFishingPier(group) {
       const worldY = PIER_Y + 0.5;
 
       registerInteraction([worldX, worldY, worldZ], 'עמדת דייג 🎣', 2.5, () => {
-        // TODO: Start fishing from this alcove
-        if (window.showTemporaryMessage) {
-          window.showTemporaryMessage('עמדת דיג - בקרוב!');
+        // Start fishing from this alcove
+        if (window.startFishingFromAlcove) {
+          window.startFishingFromAlcove(index);
         }
       });
     });
