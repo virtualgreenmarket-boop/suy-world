@@ -449,8 +449,11 @@ function _loadFishermanNpc(group) {
     const worldPos = new THREE.Vector3();
     model.getWorldPosition(worldPos);
 
-    registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'Talk', 3, () => {
-      showNpcDialog(['ברוך הבא למרינה'], 'הדייג');
+    registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'חנות דיג 🎣', 3, () => {
+      // Open fisherman shop
+      if (window.openFishermanShop) {
+        window.openFishermanShop();
+      }
     });
 
   }, undefined, err => {

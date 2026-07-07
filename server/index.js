@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { state } from './gameState.js';
 import { MAX_PLAYERS, SPAWN } from './constants.js';
-import { getOrCreatePlayer, adjustCoins } from './db.js';
+import { getOrCreatePlayer, adjustCoins, getCoins, db } from './db.js';
+import { initFishing } from './fishing.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT   = process.env.PORT || 3001;
@@ -92,6 +93,9 @@ io.on('connection', socket => {
 
   console.log(`[+] ${name} joined (${Object.keys(state.players).length} online)`);
 });
+
+// Initialize fishing system
+initFishing(io, db, getCoins, adjustCoins);
 
 httpServer.listen(PORT, () =>
   console.log(`SUY WORLD server :${PORT}  [${isProd ? 'production' : 'development'}]`)

@@ -24,6 +24,8 @@ import { initEconomy }      from './systems/economy.js';
 import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision, clearAllBoxes } from './systems/collision.js';
+import { initFishingSystem, setPlayerInventory } from './systems/fishing.js';
+import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
 import { initLoadingScreen } from './ui/loadingScreen.js';
@@ -427,6 +429,25 @@ preloadPlayerCharacter(selectedCharacterId)
       initLocalPlayer(scene, camera, username || name, selectedCharacterId);
       initEconomy(getSocket(), coins, updateCoinDisplay);
 
+      // Initialize fishing system
+      try {
+        initFishingSystem();
+        initFishermanShop(getSocket(), updateCoinDisplay);
+        window.openFishermanShop = openFishermanShop;
+
+        // Load fishing data from server
+        getSocket().emit('loadFishingData');
+        getSocket().on('fishingDataLoaded', (data) => {
+          setPlayerInventory(data);
+          console.log('[main] Fishing data loaded:', data);
+        });
+      } catch (err) {
+        if (!window._fishingInitError) {
+          console.error('[main] Fishing init error:', err);
+          window._fishingInitError = true;
+        }
+      }
+
       // Initialize inventory button after player is ready
       initInventoryButton();
 
@@ -453,6 +474,23 @@ preloadPlayerCharacter(selectedCharacterId)
       const username = getUsername();
       initLocalPlayer(scene, camera, username || name, selectedCharacterId);
       initEconomy(getSocket(), coins, updateCoinDisplay);
+
+      // Initialize fishing system
+      try {
+        initFishingSystem();
+        initFishermanShop(getSocket(), updateCoinDisplay);
+        window.openFishermanShop = openFishermanShop;
+        getSocket().emit('loadFishingData');
+        getSocket().on('fishingDataLoaded', (data) => {
+          setPlayerInventory(data);
+        });
+      } catch (err) {
+        if (!window._fishingInitError) {
+          console.error('[main] Fishing init error:', err);
+          window._fishingInitError = true;
+        }
+      }
+
       initInventoryButton();
 
       // Initialize animal system (needs to be after player initialization)
