@@ -428,19 +428,50 @@ function addFishingPier(group) {
   }
 
   // ── Side fishing alcoves — multiple along each side ──────────────────
+  const alcoveWorldPositions = []; // Store for interaction registration
+
   [-PIER_W / 2 - 1.5, PIER_W / 2 + 1.5].forEach(ax => {
     for (let az = PIER_CZ - PIER_LEN * 0.35; az <= PIER_CZ + PIER_LEN * 0.2; az += 14) {
+      // Platform (walkable)
       const alc = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.35, 2.5),
         woodMat(1.5, 1.0));
       alc.position.set(ax, PIER_Y + 0.175, az);
       alc.castShadow = alc.receiveShadow = true;
       group.add(alc);
+      registerGround(alc); // Make walkable
+
+      // Black spot (visual marker)
       const alcSpot = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.06, 2.0), spotMat);
       alcSpot.position.set(ax, PIER_Y + 0.39, az);
       alcSpot.userData.isFishingSpot = true;
       group.add(alcSpot);
+
+      // Store world position for interaction (will register after group is added to scene)
+      alcoveWorldPositions.push({ localX: ax, localZ: az });
     }
   });
+
+  // Register interactions after group is added to scene
+  setTimeout(() => {
+    group.updateWorldMatrix(true, true);
+    const GROUP_X = -325.2;
+
+    alcoveWorldPositions.forEach(({ localX, localZ }, index) => {
+      // Transform: worldX = GROUP_X + localZ, worldZ = -localX
+      const worldX = GROUP_X + localZ;
+      const worldZ = -localX;
+      const worldY = PIER_Y + 0.5;
+
+      registerInteraction([worldX, worldY, worldZ], 'עמדת דייג 🎣', 2.5, () => {
+        // TODO: Start fishing from this alcove
+        if (window.showTemporaryMessage) {
+          window.showTemporaryMessage('עמדת דיג - בקרוב!');
+        }
+      });
+    });
+
+    console.log(`[marina] Registered ${alcoveWorldPositions.length} fishing alcove interactions`);
+  }, 100);
 }
 
 // ── Deck collision (world-space AABBs) ───────────────────────────────
