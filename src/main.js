@@ -26,7 +26,7 @@ import { updateStores }     from './systems/stores.js';
 import { initCollision, clearAllBoxes } from './systems/collision.js';
 import { initFishingSystem, setPlayerInventory } from './systems/fishing.js';
 import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
-import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod } from './systems/fishingLoop.js';
+import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod, FISHING_SPOTS } from './systems/fishingLoop.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
 import { initLoadingScreen } from './ui/loadingScreen.js';
@@ -253,7 +253,6 @@ try {
   initFishingSpots(scene);
 
   // Register fishing spot interactions
-  const { FISHING_SPOTS } = await import('./systems/fishingLoop.js');
   FISHING_SPOTS.forEach((spot, index) => {
     registerInteraction([spot.x, spot.y + 1, spot.z], 'לדוג 🎣', 3, () => {
       const playerPos = getLocalPlayerPosition();
