@@ -167,6 +167,42 @@ export function getRarityMaxForRod(rodId) {
   return rod ? rod.maxRarity : 'common';
 }
 
+// ── Active Fishing State ──────────────────────────────────────────────
+
+let _activeFishing = false;
+let _currentBait = null;
+
+export function startFishing(baitId) {
+  if (_activeFishing) return false;
+  if (!hasBait(baitId)) return false;
+
+  _activeFishing = true;
+  _currentBait = baitId;
+  return true;
+}
+
+export function endFishing() {
+  _activeFishing = false;
+  _currentBait = null;
+}
+
+export function isActiveFishing() {
+  return _activeFishing;
+}
+
+export function getCurrentBait() {
+  return _currentBait;
+}
+
+export function consumeCurrentBait() {
+  if (!_currentBait) return;
+
+  // Decrease bait count locally
+  if (_playerInventory.baits[_currentBait] > 0) {
+    _playerInventory.baits[_currentBait]--;
+  }
+}
+
 // ── Initialization ────────────────────────────────────────────────────
 
 export function initFishingSystem() {

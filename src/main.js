@@ -26,6 +26,7 @@ import { updateStores }     from './systems/stores.js';
 import { initCollision, clearAllBoxes } from './systems/collision.js';
 import { initFishingSystem, setPlayerInventory } from './systems/fishing.js';
 import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
+import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod } from './systems/fishingLoop.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
 import { initLoadingScreen } from './ui/loadingScreen.js';
@@ -48,9 +49,9 @@ import { initLevelDisplay } from './ui/levelDisplay.js';
 let _lastPlayerPosition = null;
 let _totalStepsThisSession = 0;
 import { initShopUI } from './ui/ShopUI.js';
-import { initChatUI, bindSendChat, updateBubbles }       from './ui/chatUI.js';
+import { initChatUI, bindSendChat, updateBubbles, isChatOpen }       from './ui/chatUI.js';
 import { initTouchControls }                             from './ui/touchControls.js';
-import { initInteractionUI, updateInteractions }         from './ui/interactionUI.js';
+import { initInteractionUI, updateInteractions, registerInteraction }         from './ui/interactionUI.js';
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
@@ -246,6 +247,36 @@ clearAllBoxes(); // Clear any phantom collision boxes from previous builds
 initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
 initLighthouse(scene);
+
+// Initialize fishing spots
+try {
+  initFishingSpots(scene);
+
+  // Register fishing spot interactions
+  const { FISHING_SPOTS } = await import('./systems/fishingLoop.js');
+  FISHING_SPOTS.forEach((spot, index) => {
+    registerInteraction([spot.x, spot.y + 1, spot.z], 'לדוג 🎣', 3, () => {
+      const playerPos = getLocalPlayerPosition();
+      if (playerPos) {
+        tryStartFishing(index, scene, playerPos);
+      }
+    });
+  });
+
+  // Register space key for pulling rod
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !isChatOpen()) {
+      pullRod(scene);
+    }
+  });
+
+  console.log('[main] Fishing spots initialized');
+} catch (err) {
+  if (!window._fishingSpotsError) {
+    console.error('[main] Fishing spots init error:', err);
+    window._fishingSpotsError = true;
+  }
+}
 
 // Island decor & life initialization (optional features, don't block startup)
 try {
@@ -587,6 +618,16 @@ function animate() {
   }
   if (animalManager) {
     animalManager.update(delta);
+  }
+
+  // Update fishing system
+  try {
+    updateFishingSpots(delta);
+  } catch (err) {
+    if (!window._fishingUpdateError2) {
+      console.error('[main] Fishing update error:', err);
+      window._fishingUpdateError2 = true;
+    }
   }
 
   // Procedural NPC animations (wave / spin / dance)
