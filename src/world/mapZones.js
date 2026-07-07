@@ -4,6 +4,8 @@
  * Zones match the actual asymmetric ellipse island geometry from island.js.
  */
 
+import { HANGAR_CONFIGS, HANGAR_DIMS } from './hangars.js';
+
 // Island shape parameters (from island.js)
 const EAST_EXPANSION = 1.4;        // East side expands 40%
 const NORTH_SOUTH_EXPANSION = 2.38; // North/South expands 138%
@@ -16,17 +18,37 @@ const BEACH_OUTER_RADIUS = 350;     // FIXED: Matches island.js sandMesh outer (
 const SHALLOW_WATER_INNER_RADIUS = BEACH_OUTER_RADIUS;
 const SHALLOW_WATER_OUTER_RADIUS = 500; // Reasonable shallow water extent (increased from 450)
 
-// Obstacle avoidance zones (buildings, paths, etc.)
+// Obstacle avoidance zones (buildings, paths, etc.) — hangars use an exact
+// rotated-rectangle footprint check (see isInHangarFootprint) since their
+// 190×143.85 m rectangular footprint is not well approximated by a circle.
 const AVOID_ZONES = [
-  // Hangars
-  { x: 0, z: -162.6, radius: 62, name: 'North Hangar' },
-  { x: 162.6, z: 0, radius: 62, name: 'East Hangar' },
-  { x: 0, z: 162.6, radius: 62, name: 'South Hangar' },
   // Marina
   { x: -230, z: 0, radius: 140, name: 'Marina' },
   // Plaza center
   { x: 0, z: 0, radius: 54, name: 'Plaza' },
 ];
+
+// Small buffer beyond the hangar walls so trees/plants don't spawn flush
+// against (or clipping into) the entrance columns.
+const HANGAR_FOOTPRINT_MARGIN = 3;
+
+/**
+ * Tests if (x, z) falls inside any hangar's rectangular footprint,
+ * accounting for each hangar's rotation.
+ */
+function isInHangarFootprint(x, z) {
+  return HANGAR_CONFIGS.some((cfg, i) => {
+    const { W, D } = HANGAR_DIMS[i];
+    const dx = x - cfg.x;
+    const dz = z - cfg.z;
+    const cos = Math.cos(-cfg.rotY);
+    const sin = Math.sin(-cfg.rotY);
+    const localX = dx * cos - dz * sin;
+    const localZ = dx * sin + dz * cos;
+    return Math.abs(localX) <= W / 2 + HANGAR_FOOTPRINT_MARGIN
+        && Math.abs(localZ) <= D / 2 + HANGAR_FOOTPRINT_MARGIN;
+  });
+}
 
 /**
  * Tests if a point (x, z) is inside the asymmetric ellipse island.
@@ -67,6 +89,8 @@ function isOnPath(x, z) {
  * Tests if a point overlaps with any avoided zone (buildings, etc.).
  */
 function isInAvoidZone(x, z) {
+  if (isInHangarFootprint(x, z)) return true;
+
   return AVOID_ZONES.some(zone => {
     const dist = Math.hypot(zone.x - x, zone.z - z);
     return dist < zone.radius;

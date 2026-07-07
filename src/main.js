@@ -415,59 +415,52 @@ preloadTrees().then(() => {
 
 // Preload selected character (no GLB loading, just store the type)
 console.log('[main] 📥 Loading character...');
+
+// The multiplayer socket can reconnect after the initial handshake (dev-server
+// hiccups, brief network drops, etc.), and the server re-sends 'init' on every
+// new connection. Without this guard, each reconnect re-ran initLocalPlayer(),
+// spawning a brand-new duplicate character group stacked on top of the old one
+// (never removed) — the overlapping meshes is what made the player's clothes
+// look wrong/disappeared. Local player + inventory must only be set up once.
+let _playerInitialized = false;
+function onMultiplayerReady({ name, coins }) {
+  if (_playerInitialized) return;
+  _playerInitialized = true;
+
+  const username = getUsername();
+  console.log(`[main] 🎮 Initializing local player with character ${selectedCharacterId}`);
+  initLocalPlayer(scene, camera, username || name, selectedCharacterId);
+  initEconomy(getSocket(), coins, updateCoinDisplay);
+
+  // Initialize inventory button after player is ready
+  initInventoryButton();
+
+  // Initialize animal system (needs to be after player initialization to get playerGroup)
+  // Wait a bit for player to spawn
+  setTimeout(() => {
+    const playerGroup = scene.children.find(c => c.userData._charModel);
+    if (playerGroup) {
+      const animalSys = initAnimalSystem(scene, playerGroup);
+      // Expose player group globally for shop and pet systems
+      window._localPlayerGroup = playerGroup;
+
+      // Initialize roaming NPCs after animals are ready
+      initRoamingNPCs(scene, animalSys);
+    }
+  }, 1000);
+}
+
 preloadPlayerCharacter(selectedCharacterId)
   .then(() => {
     console.log('[main] ✅ Character loaded!');
-
     initRemotePlayers(scene);
-
-    initMultiplayer(({ name, coins }) => {
-      const username = getUsername();
-      console.log(`[main] 🎮 Initializing local player with character ${selectedCharacterId}`);
-      initLocalPlayer(scene, camera, username || name, selectedCharacterId);
-      initEconomy(getSocket(), coins, updateCoinDisplay);
-
-      // Initialize inventory button after player is ready
-      initInventoryButton();
-
-      // Initialize animal system (needs to be after player initialization to get playerGroup)
-      // Wait a bit for player to spawn
-      setTimeout(() => {
-        const playerGroup = scene.children.find(c => c.userData._charModel);
-        if (playerGroup) {
-          const animalSys = initAnimalSystem(scene, playerGroup);
-          // Expose player group globally for shop and pet systems
-          window._localPlayerGroup = playerGroup;
-
-          // Initialize roaming NPCs after animals are ready
-          initRoamingNPCs(scene, animalSys);
-        }
-      }, 1000);
-    });
+    initMultiplayer(onMultiplayerReady);
   })
   .catch(err => {
     console.error('[main] ❌ Failed to load character:', err);
     // Initialize anyway
     initRemotePlayers(scene);
-    initMultiplayer(({ name, coins }) => {
-      const username = getUsername();
-      initLocalPlayer(scene, camera, username || name, selectedCharacterId);
-      initEconomy(getSocket(), coins, updateCoinDisplay);
-      initInventoryButton();
-
-      // Initialize animal system (needs to be after player initialization)
-      setTimeout(() => {
-        const playerGroup = scene.children.find(c => c.userData._charModel);
-        if (playerGroup) {
-          const animalSys = initAnimalSystem(scene, playerGroup);
-          // Expose player group globally for shop and pet systems
-          window._localPlayerGroup = playerGroup;
-
-          // Initialize roaming NPCs after animals are ready
-          initRoamingNPCs(scene, animalSys);
-        }
-      }, 1000);
-    });
+    initMultiplayer(onMultiplayerReady);
   });
 
 // ── Resize ─────────────────────────────────────────────────────────────
@@ -620,12 +613,5 @@ function animate() {
 }
 
 animate();
-
-// ── Global function for inventory to update player appearance ────────
-window.updatePlayerAppearance = function(changes) {
-  console.log('[main] updatePlayerAppearance called:', changes);
-  // TODO: Implement character rebuilding with new colors/equipment
-  // This would rebuild the character model with the new options
-};
 
 } // End of startGame function
