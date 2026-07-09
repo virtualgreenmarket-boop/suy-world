@@ -13,7 +13,7 @@ import { isValidShallowWaterPosition } from './mapZones.js';
 // LAYER 3: SHALLOW WATER LIFE
 // ══════════════════════════════════════════════════════════════════════════════
 
-const FISH_SCHOOLS = 5;
+const FISH_SCHOOLS = 7; // Increased from 5 to add patrols near marina and lighthouse
 const FISH_PER_SCHOOL = 25; // 22-28
 const FISH_SWIM_SPEED = 0.7; // m/s
 const FISH_DEPTH_RANGE = [0.2, 0.6]; // meters below water surface
@@ -105,12 +105,15 @@ function createFishSchools(scene) {
     // Generate waypoints in shallow water near play areas
     // Bias toward spawn/marina/lighthouse/east beach
     // CRITICAL: Convert angle to actual world position to account for player spawn at marina
+    // Adjusted positions closer to shore (355-380m range instead of 370-470)
     const playAreaCenters = [
-      { x: 370, z: 0, name: 'East spawn area' },      // East shallow water
-      { x: -280, z: 50, name: 'Marina north' },       // Near marina spawn (-325, 0)
-      { x: -280, z: -50, name: 'Marina south' },      // Near marina spawn
-      { x: 0, z: -370, name: 'North lighthouse' },    // North shallow water
-      { x: 150, z: 320, name: 'Southeast beach' }     // Southeast shallow water
+      { x: 365, z: 0, name: 'East beach' },           // East shallow water (closer)
+      { x: -360, z: 20, name: 'Marina pier' },        // Right at marina fishing spots
+      { x: -360, z: -20, name: 'Marina south' },      // Marina south side
+      { x: 20, z: -365, name: 'Lighthouse cove' },    // Near lighthouse
+      { x: 0, z: 365, name: 'North beach' },          // North shallow water
+      { x: 260, z: 260, name: 'Southeast lagoon' },   // Southeast diagonal
+      { x: -260, z: -260, name: 'Southwest cove' }    // Southwest diagonal
     ];
     const playArea = playAreaCenters[s % playAreaCenters.length];
 
@@ -133,11 +136,14 @@ function createFishSchools(scene) {
         validPoint = isValidShallowWaterPosition(x, z);
         attempts++;
 
-        // If 50 attempts fail, use patrol center
+        // If 50 attempts fail, fallback to ring position with definite values
         if (attempts >= 50 && !validPoint) {
-          console.warn(`[islandLife] School ${s} (${playArea.name}) waypoint ${w} failed validation, using patrol center`);
-          x = patrolCenterX;
-          z = patrolCenterZ;
+          // Place on a ring around patrol center at fixed radius
+          const angle = (w / 4) * Math.PI * 2;
+          x = patrolCenterX + Math.cos(angle) * 10;
+          z = patrolCenterZ + Math.sin(angle) * 10;
+          console.warn(`[islandLife] School ${s} (${playArea.name}) waypoint ${w} failed validation, using ring fallback (${x.toFixed(1)}, ${z.toFixed(1)})`);
+          validPoint = true; // Force accept
           break;
         }
       } while (!validPoint && attempts < 50);

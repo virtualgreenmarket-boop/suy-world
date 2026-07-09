@@ -67,6 +67,15 @@ const SECTIONS = {
       'Bike':       { icon: '🚲', items: [], placeholders: ['City Bike', 'Mountain Bike', 'Electric Bike'] },
     },
   },
+  Fishing: {
+    label: 'ציוד דייג',
+    icon: '🎣',
+    categories: {
+      'Rods':   { icon: '🎣', items: [] },
+      'Baits':  { icon: '🪱', items: [] },
+      'Caught': { icon: '🐟', items: [] },
+    },
+  },
 };
 
 let _loadout        = _loadSaved();
@@ -631,6 +640,218 @@ function _renderEquipped() {
   _equippedStrip.appendChild(doll);
 }
 
+// ── Fishing rendering ──────────────────────────────────────────────────────
+
+function _renderFishingGrid() {
+  const { icon } = SECTIONS.Fishing.categories[_activeCategory];
+
+  // Back button
+  const backBtn = document.createElement('button');
+  backBtn.className = 'inv-back-row';
+  backBtn.innerHTML = `‹ <span style="margin-left:2px">${_activeCategory}</span>`;
+  backBtn.addEventListener('click', () => {
+    _activeCategory = null;
+    _renderBody();
+  });
+  _gridArea.appendChild(backBtn);
+
+  // Get fishing inventory
+  if (!window.getPlayerInventory) {
+    _gridArea.innerHTML += '<div style="padding:20px;text-align:center;opacity:0.5">Loading...</div>';
+    return;
+  }
+
+  const inv = window.getPlayerInventory();
+  const catHeader = document.createElement('div');
+  catHeader.className = 'inv-cat-header';
+
+  if (_activeCategory === 'Rods') {
+    const rods = inv.ownedRods || [];
+    catHeader.innerHTML = `
+      <span class="inv-cat-header-icon">${icon}</span>
+      <span class="inv-cat-header-name">חכות</span>
+      <span class="inv-cat-header-count">${rods.length} rod${rods.length !== 1 ? 's' : ''}</span>`;
+    _gridArea.appendChild(catHeader);
+
+    if (rods.length === 0) {
+      _gridArea.innerHTML += '<div style="padding:20px;text-align:center;opacity:0.5">אין חכות. קנה אצל הדייג!</div>';
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px';
+
+    rods.forEach(rodId => {
+      const rodData = window.getRodById ? window.getRodById(rodId) : null;
+      const row = document.createElement('div');
+      row.style.cssText = `
+        padding: 14px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      `;
+
+      const equipped = inv.currentRod === rodId;
+      if (equipped) {
+        row.style.borderColor = '#7c6af7';
+        row.style.background = 'rgba(124,106,247,0.15)';
+      }
+
+      row.innerHTML = `
+        <span style="font-size:24px">${icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px">${rodData?.nameHe || rodId}</div>
+          <div style="font-size:11px;opacity:0.6;margin-top:2px">
+            Tier ${rodData?.tier || '?'} • Zone ${Math.round((rodData?.centerZone || 0.3) * 100)}%
+          </div>
+        </div>
+        ${equipped ? '<span style="color:#f59e0b;font-size:11px;font-weight:700">מצויד</span>' : ''}
+      `;
+
+      list.appendChild(row);
+    });
+
+    _gridArea.appendChild(list);
+
+  } else if (_activeCategory === 'Baits') {
+    const baits = inv.baits || {};
+    const totalBaits = (baits.worm || 0) + (baits.shrimp || 0) + (baits.squid || 0);
+
+    catHeader.innerHTML = `
+      <span class="inv-cat-header-icon">${icon}</span>
+      <span class="inv-cat-header-name">פיתיונות</span>
+      <span class="inv-cat-header-count">${totalBaits} total</span>`;
+    _gridArea.appendChild(catHeader);
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px';
+
+    const baitTypes = [
+      { id: 'worm', icon: '🪱', nameHe: 'תולעת' },
+      { id: 'shrimp', icon: '🦐', nameHe: 'שרימפס' },
+      { id: 'squid', icon: '🦑', nameHe: 'קלמארי' }
+    ];
+
+    baitTypes.forEach(({ id, icon: baitIcon, nameHe }) => {
+      const count = baits[id] || 0;
+      const row = document.createElement('div');
+      row.style.cssText = `
+        padding: 14px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      `;
+
+      row.innerHTML = `
+        <span style="font-size:24px">${baitIcon}</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px">${nameHe}</div>
+          <div style="font-size:11px;opacity:0.6;margin-top:2px">${count} available</div>
+        </div>
+      `;
+
+      list.appendChild(row);
+    });
+
+    _gridArea.appendChild(list);
+
+  } else if (_activeCategory === 'Caught') {
+    const caught = inv.caughtFish || [];
+    catHeader.innerHTML = `
+      <span class="inv-cat-header-icon">${icon}</span>
+      <span class="inv-cat-header-name">דגים שנתפסו</span>
+      <span class="inv-cat-header-count">${caught.length} fish</span>`;
+    _gridArea.appendChild(catHeader);
+
+    if (caught.length === 0) {
+      _gridArea.innerHTML += '<div style="padding:20px;text-align:center;opacity:0.5">לא תפסת דגים עדיין!</div>';
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px';
+
+    caught.forEach(({ fishId }, index) => {
+      const fishData = window.getFishById ? window.getFishById(fishId) : null;
+      const row = document.createElement('div');
+      row.style.cssText = `
+        padding: 14px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      `;
+
+      const rarityColors = {
+        common: '#8DA6B8',
+        uncommon: '#81C784',
+        rare: '#64B5F6',
+        epic: '#BA68C8',
+        legendary: '#F0B429'
+      };
+
+      const rarityColor = rarityColors[fishData?.rarity] || '#999';
+
+      row.innerHTML = `
+        <span style="font-size:24px">🐟</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px">${fishData?.nameHe || fishId}</div>
+          <div style="font-size:11px;margin-top:2px;color:${rarityColor}">
+            ${fishData?.rarity || 'unknown'} • ${fishData?.price || 0} 🪙
+          </div>
+        </div>
+        <button onclick="window.openFishermanShop('sell')" style="
+          padding:6px 12px;
+          background:#FF6B4A;
+          border:none;
+          border-radius:8px;
+          color:#F4E7C3;
+          font-size:11px;
+          font-weight:700;
+          cursor:pointer;
+        ">מכור</button>
+      `;
+
+      list.appendChild(row);
+    });
+
+    _gridArea.appendChild(list);
+  }
+}
+
+// ── Fishing data helper ────────────────────────────────────────────────────
+
+function _getFishingCategoryData(category) {
+  if (!window.getPlayerInventory) return 'Loading...';
+
+  try {
+    const inv = window.getPlayerInventory();
+
+    if (category === 'Rods') {
+      const count = inv.ownedRods?.length || 0;
+      return count > 0 ? `${count} rod${count !== 1 ? 's' : ''}` : 'Empty';
+    } else if (category === 'Baits') {
+      const total = (inv.baits?.worm || 0) + (inv.baits?.shrimp || 0) + (inv.baits?.squid || 0);
+      return total > 0 ? `${total} bait${total !== 1 ? 's' : ''}` : 'Empty';
+    } else if (category === 'Caught') {
+      const count = inv.caughtFish?.length || 0;
+      return count > 0 ? `${count} fish` : 'Empty';
+    }
+  } catch (err) {
+    console.error('[inventory] Error getting fishing data:', err);
+  }
+
+  return 'Empty';
+}
+
 // ── Render body (list or grid) ─────────────────────────────────────────────
 
 function _renderBody() {
@@ -665,7 +886,12 @@ function _renderList() {
 
     const sub = document.createElement('div');
     sub.className = 'inv-cat-row-sub';
-    if (items.length > 0) {
+
+    // Special handling for Fishing section
+    if (_activeSection === 'Fishing') {
+      const fishingData = _getFishingCategoryData(cat);
+      sub.textContent = fishingData;
+    } else if (items.length > 0) {
       sub.textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
     } else if (placeholders?.length) {
       sub.textContent = 'Coming soon';
@@ -704,6 +930,13 @@ function _renderList() {
 
 function _renderGrid() {
   _gridArea.innerHTML = '';
+
+  // Special rendering for Fishing section
+  if (_activeSection === 'Fishing') {
+    _renderFishingGrid();
+    return;
+  }
+
   const { icon, items, placeholders } = SECTIONS[_activeSection].categories[_activeCategory];
 
   // Back button
