@@ -317,7 +317,8 @@ function _renderBaitsTab(container) {
         btn.style.background = '#FF6B4A';
       });
       btn.addEventListener('click', () => {
-        console.log('[fishermanShop] Buy button clicked!', { baitId: bait.id, qty, totalPrice: bait.price * qty });
+        console.log('[fishermanShop] ===== BUY BUTTON CLICKED =====', { baitId: bait.id, qty, totalPrice: bait.price * qty });
+        alert(`Trying to buy ${qty}x ${bait.nameHe} for ${bait.price * qty} coins`);
         _buyBait(bait.id, qty, bait.price * qty);
       });
       buyControls.appendChild(btn);

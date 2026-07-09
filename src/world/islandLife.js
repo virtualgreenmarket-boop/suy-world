@@ -104,16 +104,17 @@ function createFishSchools(scene) {
 
     // Generate waypoints in shallow water near play areas
     // Bias toward spawn/marina/lighthouse/east beach
-    // CRITICAL: Convert angle to actual world position to account for player spawn at marina
-    // Adjusted positions closer to shore (355-380m range instead of 370-470)
+    // CRITICAL: Positions must be in shallow water zone (beyond 350m inner radius)
+    // Account for asymmetric ellipse: east side expanded 1.4x, north/south 2.38x
+    // Place patrols just beyond beach (360-420 normalized distance)
     const playAreaCenters = [
-      { x: 365, z: 0, name: 'East beach' },           // East shallow water (closer)
-      { x: -360, z: 20, name: 'Marina pier' },        // Right at marina fishing spots
-      { x: -360, z: -20, name: 'Marina south' },      // Marina south side
-      { x: 20, z: -365, name: 'Lighthouse cove' },    // Near lighthouse
-      { x: 0, z: 365, name: 'North beach' },          // North shallow water
-      { x: 260, z: 260, name: 'Southeast lagoon' },   // Southeast diagonal
-      { x: -260, z: -260, name: 'Southwest cove' }    // Southwest diagonal
+      { x: 520, z: 0, name: 'East beach' },           // East: 520/1.4 = 371 normalized
+      { x: -380, z: 20, name: 'Marina pier' },        // Marina: ~380 normalized
+      { x: -380, z: -20, name: 'Marina south' },      // Marina south
+      { x: 30, z: -900, name: 'Lighthouse cove' },    // North: -900/2.38 = -378 normalized
+      { x: 0, z: 900, name: 'North beach' },          // North: 900/2.38 = 378 normalized
+      { x: 380, z: 620, name: 'Southeast lagoon' },   // Southeast: dist ~407 normalized
+      { x: -380, z: -620, name: 'Southwest cove' }    // Southwest: dist ~407 normalized
     ];
     const playArea = playAreaCenters[s % playAreaCenters.length];
 
