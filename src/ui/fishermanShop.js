@@ -22,6 +22,7 @@ let _onCoinUpdate = null;
 // ── Public API ────────────────────────────────────────────────────────
 
 export function initFishermanShop(socket, onCoinUpdate) {
+  console.log('[fishermanShop] Initializing with socket:', socket ? 'OK' : 'MISSING');
   _socket = socket;
   _onCoinUpdate = onCoinUpdate;
 
@@ -29,10 +30,12 @@ export function initFishermanShop(socket, onCoinUpdate) {
   _socket.on('fishingPurchaseResult', _handlePurchaseResult);
   _socket.on('fishingSellResult', _handleSellResult);
 
-  console.log('[fishermanShop] Initialized');
+  console.log('[fishermanShop] Socket listeners registered');
 }
 
 export function openFishermanShop() {
+  console.log('[fishermanShop] ===== OPENING SHOP =====');
+  console.log('[fishermanShop] Socket exists:', _socket ? 'YES' : 'NO');
   if (_isOpen) return;
   _isOpen = true;
 
@@ -313,7 +316,11 @@ function _renderBaitsTab(container) {
       btn.addEventListener('mouseleave', () => {
         btn.style.background = '#FF6B4A';
       });
-      btn.addEventListener('click', () => _buyBait(bait.id, qty, bait.price * qty));
+      btn.addEventListener('click', () => {
+        console.log('[fishermanShop] ===== BUY BUTTON CLICKED =====', { baitId: bait.id, qty, totalPrice: bait.price * qty });
+        alert(`Trying to buy ${qty}x ${bait.nameHe} for ${bait.price * qty} coins`);
+        _buyBait(bait.id, qty, bait.price * qty);
+      });
       buyControls.appendChild(btn);
     });
 
@@ -397,11 +404,20 @@ function _renderSellTab(container) {
 // ── Purchase/Sell Actions ─────────────────────────────────────────────
 
 function _buyRod(rodId, price) {
+  console.log('[fishermanShop] Buying rod:', { rodId, price });
   _socket.emit('buyRod', { rodId, price });
 }
 
 function _buyBait(baitId, qty, totalPrice) {
+  console.log('[fishermanShop] _buyBait called:', { baitId, qty, totalPrice });
+  console.log('[fishermanShop] Socket status:', _socket ? 'EXISTS' : 'NULL');
+  if (!_socket) {
+    console.error('[fishermanShop] ERROR: Socket is null!');
+    alert('שגיאה: אין חיבור לשרת');
+    return;
+  }
   _socket.emit('buyBait', { baitId, qty, totalPrice });
+  console.log('[fishermanShop] buyBait event emitted to server');
 }
 
 function _sellFish(index, fishId, price) {
@@ -409,10 +425,41 @@ function _sellFish(index, fishId, price) {
 }
 
 function _handlePurchaseResult(data) {
+  console.log('[fishermanShop] Received purchase result:', data);
   if (data.success) {
     console.log('[fishermanShop] Purchase success:', data);
     if (_onCoinUpdate) _onCoinUpdate(data.newBalance);
-    _renderTab(_currentTab); // Refresh current tab
+
+    // Update local inventory
+    if (data.ownedRods) {
+      // Rod purchase
+      if (window.updateFishingInventory) {
+        window.updateFishingInventory({
+          ownedRods: data.ownedRods,
+          currentRod: data.currentRod
+        });
+      }
+    } else if (data.baitId && data.newQty !== undefined) {
+      // Bait purchase - update with TOTAL count from server
+      if (window.updateFishingInventory) {
+        const baitUpdate = {
+          worm: data.baitId === 'worm' ? data.newQty : undefined,
+          shrimp: data.baitId === 'shrimp' ? data.newQty : undefined,
+          squid: data.baitId === 'squid' ? data.newQty : undefined
+        };
+        // Remove undefined values
+        Object.keys(baitUpdate).forEach(key => {
+          if (baitUpdate[key] === undefined) delete baitUpdate[key];
+        });
+        window.updateFishingInventory({ baits: baitUpdate });
+        console.log('[fishermanShop] Bait updated:', baitUpdate);
+      }
+    }
+
+    // Small delay to ensure state updates before re-render
+    setTimeout(() => {
+      _renderTab(_currentTab); // Refresh current tab
+    }, 50);
   } else {
     alert(data.message || 'לא מספיק מטבעות!');
   }

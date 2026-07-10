@@ -12,6 +12,7 @@ import { initMarina, updateMarina }  from './world/marina.js';
 import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/lighthouse.js';
 import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
 import { initIslandLife, updateIslandLife } from './world/islandLife.js';
+import { initDockFish, updateDockFish } from './systems/dockFish.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
@@ -24,7 +25,7 @@ import { initEconomy }      from './systems/economy.js';
 import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision, clearAllBoxes } from './systems/collision.js';
-import { initFishingSystem, setPlayerInventory } from './systems/fishing.js';
+import { initFishingSystem, setPlayerInventory, getPlayerInventory } from './systems/fishing.js';
 import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
 import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod, FISHING_SPOTS } from './systems/fishingLoop.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
@@ -279,6 +280,7 @@ try {
 try {
   initIslandDecor(scene); // Tropical plants + beach furniture
   initIslandLife(scene); // Fish, crabs, dolphins
+  initDockFish(scene); // Decorative fish near marina fishing spots
 } catch (err) {
   console.error('[main] Island init error (non-critical):', err);
 }
@@ -467,6 +469,21 @@ function onMultiplayerReady({ name, coins }) {
     initFishingSystem();
     initFishermanShop(getSocket(), updateCoinDisplay);
     window.openFishermanShop = openFishermanShop;
+
+    // Global function to update fishing inventory
+    window.updateFishingInventory = (updates) => {
+      const currentInventory = getPlayerInventory();
+      const newInventory = {
+        ...currentInventory,
+        ...updates,
+        baits: {
+          ...currentInventory.baits,
+          ...(updates.baits || {})
+        }
+      };
+      setPlayerInventory(newInventory);
+      console.log('[main] Fishing inventory updated. Before:', currentInventory, 'Updates:', updates, 'After:', newInventory);
+    };
 
     // Load fishing data from server
     getSocket().emit('loadFishingData');
@@ -660,6 +677,7 @@ function animate() {
     try {
       updateIslandDecor(delta, playerPos); // Wind sway on plants
       updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
+      updateDockFish(delta); // Decorative fish near marina
     } catch (err) {
       if (!window._islandUpdateErrorLogged) {
         console.error('[main] Island update error:', err);

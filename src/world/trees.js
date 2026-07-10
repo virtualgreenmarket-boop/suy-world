@@ -16,9 +16,39 @@ let   _treeCount = 0;
 export function preloadTrees() {
   if (_promise) return _promise;
 
-  const trunkColor = _texLoader.load(TEX_BASE + 'T_HP_Tree_Trunk.PNG');
-  const trunkNorm  = _texLoader.load(TEX_BASE + 'T_HP_Tree_Trunk_normal.PNG');
-  const leafColor  = _texLoader.load(TEX_BASE + 'T_HP_Tree_Leaf.PNG');
+  const trunkColor = _texLoader.load(
+    TEX_BASE + 'T_HP_Tree_Trunk.PNG',
+    undefined,
+    undefined,
+    (err) => {
+      if (!window._trunkColorError) {
+        console.warn('[trees] Failed to load trunk color texture:', err);
+        window._trunkColorError = true;
+      }
+    }
+  );
+  const trunkNorm = _texLoader.load(
+    TEX_BASE + 'T_HP_Tree_Trunk_normal.PNG',
+    undefined,
+    undefined,
+    (err) => {
+      if (!window._trunkNormError) {
+        console.warn('[trees] Failed to load trunk normal texture:', err);
+        window._trunkNormError = true;
+      }
+    }
+  );
+  const leafColor = _texLoader.load(
+    TEX_BASE + 'T_HP_Tree_Leaf.PNG',
+    undefined,
+    undefined,
+    (err) => {
+      if (!window._leafColorError) {
+        console.warn('[trees] Failed to load leaf color texture:', err);
+        window._leafColorError = true;
+      }
+    }
+  );
   trunkColor.colorSpace = THREE.SRGBColorSpace;
   leafColor.colorSpace  = THREE.SRGBColorSpace;
 
@@ -100,14 +130,35 @@ export function spawnPlazaTree(scene) {
   const tl   = new THREE.TextureLoader();
   const BASE = '/models/nature/trees/plaza_tree/textures/';
 
-  const barkTex = tl.load(BASE + 'Trunk_D_Tiled2.webp');
+  // Texture loading with error handling to prevent "marked for update but no image" warnings
+  const barkTex = tl.load(
+    BASE + 'Trunk_D_Tiled2.webp',
+    undefined,
+    undefined,
+    (err) => {
+      if (!window._barkTexError) {
+        console.warn('[trees] Failed to load bark texture:', err);
+        window._barkTexError = true;
+      }
+    }
+  );
   barkTex.colorSpace = THREE.SRGBColorSpace;
   barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
   barkTex.anisotropy = 16;
 
   // Leaf texture — loaded explicitly so leaf meshes always get it even if FBX
   // auto-resolution via setResourcePath fails (common with renamed files).
-  const leafTex = tl.load(BASE + 'maplebranch.webp');
+  const leafTex = tl.load(
+    BASE + 'maplebranch.webp',
+    undefined,
+    undefined,
+    (err) => {
+      if (!window._leafTexError) {
+        console.warn('[trees] Failed to load leaf texture:', err);
+        window._leafTexError = true;
+      }
+    }
+  );
   leafTex.colorSpace = THREE.SRGBColorSpace;
   leafTex.anisotropy = 8;
 
@@ -186,7 +237,17 @@ export function spawnPlazaTree(scene) {
     scene.add(plazaLabel);
 
     // Ground AO shadow decal
-    const aoTex = tl.load(BASE + 'internal_ground_ao_texture.jpeg');
+    const aoTex = tl.load(
+      BASE + 'internal_ground_ao_texture.jpeg',
+      undefined,
+      undefined,
+      (err) => {
+        if (!window._aoTexError) {
+          console.warn('[trees] Failed to load AO texture, using color fallback:', err);
+          window._aoTexError = true;
+        }
+      }
+    );
     aoTex.colorSpace = THREE.SRGBColorSpace;
     const aoDecal = new THREE.Mesh(
       new THREE.CircleGeometry(8, 48),
@@ -194,6 +255,7 @@ export function spawnPlazaTree(scene) {
         map: aoTex, transparent: true,
         blending: THREE.MultiplyBlending,
         depthWrite: false, roughness: 1.0, metalness: 0.0,
+        color: 0x404040 // Fallback dark gray if texture fails
       })
     );
     aoDecal.rotation.x = -Math.PI / 2;
