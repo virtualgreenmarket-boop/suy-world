@@ -223,6 +223,65 @@ function _railSegment(group, cx, cz, length, axis, baseY = DECK_Y + 0.38) {
   }
 }
 
+// Build railing with gaps (for fishing access)
+// cx, cz, length, axis, baseY same as _railSegment
+// gapCentersLocalZ: array of localZ positions where gaps should be
+// gapWidth: width of each gap in meters
+function _buildPierRailingWithGaps(group, cx, cz, length, axis, baseY, gapCentersLocalZ, gapWidth) {
+  // For 'z' axis railings: railing runs along localZ from (cz - length/2) to (cz + length/2)
+  // We need to split this into segments, skipping the gaps
+
+  const start = cz - length / 2;
+  const end = cz + length / 2;
+
+  // Build list of segments (start, end) pairs
+  const segments = [];
+  let currentStart = start;
+
+  // Sort gaps by position
+  const sortedGaps = gapCentersLocalZ
+    .map(gapZ => ({ center: gapZ, min: gapZ - gapWidth / 2, max: gapZ + gapWidth / 2 }))
+    .filter(gap => gap.max > start && gap.min < end) // Only gaps within range
+    .sort((a, b) => a.center - b.center);
+
+  for (const gap of sortedGaps) {
+    if (gap.min > currentStart) {
+      // Add segment before this gap
+      segments.push({ start: currentStart, end: gap.min });
+    }
+    currentStart = Math.max(currentStart, gap.max);
+
+    // Add gate posts at gap edges
+    _addGatePost(group, cx, gap.min, baseY);
+    _addGatePost(group, cx, gap.max, baseY);
+  }
+
+  // Add final segment
+  if (currentStart < end) {
+    segments.push({ start: currentStart, end });
+  }
+
+  // Build each segment
+  for (const seg of segments) {
+    const segLength = seg.end - seg.start;
+    const segCenter = (seg.start + seg.end) / 2;
+    _railSegment(group, cx, segCenter, segLength, axis, baseY);
+  }
+}
+
+// Add gate post at gap edge (Lambert, no collision)
+function _addGatePost(group, cx, cz, baseY) {
+  const postMat = new THREE.MeshLambertMaterial({ color: 0x7D5D3C });
+  const postH = 1.2;
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.10, postH, 8),
+    postMat
+  );
+  post.position.set(cx, baseY + postH / 2, cz);
+  post.castShadow = true;
+  group.add(post);
+}
+
 // ── Stairs from deck down to pier ─────────────────────────────────────
 
 const STEP_COUNT = 8;
@@ -334,11 +393,26 @@ function addFishingPier(group) {
     }
   }
 
-  // ── Railings along both sides ────────────────────────────────────────
+  // ── Railings along both sides with gaps for fishing access ───────────
   const pierSurface = PIER_Y + 0.35;
-  [-PIER_W / 2, PIER_W / 2].forEach(rx => {
-    _railSegment(group, rx, PIER_CZ, PIER_LEN, 'z', pierSurface);
-  });
+
+  // Define fishing access gaps (world coordinates from user)
+  // North side (Z≈+21.5): 3 gaps
+  // South side (Z≈-21.5): 3 gaps
+  // Convert worldX → localZ: localZ = worldX - GROUP_X
+  const GROUP_X = -325.2;
+  const gapCentersLocalZ = [
+    -369.89 - GROUP_X,  // Gap 1: worldX=-369.89 → localZ=-44.69
+    -383.97 - GROUP_X,  // Gap 2: worldX=-383.97 → localZ=-58.77
+    -397.95 - GROUP_X,  // Gap 3: worldX=-397.95 → localZ=-72.75
+  ];
+
+  const gapWidth = 3.0; // 3 meter wide openings
+
+  // Build pier railings with gaps
+  _buildPierRailingWithGaps(group, -PIER_W / 2, PIER_CZ, PIER_LEN, 'z', pierSurface, gapCentersLocalZ, gapWidth);
+  _buildPierRailingWithGaps(group, PIER_W / 2, PIER_CZ, PIER_LEN, 'z', pierSurface, gapCentersLocalZ, gapWidth);
+
   // End cap railing
   _railSegment(group, 0, PIER_START_Z - PIER_LEN, PIER_W, 'x', pierSurface);
 
@@ -354,19 +428,50 @@ function addFishingPier(group) {
   }
 
   // ── Side fishing alcoves — multiple along each side ──────────────────
+  const alcoveWorldPositions = []; // Store for interaction registration
+
   [-PIER_W / 2 - 1.5, PIER_W / 2 + 1.5].forEach(ax => {
     for (let az = PIER_CZ - PIER_LEN * 0.35; az <= PIER_CZ + PIER_LEN * 0.2; az += 14) {
+      // Platform (walkable)
       const alc = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.35, 2.5),
         woodMat(1.5, 1.0));
       alc.position.set(ax, PIER_Y + 0.175, az);
       alc.castShadow = alc.receiveShadow = true;
       group.add(alc);
+      registerGround(alc); // Make walkable
+
+      // Black spot (visual marker)
       const alcSpot = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.06, 2.0), spotMat);
       alcSpot.position.set(ax, PIER_Y + 0.39, az);
       alcSpot.userData.isFishingSpot = true;
       group.add(alcSpot);
+
+      // Store world position for interaction (will register after group is added to scene)
+      alcoveWorldPositions.push({ localX: ax, localZ: az });
     }
   });
+
+  // Register interactions after group is added to scene
+  setTimeout(() => {
+    group.updateWorldMatrix(true, true);
+    const GROUP_X = -325.2;
+
+    alcoveWorldPositions.forEach(({ localX, localZ }, index) => {
+      // Transform: worldX = GROUP_X + localZ, worldZ = -localX
+      const worldX = GROUP_X + localZ;
+      const worldZ = -localX;
+      const worldY = PIER_Y + 0.5;
+
+      registerInteraction([worldX, worldY, worldZ], 'עמדת דייג 🎣', 2.5, () => {
+        // Start fishing from this alcove
+        if (window.startFishingFromAlcove) {
+          window.startFishingFromAlcove(index);
+        }
+      });
+    });
+
+    console.log(`[marina] Registered ${alcoveWorldPositions.length} fishing alcove interactions`);
+  }, 100);
 }
 
 // ── Deck collision (world-space AABBs) ───────────────────────────────
@@ -449,8 +554,11 @@ function _loadFishermanNpc(group) {
     const worldPos = new THREE.Vector3();
     model.getWorldPosition(worldPos);
 
-    registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'Talk', 3, () => {
-      showNpcDialog(['ברוך הבא למרינה'], 'הדייג');
+    registerInteraction([worldPos.x, worldPos.y + 2, worldPos.z], 'חנות דיג 🎣', 3, () => {
+      // Open fisherman shop
+      if (window.openFishermanShop) {
+        window.openFishermanShop();
+      }
     });
 
   }, undefined, err => {
