@@ -68,12 +68,12 @@ const SECTIONS = {
     },
   },
   Fishing: {
-    label: 'ציוד דייג',
+    label: 'כלי דייג',
     icon: '🎣',
     categories: {
-      'Rods':   { icon: '🎣', items: [] },
-      'Baits':  { icon: '🪱', items: [] },
-      'Caught': { icon: '🐟', items: [] },
+      'Rods':   { icon: '🎣', items: [], dynamic: true },
+      'Baits':  { icon: '🪱', items: [], dynamic: true },
+      'Caught': { icon: '🐟', items: [], dynamic: true },
     },
   },
 };

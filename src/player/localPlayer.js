@@ -53,6 +53,7 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   playerGroup = new THREE.Group();
   const _savedSpawn = _loadSpawn();
   playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
+  console.log('[local-player] Initial spawn position set:', _savedSpawn);
   scene.add(playerGroup);
   attachLabel(playerGroup, name || 'Player', 3.0, 'player');
 
@@ -425,6 +426,8 @@ function _loadSpawn() {
 
 export function setLocalPlayerPosition(x, z) {
   const y = getSurfaceY(x, z);
+  console.log('[local-player] ⚠️ Position changed externally to:', { x, y, z });
+  console.trace('[local-player] setLocalPlayerPosition called from:');
   playerGroup.position.set(x, y, z);
   velocityY = 0;
   syncCamera();

@@ -462,10 +462,13 @@ function addFishingPier(group) {
       const worldZ = -localX;
       const worldY = PIER_Y + 0.5;
 
-      registerInteraction([worldX, worldY, worldZ], 'עמדת דייג 🎣', 2.5, () => {
+      registerInteraction([worldX, worldY, worldZ], 'לדוג 🎣', 3.5, () => {
         // Start fishing from this alcove
+        console.log('[marina] Fishing interaction triggered, alcove', index);
         if (window.startFishingFromAlcove) {
           window.startFishingFromAlcove(index);
+        } else {
+          console.error('[marina] startFishingFromAlcove not defined!');
         }
       });
     });
