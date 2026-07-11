@@ -319,9 +319,12 @@ export function equipLocalPlayerItem() {
 }
 
 export function savePlayerPosition() {
-  if (!playerGroup) return;
-  const { x, y, z } = playerGroup.position;
-  localStorage.setItem('suy_spawn', JSON.stringify({ x, y, z }));
+  // Position saving disabled - always spawn at marina
+  // Clean up old saved position once
+  if (localStorage.getItem('suy_spawn')) {
+    localStorage.removeItem('suy_spawn');
+    console.log('[local-player] Cleaned up old saved position');
+  }
 }
 
 function updatePlayerAppearance(changes) {
