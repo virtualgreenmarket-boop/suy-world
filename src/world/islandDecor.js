@@ -229,8 +229,33 @@ function createVegetation(scene) {
 // LAYER 2: BEACH FURNITURE (Beach zones)
 // ══════════════════════════════════════════════════════════════════════════════
 
-const BEACH_SPOTS = 10; // 8-12 spots
-const SPOT_SPACING = 20; // 15-25m between spots
+// Fixed umbrella line — two rows flanking the marina deck, so none sit on the deck or
+// pier. The deck occupies worldZ roughly [-65, +65] at X ~ -300..-346, so umbrellas are
+// placed at |Z| >= 75 on each side, all on open sand (verified radius <= 345). The sea is
+// toward -X here, so every spot + its chairs face -X and a sitter looks out at the water.
+// Explicit positions => identical placement on every refresh.
+const BEACH_LINE_X = -300;         // sand line, seaward, in front of the deck
+const BEACH_FACE_ANGLE = Math.PI;  // face -X (toward the open sea on this shore)
+// The furniture is modelled at ~human real scale (~1.8 m), but the player character is
+// ~3 m tall, so the whole beach spot is scaled up to fit. Tweak this one number to make
+// the umbrellas/chairs bigger or smaller relative to the player.
+const BEACH_SPOT_SCALE = 1.7;
+const BEACH_SPOT_POSITIONS = [
+  // North of the deck (-Z side)
+  { x: BEACH_LINE_X, z:  -75 },
+  { x: BEACH_LINE_X, z:  -90 },
+  { x: BEACH_LINE_X, z: -105 },
+  { x: BEACH_LINE_X, z: -120 },
+  { x: BEACH_LINE_X, z: -135 },
+  { x: BEACH_LINE_X, z: -150 },
+  // South of the deck (+Z side)
+  { x: BEACH_LINE_X, z:   75 },
+  { x: BEACH_LINE_X, z:   90 },
+  { x: BEACH_LINE_X, z:  105 },
+  { x: BEACH_LINE_X, z:  120 },
+  { x: BEACH_LINE_X, z:  135 },
+  { x: BEACH_LINE_X, z:  150 },
+];
 
 // Umbrella colors (vertex colors, alternating panels)
 const UMBRELLA_COLORS = [
@@ -278,7 +303,9 @@ function createUmbrella() {
   });
   const canopy = new THREE.Mesh(canopyGeom, canopyMat);
   canopy.position.y = 2.2;
-  canopy.rotation.y = Math.random() * Math.PI * 2;
+  // Fixed canopy orientation (was Math.random()) so each umbrella looks identical
+  // every load now that positions are locked.
+  canopy.rotation.y = 0;
   group.add(canopy);
 
   return group;
@@ -328,9 +355,10 @@ function createBeachChair() {
 /**
  * Create beach towel (flat colorful plane)
  */
-function createTowel() {
+function createTowel(colorIndex = 0) {
   const colors = [0xff6b6b, 0x4ecdc4, 0xffe66d, 0x95e1d3];
-  const color = colors[Math.floor(Math.random() * colors.length)];
+  // Deterministic colour (was Math.random()) so a given spot looks the same each load.
+  const color = colors[colorIndex % colors.length];
 
   const geom = new THREE.PlaneGeometry(1.2, 1.8);
   const mat = new THREE.MeshLambertMaterial({
@@ -369,31 +397,34 @@ function createTable() {
 /**
  * Create complete beach spot (merged into single mesh for performance)
  */
-function createBeachSpot() {
+function createBeachSpot(colorIndex = 0) {
   const group = new THREE.Group();
 
   const umbrella = createUmbrella();
   group.add(umbrella);
 
-  // 2 chairs facing the sea
+  // 2 chairs on the SEA side of the umbrella, side by side, both facing the water.
+  // The spot faces -X (sea), so chairs must be separated along the SHORE axis (local Z,
+  // which maps to world Z here) and share the same distance from the sea (same local X).
+  // Each chair is rotated PI/2 to look toward -X (the ocean).
   const chair1 = createBeachChair();
-  chair1.position.set(-0.8, 0, 1.2);
-  chair1.rotation.y = 0; // Facing forward
+  chair1.position.set(1.2, 0, -0.8);
+  chair1.rotation.y = Math.PI / 2; // face the sea
   group.add(chair1);
 
   const chair2 = createBeachChair();
-  chair2.position.set(0.8, 0, 1.2);
-  chair2.rotation.y = 0;
+  chair2.position.set(1.2, 0, 0.8);
+  chair2.rotation.y = Math.PI / 2; // face the sea
   group.add(chair2);
 
-  // Towel
-  const towel = createTowel();
-  towel.position.set(0, 0, 2.0);
+  // Towel on the sea side, in front of the chairs (further toward the water)
+  const towel = createTowel(colorIndex);
+  towel.position.set(2.0, 0, 0);
   group.add(towel);
 
-  // Table
+  // Table beside the chairs
   const table = createTable();
-  table.position.set(0, 0, 0.5);
+  table.position.set(0.5, 0, 0);
   group.add(table);
 
   return group;
@@ -401,48 +432,38 @@ function createBeachSpot() {
 
 /**
  * Place beach spots along shoreline
+ *
+ * Umbrellas are placed at FIXED positions (BEACH_SPOT_POSITIONS) so they stay put
+ * across refreshes. Each spot faces outward from the island centre (toward the sea).
  */
 function createBeachFurniture(scene) {
   const beachGroup = new THREE.Group();
-  const spotPositions = [];
 
-  // Sample beach zone for valid positions
-  let attempts = 0;
-  while (spotPositions.length < BEACH_SPOTS && attempts < 500) {
-    attempts++;
-
-    // Sample around the island perimeter
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 270 + Math.random() * 60; // Beach zone 255-350
-
-    const x = Math.cos(angle) * radius;
-    const z = Math.sin(angle) * radius;
-
-    if (!isValidBeachPosition(x, z)) continue;
-
-    // Check spacing
-    const tooClose = spotPositions.some(pos =>
-      Math.hypot(pos.x - x, pos.z - z) < SPOT_SPACING
-    );
-
-    if (!tooClose) {
-      spotPositions.push({ x, z, angle });
+  BEACH_SPOT_POSITIONS.forEach((pos, index) => {
+    // Skip any spot that isn't actually on the beach (safety check — keeps the row
+    // clean if a coordinate is ever edited to somewhere invalid).
+    if (!isValidBeachPosition(pos.x, pos.z)) {
+      console.warn(`[islandDecor] Beach spot ${index} at (${pos.x}, ${pos.z}) is not on the beach — skipped`);
+      return;
     }
-  }
 
-  // Create spots facing outward (toward sea)
-  spotPositions.forEach(pos => {
-    const spot = createBeachSpot();
+    const spot = createBeachSpot(index);
     spot.position.set(pos.x, 0, pos.z);
 
-    // Rotate to face outward from island center
-    spot.rotation.y = pos.angle;
+    // Scale the whole spot up to fit the ~3 m player character (chairs, umbrella, towel,
+    // and table all grow together, keeping their arrangement).
+    spot.scale.setScalar(BEACH_SPOT_SCALE);
+
+    // Face the sea. On this shore the water is toward -X, so all spots share the same
+    // facing (BEACH_FACE_ANGLE = PI). The chairs are oriented within the spot so a
+    // sitter looks out at the ocean.
+    spot.rotation.y = BEACH_FACE_ANGLE;
 
     beachGroup.add(spot);
   });
 
   scene.add(beachGroup);
-  console.log(`[islandDecor] Created ${spotPositions.length} beach spots`);
+  console.log(`[islandDecor] Created ${beachGroup.children.length} beach spots (fixed positions)`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

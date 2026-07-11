@@ -149,51 +149,10 @@ function _buildSpiralStairs() {
     step.receiveShadow = true;
     _lighthouseGroup.add(step);
 
-    // Outer railing wall (red sector)
-    const railWallGeom = new THREE.CylinderGeometry(
-      6.38,
-      6.38,
-      1.1,
-      6,
-      1,
-      true, // open-ended
-      thetaStart,
-      thetaLength
-    );
-    const railWall = new THREE.Mesh(railWallGeom, MAT_RED);
-    railWall.position.y = stepY + 0.55;
-    railWall.castShadow = true;
-    _lighthouseGroup.add(railWall);
-
-    // Handrail (white tube connecting to next step)
-    if (s < TOTAL_STEPS - 1) {
-      const angle1 = thetaStart + thetaLength / 2;
-      const angle2 = (s + 1) * STEP_ANGLE + STEP_ANGLE * 1.02 / 2;
-
-      const x1 = Math.cos(angle1) * STEP_RADIUS;
-      const z1 = Math.sin(angle1) * STEP_RADIUS;
-      const y1 = stepY + 1.18;
-
-      const x2 = Math.cos(angle2) * STEP_RADIUS;
-      const z2 = Math.sin(angle2) * STEP_RADIUS;
-      const y2 = (BASE_HEIGHT + (s + 1) * STEP_RISE) + 1.18;
-
-      const dx = x2 - x1;
-      const dy = y2 - y1;
-      const dz = z2 - z1;
-      const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-      const tubeGeom = new THREE.CylinderGeometry(0.05, 0.05, length, 8);
-      const tube = new THREE.Mesh(tubeGeom, MAT_WHITE);
-
-      tube.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
-
-      const axis = new THREE.Vector3(dz, 0, -dx).normalize();
-      const angle = Math.acos(dy / length);
-      tube.quaternion.setFromAxisAngle(axis, angle);
-
-      _lighthouseGroup.add(tube);
-    }
+    // Railing removed: the red railing wall and the white handrail tube used to be
+    // built here. They ran along the same spiral line as the treads and made it look
+    // (and sometimes behave) like the player was climbing the rail instead of the
+    // steps. Only the walkable treads are built now.
   }
 }
 
@@ -358,8 +317,10 @@ function _registerCollision() {
   const worldX = LIGHTHOUSE_X;
   const worldZ = LIGHTHOUSE_Z;
 
-  // Inner core collision (smaller to allow access to stairs)
-  const coreRadius = 3.5; // Smaller than tower radius 4.2, so stairs at 4.2-6.2 are free
+  // Inner core collision (sized so even the square box's diagonal corners stay
+  // inside the stair inner radius of 4.83, so no part of any step is ever blocked).
+  // coreBox * sqrt(2) must be <= 4.83  ->  coreBox <= 3.42  ->  coreRadius <= 2.44
+  const coreRadius = 2.4; // box half-width 3.36, corners reach 4.75 < 4.83 (stairs stay clear)
   const coreBox = coreRadius * 1.4; // Approximate circle with square
   registerBox(
     worldX - coreBox,
@@ -389,57 +350,69 @@ export function getLighthouseStairHeight(playerX, playerZ, currentY = 0) {
   const dz = playerZ - LIGHTHOUSE_Z;
   const distance = Math.sqrt(dx * dx + dz * dz);
 
-  // Check if on stairs (between tower wall and outer edge)
-  // Inner: 4.2 (tower wall), Outer: 6.2 (stair edge)
-  if (distance < STEP_INNER_RADIUS || distance > STEP_RADIUS + 0.3) {
+  // Check if on stairs (radial band). The treads are cylinder slices centred on the
+  // tower, so walkable surface exists inward toward the tower core as well. We start
+  // the band ~1m inside STEP_INNER_RADIUS so a player climbing the tight spiral has a
+  // forgiving margin and doesn't fall off the instant they drift toward the tower.
+  // (The solid tower core collision, radius ~2.4, still stops them going too far in.)
+  const INNER_WALKABLE = STEP_INNER_RADIUS - 1.0; // 4.83 -> 3.83
+  if (distance < INNER_WALKABLE || distance > STEP_RADIUS + 0.3) {
     return null; // Not on stairs
   }
 
-  // Calculate angle (0 to 2π) - player's angular position
-  let angle = Math.atan2(dz, dx);
-  if (angle < 0) angle += Math.PI * 2;
+  // Player's angular position. IMPORTANT coordinate-system note:
+  // Math.atan2(dz, dx) measures from +X toward +Z. But THREE.CylinderGeometry's
+  // thetaStart (used to draw each step slice) measures from +Z toward +X — i.e. a
+  // vertex at cylinder-theta T lands at (x=sin T, z=cos T). The two conventions are
+  // related by  cylinderTheta = PI/2 - atan2Angle. We convert the player's angle into
+  // the cylinder's theta space so we compare against the SAME angles the meshes are
+  // actually drawn at. (This mismatch is why the player was standing on correct-height
+  // steps in an empty spot — the walkable spiral was rotated/mirrored off the visible one.)
+  let atanAngle = Math.atan2(dz, dx);
+  let angle = (Math.PI / 2) - atanAngle;      // into cylinder-theta convention
+  angle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); // wrap to [0, 2π)
 
-  // CRITICAL: Collect ALL candidate steps at this angle across all 2.5 rotations
-  // Each rotation is 2π (360°), so same angle repeats 3 times (rotations 0, 1, 2)
-  const candidates = [];
-  const stepsPerRotation = TOTAL_STEPS / TOTAL_ROTATIONS; // 44 steps per full rotation
+  // Find every tread actually DRAWN at this angle. The build loop draws step s as a
+  // cylinder SLICE spanning [s*STEP_ANGLE, s*STEP_ANGLE + thetaLength] in cylinder-theta
+  // space, so the tread's visible CENTRE is at (s*STEP_ANGLE + thetaLength/2). We match
+  // on that centre. The slice wraps 0..5π over 2.5 rotations, so up to 3 treads stack at
+  // one angle at different heights.
+  const thetaLength = STEP_ANGLE * 1.02;        // must match _buildSpiralStairs
+  const HALF_SLICE  = thetaLength / 2;           // tread centre offset from start edge
+  const ANGULAR_TOLERANCE = STEP_ANGLE * 0.75;   // covers ~a full slice so no gaps
+  const MAX_STEP_UP = 1.2; // must match the player's lighthouse step-up allowance
 
-  for (let rotation = 0; rotation < 3; rotation++) {
-    // Step index on this rotation: which slice of the 44 steps?
-    const stepOnRotation = Math.floor((angle / (Math.PI * 2)) * stepsPerRotation);
-    const stepIndex = rotation * stepsPerRotation + stepOnRotation;
+  let bestHeight = null;
+  let bestScore = Infinity;
 
-    // Stop if we've exceeded total steps
-    if (stepIndex >= TOTAL_STEPS) break;
+  for (let s = 0; s < TOTAL_STEPS; s++) {
+    // Angular CENTRE of this tread's drawn slice, wrapped into [0, 2π)
+    let theta = (s * STEP_ANGLE + HALF_SLICE) % (Math.PI * 2);
+    let d = Math.abs(theta - angle);
+    d = Math.min(d, Math.PI * 2 - d); // shortest angular distance (wrap-around)
+    if (d >= ANGULAR_TOLERANCE) continue; // this tread isn't under the player
 
-    // Calculate height of this candidate step
-    const stepY = BASE_HEIGHT + stepIndex * STEP_RISE + STEP_HEIGHT;
+    // The step mesh is a cylinder of height STEP_HEIGHT centred at (BASE_HEIGHT +
+    // s*STEP_RISE), so its walkable TOP surface is + STEP_HEIGHT/2 (not + STEP_HEIGHT,
+    // which floated the player ~0.11 m above the actual step).
+    const stepY = BASE_HEIGHT + s * STEP_RISE + STEP_HEIGHT / 2;
 
-    candidates.push({
-      stepIndex,
-      rotation,
-      height: stepY
-    });
-  }
-
-  // Find the candidate step closest to player's current Y (within tolerance)
-  const TOLERANCE = 1.5; // Allow stepping up/down 1.5m
-  let closestStep = null;
-  let minDist = Infinity;
-
-  for (const candidate of candidates) {
-    const dist = Math.abs(candidate.height - currentY);
-    if (dist < TOLERANCE && dist < minDist) {
-      minDist = dist;
-      closestStep = candidate;
+    // Pick the tread nearest the player's current height that they can actually
+    // reach: anything at/below currentY (standing or stepping down) or up to
+    // MAX_STEP_UP above it. Treads higher than that are unreachable from here.
+    const up = stepY - currentY;
+    const score = (up > MAX_STEP_UP) ? Infinity : Math.abs(up);
+    if (score < bestScore) {
+      bestScore = score;
+      bestHeight = stepY;
     }
   }
 
-  if (closestStep) {
-    return closestStep.height;
+  if (bestHeight !== null) {
+    return bestHeight;
   }
 
-  // No step within tolerance
+  // No reachable tread at this angle
   return null;
 }
 
@@ -453,11 +426,6 @@ export function getLighthouseHeight(playerX, playerZ, currentY) {
   const dx = playerX - LIGHTHOUSE_X;
   const dz = playerZ - LIGHTHOUSE_Z;
   const distance = Math.sqrt(dx * dx + dz * dz);
-
-  // DEBUG: Log when player is near lighthouse
-  if (distance < 15 && Math.random() < 0.01) {
-    console.log(`[lighthouse] Player near: dist=${distance.toFixed(1)}m, Y=${currentY.toFixed(1)}`);
-  }
 
   // 1. Check if on observation deck
   if (distance <= DECK_RADIUS && currentY > DECK_Y - 2) {
@@ -482,15 +450,19 @@ export function getLighthouseHeight(playerX, playerZ, currentY) {
   // 2. Check if on spiral stairs
   const stairHeight = getLighthouseStairHeight(playerX, playerZ, currentY);
   if (stairHeight !== null) {
-    // DEBUG: Log when on stairs
-    if (Math.random() < 0.05) {
-      console.log(`[lighthouse] On stairs: dist=${distance.toFixed(1)}m, returning Y=${stairHeight.toFixed(2)}`);
-    }
     return stairHeight;
   }
 
   // 3. Not on lighthouse
   return null;
+}
+
+// Bind the terrain height-hook at MODULE TOP LEVEL (not only inside initLighthouse).
+// This runs every time the module is evaluated — including after a Vite HMR update —
+// so window._getLighthouseHeight can never be left dangling as `undefined` when
+// initLighthouse isn't re-invoked. terrain.js reads this to make the stairs walkable.
+if (typeof window !== 'undefined') {
+  window._getLighthouseHeight = getLighthouseHeight;
 }
 
 // Check if player is on observation deck floor
