@@ -1,5 +1,6 @@
 // Inventory panel (character preview disabled)
 import { isChatOpen } from './chatUI.js';
+import { generateRodIcon, generateBaitIcon } from './fishingIcons.js';
 
 const STORAGE_KEY = 'suy_loadout_v8';
 
@@ -692,6 +693,8 @@ function _renderFishingGrid() {
         display: flex;
         align-items: center;
         gap: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
       `;
 
       const equipped = inv.currentRod === rodId;
@@ -700,16 +703,51 @@ function _renderFishingGrid() {
         row.style.background = 'rgba(124,106,247,0.15)';
       }
 
-      row.innerHTML = `
-        <span style="font-size:24px">${icon}</span>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px">${rodData?.nameHe || rodId}</div>
-          <div style="font-size:11px;opacity:0.6;margin-top:2px">
-            Tier ${rodData?.tier || '?'} • Zone ${Math.round((rodData?.centerZone || 0.3) * 100)}%
-          </div>
+      // Use procedural SVG icon
+      const iconUrl = generateRodIcon(rodId);
+      const iconImg = document.createElement('img');
+      iconImg.src = iconUrl;
+      iconImg.style.cssText = 'width:48px;height:48px;';
+
+      const infoDiv = document.createElement('div');
+      infoDiv.style.cssText = 'flex:1';
+      infoDiv.innerHTML = `
+        <div style="font-weight:700;font-size:14px">${rodData?.nameHe || rodId}</div>
+        <div style="font-size:11px;opacity:0.6;margin-top:2px">
+          Tier ${rodData?.tier || '?'} • Zone ${Math.round((rodData?.centerZone || 0.3) * 100)}%
         </div>
-        ${equipped ? '<span style="color:#f59e0b;font-size:11px;font-weight:700">מצויד</span>' : ''}
       `;
+
+      if (equipped) {
+        const badge = document.createElement('span');
+        badge.style.cssText = 'color:#f59e0b;font-size:11px;font-weight:700';
+        badge.textContent = 'מצויד';
+        row.appendChild(iconImg);
+        row.appendChild(infoDiv);
+        row.appendChild(badge);
+      } else {
+        row.appendChild(iconImg);
+        row.appendChild(infoDiv);
+
+        // Add equip button
+        const equipBtn = document.createElement('button');
+        equipBtn.textContent = 'ציוד';
+        equipBtn.style.cssText = `
+          padding: 6px 12px;
+          background: #7c6af7;
+          border: none;
+          border-radius: 8px;
+          color: white;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+        `;
+        equipBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          _equipRod(rodId);
+        });
+        row.appendChild(equipBtn);
+      }
 
       list.appendChild(row);
     });
@@ -748,14 +786,21 @@ function _renderFishingGrid() {
         gap: 12px;
       `;
 
-      row.innerHTML = `
-        <span style="font-size:24px">${baitIcon}</span>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px">${nameHe}</div>
-          <div style="font-size:11px;opacity:0.6;margin-top:2px">${count} available</div>
-        </div>
+      // Use procedural SVG icon
+      const iconUrl = generateBaitIcon(id);
+      const iconImg = document.createElement('img');
+      iconImg.src = iconUrl;
+      iconImg.style.cssText = 'width:32px;height:32px;';
+
+      const infoDiv = document.createElement('div');
+      infoDiv.style.cssText = 'flex:1';
+      infoDiv.innerHTML = `
+        <div style="font-weight:700;font-size:14px">${nameHe}</div>
+        <div style="font-size:11px;opacity:0.6;margin-top:2px">${count} available</div>
       `;
 
+      row.appendChild(iconImg);
+      row.appendChild(infoDiv);
       list.appendChild(row);
     });
 
@@ -1052,4 +1097,25 @@ export function hideInventoryPanel() {
 
 export function toggleInventoryPanel() {
   _visible ? hideInventoryPanel() : showInventoryPanel();
+}
+
+// ── Equip Rod ─────────────────────────────────────────────────────────
+
+function _equipRod(rodId) {
+  console.log('[inventory] Equipping rod:', rodId);
+
+  // Update server
+  if (window.getSocket && window.getSocket()) {
+    window.getSocket().emit('equipRod', { rodId });
+  }
+
+  // Update local state
+  if (window.updateFishingInventory) {
+    window.updateFishingInventory({ currentRod: rodId });
+  }
+
+  // Re-render to show new equipped state
+  setTimeout(() => {
+    _renderBody();
+  }, 100);
 }

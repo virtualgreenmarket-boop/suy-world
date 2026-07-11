@@ -188,6 +188,32 @@ export function initFishing(io, db, getCoinsFunc, adjustCoinsFunc) {
       }
     });
 
+    // Equip rod
+    socket.on('equipRod', ({ rodId }) => {
+      try {
+        const row = stmtGetFishing.get(uuid);
+        if (!row) {
+          console.error('[fishing-server] equipRod: player not found');
+          return;
+        }
+
+        const ownedRods = JSON.parse(row.owned_rods || '["wood"]');
+        if (!ownedRods.includes(rodId)) {
+          console.warn('[fishing-server] equipRod: player does not own', rodId);
+          return;
+        }
+
+        // Update current rod
+        stmtUpdateRod.run(rodId, uuid);
+        console.log(`[fishing-server] ${uuid} equipped ${rodId}`);
+
+        // Send confirmation
+        socket.emit('rodEquipped', { rodId });
+      } catch (err) {
+        console.error('[fishing-server] equipRod error:', err);
+      }
+    });
+
     // Catch fish (server validates and stores)
     socket.on('catchFish', ({ fishId }) => {
       try {
