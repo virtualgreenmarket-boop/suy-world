@@ -54,7 +54,10 @@ export function initFishing(io, db, getCoinsFunc, adjustCoinsFunc) {
 
   io.on('connection', (socket) => {
     const uuid = socket.handshake.auth?.uuid;
-    if (!uuid) return;
+    if (!uuid) {
+      console.warn('[fishing-server] connection without uuid — fishing disabled for this socket');
+      return;
+    }
 
     // Load or create fishing data
     stmtCreateFishing.run(uuid);

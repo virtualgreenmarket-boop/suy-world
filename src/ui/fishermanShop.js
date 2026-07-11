@@ -34,8 +34,7 @@ export function initFishermanShop(socket, onCoinUpdate) {
 }
 
 export function openFishermanShop() {
-  console.log('[fishermanShop] ===== OPENING SHOP =====');
-  console.log('[fishermanShop] Socket exists:', _socket ? 'YES' : 'NO');
+  console.log('[fishermanShop] Opening shop, socket:', _socket ? 'connected' : 'missing');
   if (_isOpen) return;
   _isOpen = true;
 
@@ -317,8 +316,7 @@ function _renderBaitsTab(container) {
         btn.style.background = '#FF6B4A';
       });
       btn.addEventListener('click', () => {
-        console.log('[fishermanShop] ===== BUY BUTTON CLICKED =====', { baitId: bait.id, qty, totalPrice: bait.price * qty });
-        alert(`Trying to buy ${qty}x ${bait.nameHe} for ${bait.price * qty} coins`);
+        console.log('[fishermanShop] Buy button clicked:', { baitId: bait.id, qty, totalPrice: bait.price * qty });
         _buyBait(bait.id, qty, bait.price * qty);
       });
       buyControls.appendChild(btn);
@@ -425,9 +423,9 @@ function _sellFish(index, fishId, price) {
 }
 
 function _handlePurchaseResult(data) {
-  console.log('[fishermanShop] Received purchase result:', data);
+  console.log('[fishermanShop] Received purchase result:', JSON.stringify(data));
   if (data.success) {
-    console.log('[fishermanShop] Purchase success:', data);
+    console.log('[fishermanShop] Purchase success:', JSON.stringify(data));
     if (_onCoinUpdate) _onCoinUpdate(data.newBalance);
 
     // Update local inventory
