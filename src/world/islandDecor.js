@@ -7,6 +7,8 @@
 
 import * as THREE from 'three';
 import { isValidGrassPosition, isValidBeachPosition } from './mapZones.js';
+import { registerInteraction } from '../ui/interactionUI.js';
+import { sitOnBench, standUp, isPlayerSitting } from '../player/localPlayer.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // LAYER 1: TROPICAL PLANTS (Grass zones)
@@ -236,10 +238,14 @@ function createVegetation(scene) {
 // Explicit positions => identical placement on every refresh.
 const BEACH_LINE_X = -300;         // sand line, seaward, in front of the deck
 const BEACH_FACE_ANGLE = Math.PI;  // face -X (toward the open sea on this shore)
-// The furniture is modelled at ~human real scale (~1.8 m), but the player character is
-// ~3 m tall, so the whole beach spot is scaled up to fit. Tweak this one number to make
-// the umbrellas/chairs bigger or smaller relative to the player.
-const BEACH_SPOT_SCALE = 1.7;
+// The furniture is modelled at ~human real scale, but the player character is ~3 m tall,
+// so the whole beach spot is scaled up to fit. Tweak this one number to make the
+// umbrellas/chairs bigger or smaller relative to the player.
+const BEACH_SPOT_SCALE = 2.4;
+// Real-world seat height (metres) shared by createBeachChair() (renders the seat mesh
+// there) and createBeachFurniture() (derives SIT_Y from it) — keep them reading from
+// this one constant so the two stay matched.
+const BEACH_SEAT_TOP_WORLD = 1.35; // TALL chair — seat surface up where the raised player sits
 const BEACH_SPOT_POSITIONS = [
   // North of the deck (-Z side)
   { x: BEACH_LINE_X, z:  -75 },
@@ -312,42 +318,57 @@ function createUmbrella() {
 }
 
 /**
- * Create beach chair (simple box lounge chair)
+ * Create beach chair (sized to fit the seated ~3 m player, like the plaza bench)
+ *
+ * The whole beach spot is scaled by BEACH_SPOT_SCALE so the UMBRELLA looks big, but the
+ * chair must stay roughly bench-sized to fit the character (who is only scaled 1.2 when
+ * seated). So the chair counter-scales the spot scale and targets a real world size:
+ * seat ~1.4 m wide, seat surface at BEACH_SEAT_TOP_WORLD (a tall lounger, well above the
+ * plaza bench's seat).
  */
 function createBeachChair() {
   const group = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 
+  // Real-world target sizes (metres), independent of the umbrella's big spot scale.
+  const SEAT_W = 1.6;          // wide enough to fit the ~3 m character
+  const SEAT_D = 1.8;
+  const SEAT_TOP_WORLD = BEACH_SEAT_TOP_WORLD;
+  const SEAT_THICK = 0.15;
+
+  // Counter the spot scale so these world sizes come out right after the group is scaled.
+  const inv = 1 / BEACH_SPOT_SCALE;
+  const seatTopLocal = SEAT_TOP_WORLD * inv;
+  const seatCenterLocal = seatTopLocal - (SEAT_THICK * inv) / 2;
+
   // Seat
-  const seatGeom = new THREE.BoxGeometry(0.6, 0.1, 0.8);
-  const seat = new THREE.Mesh(seatGeom, mat);
-  seat.position.y = 0.3;
+  const seat = new THREE.Mesh(
+    new THREE.BoxGeometry(SEAT_W * inv, SEAT_THICK * inv, SEAT_D * inv), mat);
+  seat.position.y = seatCenterLocal;
   group.add(seat);
 
-  // Backrest (angled)
-  const backGeom = new THREE.BoxGeometry(0.6, 0.6, 0.1);
-  const back = new THREE.Mesh(backGeom, mat);
-  back.position.y = 0.5;
-  back.position.z = -0.35;
-  back.rotation.x = -0.6; // ~35° angle
+  // Backrest — upright, behind the seat
+  const BACK_H = 1.2;
+  const back = new THREE.Mesh(
+    new THREE.BoxGeometry(SEAT_W * inv, BACK_H * inv, 0.12 * inv), mat);
+  back.position.y = seatTopLocal + (BACK_H * inv) / 2;
+  back.position.z = -(SEAT_D * inv) / 2;
+  back.rotation.x = -0.12; // slight lean
   group.add(back);
 
-  // Legs (4 simple cylinders)
-  const legGeom = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 6);
+  // Legs from the sand up to the seat underside
   const legMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
-
-  const legPositions = [
-    [-0.25, 0.15, 0.3],
-    [0.25, 0.15, 0.3],
-    [-0.25, 0.15, -0.3],
-    [0.25, 0.15, -0.3]
-  ];
-
-  legPositions.forEach(pos => {
-    const leg = new THREE.Mesh(legGeom, legMat);
-    leg.position.set(...pos);
-    group.add(leg);
-  });
+  const legTopLocal = seatCenterLocal - (SEAT_THICK * inv) / 2;
+  if (legTopLocal > 0.01) {
+    const legGeom = new THREE.CylinderGeometry(0.04 * inv, 0.04 * inv, legTopLocal, 6);
+    const hx = (SEAT_W * inv) / 2 - 0.1 * inv;
+    const hz = (SEAT_D * inv) / 2 - 0.1 * inv;
+    [[-hx, hz], [hx, hz], [-hx, -hz], [hx, -hz]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(legGeom, legMat);
+      leg.position.set(lx, legTopLocal / 2, lz);
+      group.add(leg);
+    });
+  }
 
   return group;
 }
@@ -434,10 +455,34 @@ function createBeachSpot(colorIndex = 0) {
  * Place beach spots along shoreline
  *
  * Umbrellas are placed at FIXED positions (BEACH_SPOT_POSITIONS) so they stay put
- * across refreshes. Each spot faces outward from the island centre (toward the sea).
+ * across refreshes. Each spot faces the sea, and each chair gets a "sit" interaction
+ * so the player can sit and look out at the water.
  */
 function createBeachFurniture(scene) {
   const beachGroup = new THREE.Group();
+
+  // Chair local offsets (before scale/rotation) — must match createBeachSpot().
+  const CHAIR_LOCAL_OFFSETS = [
+    { x: 1.2, z: -0.8 },
+    { x: 1.2, z: 0.8 },
+  ];
+  const SEAT_LOCAL_Y = 0.38;                // top surface of the chair seat (local, pre-scale)
+  // IMPORTANT: SIT_Y is NOT the seat height — it's the world Y handed to sitOnBench(),
+  // which the shared sit pose (localPlayer.js / CharacterBuilder.js, same rig the plaza
+  // bench uses) then raises by a fixed ~1.11 m to place the hip. That offset was measured
+  // directly against the running character rig (charModel's hip pivot ends up at
+  // SIT_Y + ~1.1096 world units, independent of location) and confirmed visually: at
+  // SIT_Y = 1.3 the character floated far above the seat; at SIT_Y = BEACH_SEAT_TOP_WORLD
+  // - 1.11 the hips rest right on the seat plank. Don't set SIT_Y to match the seat height
+  // directly — always derive it from BEACH_SEAT_TOP_WORLD via this offset.
+  const SIT_HIP_RAISE = 1.11; // measured: sit pose lifts the hip pivot this far above SIT_Y
+  const SIT_Y = BEACH_SEAT_TOP_WORLD - SIT_HIP_RAISE;
+
+  // Helper: rotate a local (x,z) by the spot's Y rotation
+  const rotY = (x, z, t) => ({
+    x: x * Math.cos(t) + z * Math.sin(t),
+    z: -x * Math.sin(t) + z * Math.cos(t),
+  });
 
   BEACH_SPOT_POSITIONS.forEach((pos, index) => {
     // Skip any spot that isn't actually on the beach (safety check — keeps the row
@@ -460,10 +505,42 @@ function createBeachFurniture(scene) {
     spot.rotation.y = BEACH_FACE_ANGLE;
 
     beachGroup.add(spot);
+
+    // ── Register a "sit" interaction on each chair ──────────────────────────────
+    // The player should sit facing the SEA (outward from island centre). The player's
+    // facing direction in-game is (sin(yaw), cos(yaw)) in (x,z), so to face the outward
+    // sea unit vector we use yaw = atan2(seaUnit.x, seaUnit.z). Computed per spot so it
+    // stays correct even though the umbrella line curves slightly.
+    const seaMag  = Math.hypot(pos.x, pos.z) || 1;
+    const sitYaw  = Math.atan2(pos.x / seaMag, pos.z / seaMag);
+
+    CHAIR_LOCAL_OFFSETS.forEach((off, chairIdx) => {
+      // World position of this chair = spot position + rotate(scaled local offset).
+      const sx = off.x * BEACH_SPOT_SCALE;
+      const sz = off.z * BEACH_SPOT_SCALE;
+      const r  = rotY(sx, sz, BEACH_FACE_ANGLE);
+      const worldX = pos.x + r.x;
+      const worldZ = pos.z + r.z;
+
+      // Toggle: sit if standing, stand if already sitting (same pattern as the plaza bench).
+      registerInteraction(
+        [worldX, SEAT_LOCAL_Y * BEACH_SPOT_SCALE + 0.5, worldZ], // label anchor above the seat
+        'שב 🏖️',                          // "Sit" label
+        3.0,                              // interaction range (metres)
+        () => {
+          if (isPlayerSitting()) {
+            standUp();
+          } else {
+            // Sit at ground level (like the bench) so the sit animation poses correctly.
+            sitOnBench(worldX, SIT_Y, worldZ, sitYaw);
+          }
+        }
+      );
+    });
   });
 
   scene.add(beachGroup);
-  console.log(`[islandDecor] Created ${beachGroup.children.length} beach spots (fixed positions)`);
+  console.log(`[islandDecor] Created ${beachGroup.children.length} beach spots (fixed positions, sit-enabled)`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
