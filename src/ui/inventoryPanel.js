@@ -204,9 +204,9 @@ function _buildPanel() {
     }
     #inv-close:hover { background: rgba(255,255,255,0.16); }
 
-    /* ── Section pills (4-col grid) ── */
+    /* ── Section pills (6-col grid for all sections including fishing) ── */
     #inv-sections {
-      display: grid; grid-template-columns: repeat(5, 1fr);
+      display: grid; grid-template-columns: repeat(6, 1fr);
       gap: 6px; padding: 10px 14px 0; flex-shrink: 0;
     }
     .inv-section-pill {

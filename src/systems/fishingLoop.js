@@ -1,5 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════
 // SUY WORLD — Fishing Loop (casting, waiting, bite, meter, catch)
+// FIXED VERSION:
+//   1. Self-managed mobile "לדוג 🎣" button — appears whenever the player
+//      stands near any FISHING_SPOT. No dependency on interactionUI/E key.
+//   2. Same button becomes "משוך!" during the bite window and calls
+//      pullRod() — previously nothing called pullRod, so every fish
+//      escaped after 3 seconds.
+//   3. Scene-leak fix: _fishEscaped() called _cleanupFishing() without a
+//      scene, so the line + bobber were never removed and floated forever.
+//      The scene is now stored once and cleanup always works.
+//   4. NEW: procedural low-poly rod in the player's hand (color by owned
+//      rod tier) + full fishing animation: cast swing, waiting sway, bite
+//      shake, meter strain. The line follows the rod tip every frame.
 // ═══════════════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
@@ -31,27 +43,293 @@ export const FISHING_SPOTS = [
   { x: -369.9, y: 0.9, z: -24.0, name: 'South Alcove 3' }
 ];
 
+const SPOT_RADIUS = 4.5;   // metres — horizontal distance for the button to appear
+const PROX_INTERVAL = 0.2; // seconds between proximity checks
+
 // ── Visual Elements ───────────────────────────────────────────────────
 
-let _spotMarkers = [];
-let _castingRod = null;
 let _fishingLine = null;
 let _bobber = null;
 
 // ── State ─────────────────────────────────────────────────────────────
 
+let _scene = null;                // stored once — used by cleanup + button
 let _currentSpot = null;
-let _fishingState = 'idle'; // 'idle' | 'casting' | 'waiting' | 'biting' | 'meter'
+let _castTarget = null;           // where this cast landed (random 5–30m out)
+const WATER_Y = 0.05;             // water surface — the bobber floats here
+let _fishingState = 'idle';       // 'idle' | 'casting' | 'waiting' | 'biting' | 'meter'
 let _waitTimer = 0;
 let _biteWindow = 0;
 let _biteEffects = [];
+let _proxTimer = 0;
+let _nearestSpotIndex = -1;
+let _nearAnySpot = false;
+
+// ── Rod-in-hand + animation state ─────────────────────────────────────
+let _rodGroup = null;      // THREE.Group attached to the player
+let _rodTip = null;        // Object3D marker at the rod tip (for the line)
+let _rodColorId = null;    // which rod the current material color matches
+let _castAnim = null;      // { t } while the cast swing is playing
+const ROD_COLORS = { wood: 0xC98F14, fiberglass: 0xC9D4D8, carbon: 0x0D2428, golden: 0xF0B429 };
+const ROD_REST_TILT = -Math.PI / 4; // rod points forward-up at rest
+
+// ── Action Button (self-managed, mobile-friendly) ────────────────────
+
+let _actionBtn = null;
+let _btnMode = null; // null | 'fish' | 'pull'
+
+function _ensureActionButton() {
+  if (_actionBtn) return _actionBtn;
+
+  if (!document.getElementById('fishing-btn-style')) {
+    const style = document.createElement('style');
+    style.id = 'fishing-btn-style';
+    style.textContent = `
+      @keyframes fishing-pull-pulse {
+        0%, 100% { transform: translateX(-50%) scale(1); }
+        50%      { transform: translateX(-50%) scale(1.08); }
+      }
+      #fishing-action-btn {
+        position: fixed;
+        left: 50%;
+        bottom: 130px;
+        transform: translateX(-50%);
+        display: none;
+        padding: 14px 34px;
+        border: 1px solid rgba(244, 231, 195, 0.35);
+        border-radius: 12px;
+        background: rgba(13, 36, 40, 0.78);
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.22), 0 6px 20px rgba(0, 0, 0, 0.45);
+        color: #F4E7C3;
+        font-family: Heebo, sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        z-index: 10002;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #fishing-action-btn.pull {
+        background: #FF6B4A;
+        color: #0D2428;
+        border-color: rgba(255, 255, 255, 0.5);
+        animation: fishing-pull-pulse 0.5s ease-in-out infinite;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  _actionBtn = document.createElement('button');
+  _actionBtn.id = 'fishing-action-btn';
+  _actionBtn.type = 'button';
+  _actionBtn.addEventListener('click', () => {
+    try {
+      if (_btnMode === 'pull') {
+        pullRod(_scene);
+      } else if (_btnMode === 'fish' && _nearestSpotIndex >= 0) {
+        const playerGroup = window._localPlayerGroup;
+        if (!playerGroup) return;
+        tryStartFishing(_nearestSpotIndex, _scene, playerGroup.position);
+      }
+    } catch (err) {
+      console.error('[fishingLoop] Action button error:', err);
+    }
+  });
+  document.body.appendChild(_actionBtn);
+  return _actionBtn;
+}
+
+function _setButtonMode(mode) {
+  if (mode === _btnMode) return;
+  _btnMode = mode;
+  const btn = _ensureActionButton();
+  if (mode === 'fish') {
+    btn.textContent = 'לדוג 🎣';
+    btn.classList.remove('pull');
+    btn.style.display = 'block';
+  } else if (mode === 'pull') {
+    btn.textContent = 'משוך!';
+    btn.classList.add('pull');
+    btn.style.display = 'block';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function _updateProximity(delta) {
+  _proxTimer += delta;
+  if (_proxTimer < PROX_INTERVAL) return;
+  _proxTimer = 0;
+
+  // Button is state-driven outside idle
+  if (_fishingState === 'biting') { _setButtonMode('pull'); return; }
+  if (_fishingState !== 'idle')   { _setButtonMode(null);   return; }
+
+  const playerGroup = window._localPlayerGroup;
+  if (!playerGroup) { _setButtonMode(null); return; }
+
+  const px = playerGroup.position.x;
+  const pz = playerGroup.position.z;
+
+  let best = -1;
+  let bestDist = SPOT_RADIUS;
+  for (let i = 0; i < FISHING_SPOTS.length; i++) {
+    const s = FISHING_SPOTS[i];
+    const d = Math.hypot(px - s.x, pz - s.z);
+    if (d <= bestDist) { bestDist = d; best = i; }
+  }
+
+  _nearestSpotIndex = best;
+  _nearAnySpot = best >= 0;
+  _setButtonMode(best >= 0 ? 'fish' : null);
+}
+
+// ── Rod in hand (procedural low-poly model + animation) ──────────────
+
+function _currentRodColor() {
+  try {
+    const rod = getCurrentRod();
+    const id = rod && (rod.id || rod.rodId || rod.name);
+    return { id: id || 'wood', color: ROD_COLORS[id] !== undefined ? ROD_COLORS[id] : ROD_COLORS.wood };
+  } catch (_) {
+    return { id: 'wood', color: ROD_COLORS.wood };
+  }
+}
+
+function _ensureRod() {
+  const playerGroup = window._localPlayerGroup;
+  if (!playerGroup) return null;
+  if (_rodGroup && _rodGroup.parent === playerGroup) return _rodGroup;
+
+  try {
+    const { id, color } = _currentRodColor();
+
+    _rodGroup = new THREE.Group();
+    _rodGroup.name = 'fishingRod';
+
+    // Shaft — 1.6m tapered cylinder along +Y
+    const shaftMat = new THREE.MeshLambertMaterial({ color });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.025, 1.6, 6), shaftMat);
+    shaft.position.y = 0.8;
+    _rodGroup.add(shaft);
+
+    // Handle — 0.25m darker grip at the base
+    const handle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.032, 0.25, 6),
+      new THREE.MeshLambertMaterial({ color: 0x4A3018 })
+    );
+    handle.position.y = 0.125;
+    _rodGroup.add(handle);
+
+    // Reel — small box near the handle
+    const reel = new THREE.Mesh(
+      new THREE.BoxGeometry(0.07, 0.09, 0.05),
+      new THREE.MeshLambertMaterial({ color: 0x0D2428 })
+    );
+    reel.position.set(0, 0.32, 0.05);
+    _rodGroup.add(reel);
+
+    // Tip marker — world anchor for the fishing line
+    _rodTip = new THREE.Object3D();
+    _rodTip.position.y = 1.6;
+    _rodGroup.add(_rodTip);
+
+    // 50% larger rod
+    _rodGroup.scale.setScalar(1.5);
+
+    // Held at the right hip, tilted forward (player forward = -Z)
+    _rodGroup.position.set(0.3, 1.2, 0.25);
+    _rodGroup.rotation.x = ROD_REST_TILT;
+    _rodGroup.visible = false;
+
+    playerGroup.add(_rodGroup);
+    _rodColorId = id;
+    console.log('[fishingLoop] Rod model attached to player (' + id + ')');
+    return _rodGroup;
+  } catch (err) {
+    console.error('[fishingLoop] Rod build error:', err);
+    _rodGroup = null;
+    return null;
+  }
+}
+
+function _refreshRodColor() {
+  if (!_rodGroup) return;
+  const { id, color } = _currentRodColor();
+  if (id === _rodColorId) return;
+  const shaft = _rodGroup.children[0];
+  if (shaft && shaft.material) shaft.material.color.setHex(color);
+  _rodColorId = id;
+}
+
+function _updateRod(delta) {
+  const rod = _ensureRod();
+  if (!rod) return;
+
+  // Visible only near a fishing spot or while fishing
+  rod.visible = _nearAnySpot || _fishingState !== 'idle';
+  if (!rod.visible) { _castAnim = null; return; }
+
+  _refreshRodColor();
+
+  const time = Date.now() * 0.001;
+
+  if (_castAnim) {
+    // Cast swing: back (~60°) then forward, 0.8s total
+    _castAnim.t += delta;
+    const t = Math.min(1, _castAnim.t / 0.8);
+    if (t < 0.35) {
+      const k = t / 0.35;                                   // wind back
+      rod.rotation.x = ROD_REST_TILT + k * 1.05;
+    } else if (t < 0.65) {
+      const k = (t - 0.35) / 0.3;                           // swing forward
+      rod.rotation.x = (ROD_REST_TILT + 1.05) - k * 1.75;
+    } else {
+      const k = (t - 0.65) / 0.35;                          // settle to rest
+      rod.rotation.x = (ROD_REST_TILT - 0.7) + k * 0.7;
+    }
+    if (t >= 1) { _castAnim = null; rod.rotation.x = ROD_REST_TILT; }
+  } else if (_fishingState === 'waiting') {
+    rod.rotation.x = ROD_REST_TILT + Math.sin(time * 1.5) * 0.05;   // gentle hold
+    rod.rotation.z = 0;
+  } else if (_fishingState === 'biting') {
+    rod.rotation.x = ROD_REST_TILT + Math.sin(time * 30) * 0.08;    // tip shaking
+    rod.rotation.z = Math.sin(time * 37) * 0.06;
+  } else if (_fishingState === 'meter') {
+    rod.rotation.x = ROD_REST_TILT - 0.35 + Math.sin(time * 8) * 0.05; // straining
+    rod.rotation.z = 0;
+  } else {
+    rod.rotation.x = ROD_REST_TILT + Math.sin(time * 1.2) * 0.03;   // idle sway
+    rod.rotation.z = 0;
+  }
+
+  // Keep the fishing line anchored to the rod tip
+  if (_fishingLine && _rodTip) {
+    try {
+      const tipPos = new THREE.Vector3();
+      _rodTip.getWorldPosition(tipPos);
+      const positions = _fishingLine.geometry.attributes.position;
+      positions.array[0] = tipPos.x;
+      positions.array[1] = tipPos.y;
+      positions.array[2] = tipPos.z;
+      if (_bobber) {
+        positions.array[3] = _bobber.position.x;
+        positions.array[4] = _bobber.position.y;
+        positions.array[5] = _bobber.position.z;
+      }
+      positions.needsUpdate = true;
+    } catch (_) { /* line update is cosmetic */ }
+  }
+}
 
 // ── Initialization ────────────────────────────────────────────────────
 
 export function initFishingSpots(scene) {
   try {
-    // Fishing spots are now integrated with marina alcoves
-    // No visual markers needed - the black squares serve as markers
+    _scene = scene;
+    _ensureActionButton();
     console.log('[fishingLoop] Initialized', FISHING_SPOTS.length, 'fishing spots (marina alcoves)');
   } catch (err) {
     console.error('[fishingLoop] Init error:', err);
@@ -60,9 +338,9 @@ export function initFishingSpots(scene) {
 
 export function updateFishingSpots(delta) {
   try {
-    // No visual markers to animate - alcoves are static
+    _updateProximity(delta);
+    _updateRod(delta);
 
-    // Update fishing state
     if (_fishingState === 'casting') {
       _updateCasting(delta);
     } else if (_fishingState === 'waiting') {
@@ -71,7 +349,6 @@ export function updateFishingSpots(delta) {
       _updateBiting(delta);
     }
 
-    // Update visual effects
     _updateVisualEffects(delta);
   } catch (err) {
     if (!window._fishingUpdateError) {
@@ -87,14 +364,14 @@ export function canStartFishing(spotIndex) {
   if (isActiveFishing()) return false;
   if (spotIndex < 0 || spotIndex >= FISHING_SPOTS.length) return false;
 
-  // Check if player has any bait
   const baits = ['worm', 'shrimp', 'squid'];
   return baits.some(b => hasBait(b));
 }
 
 export function tryStartFishing(spotIndex, scene, playerPos) {
+  if (scene) _scene = scene;
+
   if (!canStartFishing(spotIndex)) {
-    // Show "no bait" message
     if (window.showTemporaryMessage) {
       window.showTemporaryMessage('אין פיתיונות! קנה אצל הדייג 🎣');
     }
@@ -113,8 +390,9 @@ export function tryStartFishing(spotIndex, scene, playerPos) {
 
   if (!startFishing(selectedBait)) return false;
 
-  // Start casting animation
-  _startCasting(scene, playerPos);
+  _startCasting(_scene, playerPos);
+  _castAnim = { t: 0 };   // play the rod swing animation
+  _setButtonMode(null);
 
   return true;
 }
@@ -123,11 +401,22 @@ export function tryStartFishing(spotIndex, scene, playerPos) {
 
 function _startCasting(scene, playerPos) {
   _fishingState = 'casting';
+  if (!scene) return;
 
-  // Create simple rod (line from player to water)
+  // Random cast distance: 5–30m outward into the water + small sideways drift
+  const dist = 5 + Math.random() * 25;
+  const outward = _currentSpot.z >= 0 ? 1 : -1;   // north spots cast +Z, south cast -Z
+  _castTarget = new THREE.Vector3(
+    _currentSpot.x + (Math.random() - 0.5) * 4,
+    WATER_Y,
+    _currentSpot.z + outward * dist
+  );
+
+  const startPos = new THREE.Vector3(playerPos.x, playerPos.y + 1.6, playerPos.z);
+
   const rodGeo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(playerPos.x, playerPos.y + 1.5, playerPos.z),
-    new THREE.Vector3(_currentSpot.x, _currentSpot.y, _currentSpot.z)
+    startPos.clone(),
+    startPos.clone()
   ]);
   _fishingLine = new THREE.Line(
     rodGeo,
@@ -135,41 +424,36 @@ function _startCasting(scene, playerPos) {
   );
   scene.add(_fishingLine);
 
-  // Create bobber
   _bobber = new THREE.Mesh(
     new THREE.SphereGeometry(0.15, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0xFF6B4A })
   );
-  _bobber.position.set(_currentSpot.x, _currentSpot.y + 5, _currentSpot.z); // Start above, will fall
+  _bobber.position.copy(startPos);
   scene.add(_bobber);
 
-  // Animate bobber falling (parabolic arc)
   _bobber.userData.castTime = 0;
-  _bobber.userData.castDuration = 0.8;
-  _bobber.userData.startY = _bobber.position.y;
-  _bobber.userData.targetY = _currentSpot.y - 0.5; // Slightly below surface
+  _bobber.userData.castDuration = 0.7 + dist * 0.02;   // farther casts fly a bit longer
+  _bobber.userData.startPos = startPos;
 }
 
 function _updateCasting(delta) {
-  if (!_bobber) return;
+  if (!_bobber || !_castTarget) { _fishingState = 'waiting'; _waitTimer = Math.random() * 5 + 5; return; }
 
   _bobber.userData.castTime += delta;
   const t = Math.min(1, _bobber.userData.castTime / _bobber.userData.castDuration);
 
-  // Parabolic arc
-  const startY = _bobber.userData.startY;
-  const targetY = _bobber.userData.targetY;
-  const arc = 4 * t * (1 - t); // Peaks at t=0.5
-  _bobber.position.y = startY + (targetY - startY) * t + arc * 2;
+  // Horizontal flight with a parabolic height arc
+  const s = _bobber.userData.startPos;
+  const arc = 4 * t * (1 - t);
+  _bobber.position.x = s.x + (_castTarget.x - s.x) * t;
+  _bobber.position.z = s.z + (_castTarget.z - s.z) * t;
+  _bobber.position.y = s.y + (_castTarget.y - s.y) * t + arc * 3;
 
   if (t >= 1) {
-    // Splash effect (simple ripple)
     _createSplash(_bobber.position);
-
-    // Transition to waiting
     _fishingState = 'waiting';
     _waitTimer = Math.random() * 5 + 5; // 5-10 seconds
-    _bobber.position.y = targetY;
+    _bobber.position.copy(_castTarget);
   }
 }
 
@@ -178,17 +462,17 @@ function _updateCasting(delta) {
 function _updateWaiting(delta) {
   _waitTimer -= delta;
 
-  // Bobber floating animation
-  if (_bobber) {
+  if (_bobber && _castTarget) {
     const time = Date.now() * 0.001;
-    _bobber.position.y = _currentSpot.y - 0.5 + Math.sin(time * 2) * 0.1;
+    // Bobber floats ON the water surface
+    _bobber.position.y = WATER_Y + Math.sin(time * 2) * 0.08;
   }
 
   if (_waitTimer <= 0) {
-    // Fish bites!
     _fishingState = 'biting';
-    _biteWindow = 3.0; // 3 second window
+    _biteWindow = 3.0;
     _startBiteEffects();
+    _setButtonMode('pull');
   }
 }
 
@@ -197,11 +481,9 @@ function _updateWaiting(delta) {
 function _startBiteEffects() {
   if (!_bobber) return;
 
-  // Bobber shakes
   _bobber.userData.shaking = true;
   _bobber.userData.shakeTime = 0;
 
-  // Expanding ripples
   const pos = _bobber.position;
   for (let i = 0; i < 3; i++) {
     setTimeout(() => {
@@ -213,37 +495,39 @@ function _startBiteEffects() {
 function _updateBiting(delta) {
   _biteWindow -= delta;
 
-  // Shake bobber
   if (_bobber && _bobber.userData.shaking) {
     _bobber.userData.shakeTime += delta * 10;
-    _bobber.position.x = _currentSpot.x + Math.sin(_bobber.userData.shakeTime) * 0.2;
-    _bobber.position.z = _currentSpot.z + Math.cos(_bobber.userData.shakeTime * 1.3) * 0.15;
+    const cx = _castTarget ? _castTarget.x : _currentSpot.x;
+    const cz = _castTarget ? _castTarget.z : _currentSpot.z;
+    _bobber.position.x = cx + Math.sin(_bobber.userData.shakeTime) * 0.2;
+    _bobber.position.z = cz + Math.cos(_bobber.userData.shakeTime * 1.3) * 0.15;
+    _bobber.position.y = WATER_Y + Math.sin(_bobber.userData.shakeTime * 2) * 0.06;
   }
 
-  // Line vibration
-  if (_fishingLine) {
+  if (_fishingLine && _bobber) {
     const positions = _fishingLine.geometry.attributes.position;
-    positions.array[3] += (Math.random() - 0.5) * 0.1; // End point x
-    positions.array[5] += (Math.random() - 0.5) * 0.1; // End point z
+    positions.array[3] = _bobber.position.x;
+    positions.array[4] = _bobber.position.y;
+    positions.array[5] = _bobber.position.z;
     positions.needsUpdate = true;
   }
 
   if (_biteWindow <= 0) {
-    // Missed the bite!
     _fishEscaped();
   }
 }
 
 export function pullRod(scene) {
+  if (scene) _scene = scene;
   if (_fishingState !== 'biting') return;
 
-  // Successfully caught the bite window - show meter
   _fishingState = 'meter';
+  _setButtonMode(null);
 
   const rod = getCurrentRod();
   showFishingMeter(rod.meterSpeed, rod.centerZone, (success, accuracy) => {
     if (success) {
-      _catchFish(scene, accuracy);
+      _catchFish(_scene, accuracy);
     } else {
       _fishEscaped();
     }
@@ -256,30 +540,23 @@ function _catchFish(scene, accuracy) {
   const rod = getCurrentRod();
   const bait = getBaitById(getCurrentBait());
 
-  // Select fish based on rod, bait, accuracy
   const fish = selectFish(rod.tier, bait.effect, accuracy);
 
-  // Consume bait
   consumeCurrentBait();
 
-  // Tell server
   getSocket().emit('consumeBait', { baitId: getCurrentBait() });
   getSocket().emit('catchFish', { fishId: fish.id });
 
-  // Add to local inventory
   addCaughtFish(fish.id);
 
-  // Award EXP
   const expAmounts = { common: 2, uncommon: 4, rare: 8, epic: 15, legendary: 30 };
   const exp = expAmounts[fish.rarity] || 2;
   if (window.awardStepEXP) {
     window.awardStepEXP(exp);
   }
 
-  // Clean up visuals
   _cleanupFishing(scene);
 
-  // Show catch screen
   showCatchScreen(fish, () => {
     endFishing();
   });
@@ -290,14 +567,12 @@ function _catchFish(scene, accuracy) {
 // ── Fish Escaped ──────────────────────────────────────────────────────
 
 function _fishEscaped() {
-  // Consume bait even on failure
+  // Consume bait even on failure — emit BEFORE endFishing clears the bait
   consumeCurrentBait();
   getSocket().emit('consumeBait', { baitId: getCurrentBait() });
 
-  // Clean up
-  _cleanupFishing();
+  _cleanupFishing(_scene);
 
-  // Show escape message
   showEscapeScreen(() => {
     endFishing();
   });
@@ -308,15 +583,17 @@ function _fishEscaped() {
 // ── Cleanup ───────────────────────────────────────────────────────────
 
 function _cleanupFishing(scene) {
-  if (_fishingLine && scene) {
-    scene.remove(_fishingLine);
+  const sc = scene || _scene;
+
+  if (_fishingLine) {
+    if (sc) sc.remove(_fishingLine);
     _fishingLine.geometry.dispose();
     _fishingLine.material.dispose();
     _fishingLine = null;
   }
 
-  if (_bobber && scene) {
-    scene.remove(_bobber);
+  if (_bobber) {
+    if (sc) sc.remove(_bobber);
     _bobber.geometry.dispose();
     _bobber.material.dispose();
     _bobber = null;
@@ -326,6 +603,9 @@ function _cleanupFishing(scene) {
   _currentSpot = null;
   _waitTimer = 0;
   _biteWindow = 0;
+  _castAnim = null;
+  _castTarget = null;
+  _setButtonMode(null);
 
   hideFishingMeter();
 }
@@ -333,7 +613,6 @@ function _cleanupFishing(scene) {
 // ── Visual Effects (reused pool) ──────────────────────────────────────
 
 function _createSplash(position) {
-  // Simple particle splash (pooled)
   const splash = {
     position: position.clone(),
     life: 0.5,
