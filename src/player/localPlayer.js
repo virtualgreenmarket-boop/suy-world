@@ -40,6 +40,7 @@ let _isJumping  = false;
 let _isSitting  = false;
 let _isPlayingSpecialAnim = false; // Prevents auto-overriding dance
 let _isMoving   = false; // Track if player is currently moving
+let _spawnLockUntil = 0; // While active, external repositions are ignored (marina spawn is authoritative)
 
 const keys = {};
 let isDragging = false, lastMouseX = 0, lastMouseY = 0;
@@ -54,6 +55,12 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   const _savedSpawn = _loadSpawn();
   playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
   console.log('[local-player] Initial spawn position set:', _savedSpawn);
+
+  // BOOT SPAWN LOCK: for the first seconds after init, ignore any external
+  // reposition (e.g. the server's init packet carrying an old SPAWN constant).
+  // The marina spawn above is authoritative at game start.
+  _spawnLockUntil = Date.now() + 6000;
+
   scene.add(playerGroup);
   attachLabel(playerGroup, name || 'Player', 3.0, 'player');
 
@@ -425,6 +432,13 @@ function _loadSpawn() {
 }
 
 export function setLocalPlayerPosition(x, z) {
+  // BOOT SPAWN LOCK: during the first seconds after init, the marina spawn is
+  // authoritative. The server's init packet (or any other boot-time caller)
+  // must not drag the player to an old saved location.
+  if (Date.now() < _spawnLockUntil) {
+    console.log('[local-player] 🔒 Boot spawn lock — ignoring external reposition to:', { x, z });
+    return;
+  }
   const y = getSurfaceY(x, z);
   console.log('[local-player] ⚠️ Position changed externally to:', { x, y, z });
   console.trace('[local-player] setLocalPlayerPosition called from:');
