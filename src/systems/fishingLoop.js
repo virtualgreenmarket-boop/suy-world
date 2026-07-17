@@ -71,7 +71,7 @@ let _rodTip = null;        // Object3D marker at the rod tip (for the line)
 let _rodColorId = null;    // which rod the current material color matches
 let _castAnim = null;      // { t } while the cast swing is playing
 const ROD_COLORS = { wood: 0xC98F14, fiberglass: 0xC9D4D8, carbon: 0x0D2428, golden: 0xF0B429 };
-const ROD_REST_TILT = -Math.PI / 4; // rod points forward-up at rest
+const ROD_REST_TILT = Math.PI / 4; // rod points forward-up at rest (model forward = +Z)
 
 // ── Action Button (self-managed, mobile-friendly) ────────────────────
 
@@ -281,14 +281,14 @@ function _updateRod(delta) {
     _castAnim.t += delta;
     const t = Math.min(1, _castAnim.t / 0.8);
     if (t < 0.35) {
-      const k = t / 0.35;                                   // wind back
-      rod.rotation.x = ROD_REST_TILT + k * 1.05;
+      const k = t / 0.35;                                   // wind back (up-behind)
+      rod.rotation.x = ROD_REST_TILT - k * 1.05;
     } else if (t < 0.65) {
       const k = (t - 0.35) / 0.3;                           // swing forward
-      rod.rotation.x = (ROD_REST_TILT + 1.05) - k * 1.75;
+      rod.rotation.x = (ROD_REST_TILT - 1.05) + k * 1.75;
     } else {
       const k = (t - 0.65) / 0.35;                          // settle to rest
-      rod.rotation.x = (ROD_REST_TILT - 0.7) + k * 0.7;
+      rod.rotation.x = (ROD_REST_TILT + 0.7) - k * 0.7;
     }
     if (t >= 1) { _castAnim = null; rod.rotation.x = ROD_REST_TILT; }
   } else if (_fishingState === 'waiting') {

@@ -1,6 +1,13 @@
-// Inventory panel (character preview disabled)
+// ═══════════════════════════════════════════════════════════════════════
+// SUY WORLD — Unified Bag (single inventory for the whole game)
+// NEW UI: wide lagoon-glass bottom sheet, RTL Hebrew, colored sections,
+// catalog-style rod/bait card renders. All original features preserved:
+// loadout equip/unequip + persistence, paper-doll zones, clear all,
+// fishing (equip rod / baits / caught fish + sell), Escape handling,
+// and the 🎒 HUD button takeover (one bag).
+// ═══════════════════════════════════════════════════════════════════════
+
 import { isChatOpen } from './chatUI.js';
-import { generateRodIcon, generateBaitIcon } from './fishingIcons.js';
 
 const STORAGE_KEY = 'suy_loadout_v8';
 
@@ -12,10 +19,22 @@ const DEFAULT_LOADOUT = {
   Shoes:    'Shoe_Slippers_002.glb',
 };
 
+// Internal category keys stay in English (loadout compatibility);
+// everything the player sees is Hebrew.
+const CAT_HE = {
+  Shirt: 'חולצות', Outwear: 'מעילים', Costume: 'תחפושות', Pants: 'מכנסיים',
+  Shorts: 'שורטים', Shoes: 'נעליים', Socks: 'גרביים', Gloves: 'כפפות',
+  Hair: 'שיער', Hat: 'כובעים', Glasses: 'משקפיים', Headphones: 'אוזניות',
+  Face: 'פנים', Jewelry: 'תכשיטים', Bags: 'תיקים',
+  Pets: 'חיות מחמד', 'Pet Accessories': 'אביזרי חיות', 'Pet Skins': 'מראה חיות',
+  Emotions: 'הבעות', Body: 'גוף', Badges: 'תגים', Nameplate: 'שלט שם', 'Chat Skin': 'סקין צ׳אט',
+  Hoverboard: 'הוברבורד', Bike: 'אופניים',
+  Rods: 'חכות', Baits: 'פיתיונות', Caught: 'דגים',
+};
+
 const SECTIONS = {
   Outfit: {
-    label: 'Outfit',
-    icon: '👔',
+    label: 'ביגוד', icon: '👕', accent: '#7ACB5E',
     categories: {
       'Shirt':    { icon: '👕', items: ['T-Shirt_009.glb'] },
       'Outwear':  { icon: '🧥', items: ['Outwear_029.glb', 'Outwear_036.glb'] },
@@ -28,49 +47,44 @@ const SECTIONS = {
     },
   },
   Accessories: {
-    label: 'Accessories',
-    icon: '💎',
+    label: 'אקססוריז', icon: '💎', accent: '#F0B429',
     categories: {
       'Hair':       { icon: '💇', items: ['Hairstyle_male_010.glb', 'Hairstyle_male_012.glb'] },
       'Hat':        { icon: '🎩', items: ['Hat_010.glb', 'Hat_049.glb', 'Hat_057.glb'] },
       'Glasses':    { icon: '🕶️', items: ['Glasses_004.glb', 'Glasses_006.glb'] },
       'Headphones': { icon: '🎧', items: ['Headphones_002.glb'] },
       'Face':       { icon: '🥸', items: ['Moustache_001.glb', 'Moustache_002.glb', 'Clown_nose_001.glb', 'Pacifier_001.glb'] },
-      'Jewelry':    { icon: '💍', items: [], placeholders: ['Necklace', 'Bracelet', 'Ring', 'Watch'] },
-      'Bags':       { icon: '👜', items: [], placeholders: ['Backpack', 'Shoulder Bag', 'Handbag', 'Fanny Pack'] },
+      'Jewelry':    { icon: '💍', items: [], placeholders: ['שרשרת', 'צמיד', 'טבעת', 'שעון'] },
+      'Bags':       { icon: '👜', items: [], placeholders: ['תיק גב', 'תיק צד', 'פאוץ׳'] },
     },
   },
   Pets: {
-    label: 'Pets & Companions',
-    icon: '🐾',
+    label: 'חיות', icon: '🐾', accent: '#FF9E7D',
     categories: {
-      'Pets':            { icon: '🐶', items: [], placeholders: ['Dog', 'Cat', 'Rabbit', 'Dragon', 'Fox', 'Owl'] },
-      'Pet Accessories': { icon: '🎀', items: [], placeholders: ['Collar', 'Leash', 'Outfit', 'Hat'] },
-      'Pet Skins':       { icon: '🎨', items: [], placeholders: ['Fur Color', 'Pattern', 'Glow', 'Glitter'] },
+      'Pets':            { icon: '🐶', items: [], placeholders: ['כלב', 'חתול', 'ארנב', 'דרקון', 'שועל', 'ינשוף'] },
+      'Pet Accessories': { icon: '🎀', items: [], placeholders: ['קולר', 'רצועה', 'תלבושת', 'כובע'] },
+      'Pet Skins':       { icon: '🎨', items: [], placeholders: ['צבע פרווה', 'דוגמה', 'זוהר', 'נצנצים'] },
     },
   },
   Profile: {
-    label: 'Profile & Identity',
-    icon: '🪪',
+    label: 'פרופיל', icon: '🪪', accent: '#64B5F6',
     categories: {
       'Emotions':  { icon: '😄', items: ['Male_emotion_happy_002.glb', 'Male_emotion_usual_001.glb', 'Male_emotion_angry_003.glb'] },
       'Body':      { icon: '🧍', items: ['Body_010.glb'] },
-      'Badges':    { icon: '🏅', items: [], placeholders: ['Starter', 'Explorer', 'VIP', 'Creator', 'Legend'] },
-      'Nameplate': { icon: '🔤', items: [], placeholders: ['Classic', 'Gold', 'Neon', 'Diamond'] },
-      'Chat Skin': { icon: '💬', items: [], placeholders: ['Default', 'Bubble', 'Retro', 'Minimal'] },
+      'Badges':    { icon: '🏅', items: [], placeholders: ['מתחיל', 'חוקר', 'VIP', 'יוצר', 'אגדה'] },
+      'Nameplate': { icon: '🔤', items: [], placeholders: ['קלאסי', 'זהב', 'ניאון', 'יהלום'] },
+      'Chat Skin': { icon: '💬', items: [], placeholders: ['רגיל', 'בועה', 'רטרו', 'מינימלי'] },
     },
   },
   Vehicles: {
-    label: 'Vehicles',
-    icon: '🛹',
+    label: 'רכבים', icon: '🛹', accent: '#BA68C8',
     categories: {
-      'Hoverboard': { icon: '🛹', items: [], placeholders: ['Classic Board', 'Neon Board', 'Flame Board', 'Ice Board'] },
-      'Bike':       { icon: '🚲', items: [], placeholders: ['City Bike', 'Mountain Bike', 'Electric Bike'] },
+      'Hoverboard': { icon: '🛹', items: [], placeholders: ['קלאסי', 'ניאון', 'להבות', 'קרח'] },
+      'Bike':       { icon: '🚲', items: [], placeholders: ['עירוניים', 'הרים', 'חשמליים'] },
     },
   },
   Fishing: {
-    label: 'כלי דייג',
-    icon: '🎣',
+    label: 'כלי דייג', icon: '🎣', accent: '#2BB3BD',
     categories: {
       'Rods':   { icon: '🎣', items: [], dynamic: true },
       'Baits':  { icon: '🪱', items: [], dynamic: true },
@@ -79,6 +93,30 @@ const SECTIONS = {
   },
 };
 
+// ── Fishing display metadata (matches the shop catalog) ───────────────
+
+const ROD_META = {
+  wood:       { tierHe: 'בסיסית',  capColor: '#7ACB5E', main: '#C98F14', light: '#E0AA2E', dark: '#8A6210' },
+  fiberglass: { tierHe: 'משופרת',  capColor: '#4A90D9', main: '#C9D4D8', light: '#EDF2F4', dark: '#95A6AD' },
+  carbon:     { tierHe: 'מקצועית', capColor: '#BA68C8', main: '#1C3A40', light: '#2E525A', dark: '#0D2428', bands: '#2BB3BD' },
+  golden:     { tierHe: 'אגדית',   capColor: '#F0B429', main: '#F0B429', light: '#FFDD75', dark: '#C07E0C', sparkle: true }
+};
+
+const BAIT_META = {
+  worm:   { nameHe: 'תולעת',  effectHe: 'סיכויים רגילים',                  boostColor: '#8DA6B8' },
+  shrimp: { nameHe: 'שרימפס', effectHe: '×2 סיכוי ל-Rare',                 boostColor: '#64B5F6' },
+  squid:  { nameHe: 'קלמארי', effectHe: '×3 ל-Epic · ×4 ל-Legendary',      boostColor: '#BA68C8' }
+};
+
+const RARITY_COLORS = {
+  common: '#8DA6B8', uncommon: '#81C784', rare: '#64B5F6', epic: '#BA68C8', legendary: '#F0B429'
+};
+const RARITY_HE = {
+  common: 'רגיל', uncommon: 'לא שכיח', rare: 'נדיר', epic: 'אפי', legendary: 'אגדי'
+};
+
+// ── State ─────────────────────────────────────────────────────────────
+
 let _loadout        = _loadSaved();
 let _visible        = false;
 let _onEquip        = null;
@@ -86,18 +124,15 @@ let _activeSection  = 'Outfit';
 let _activeCategory = null; // null = list view, string = grid view
 let _gridArea       = null;
 let _equippedStrip  = null;
-let _previewCanvas  = null; // the live 3-D canvas element (kept across re-renders)
-let _previewInited  = false;
+let _previewCanvas  = null;
 
 function _loadSaved() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      // Merge: default values, then saved values, but null/undefined/empty don't override
       const merged = {};
       for (const cat of Object.keys(DEFAULT_LOADOUT)) {
-        // Body and Emotions MUST have values — they're the base character mesh
         const savedVal = saved[cat];
         if ((cat === 'Body' || cat === 'Emotions') && !savedVal) {
           merged[cat] = DEFAULT_LOADOUT[cat];
@@ -105,7 +140,7 @@ function _loadSaved() {
           merged[cat] = savedVal || DEFAULT_LOADOUT[cat];
         }
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); // persist the fix
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       return merged;
     }
   } catch {}
@@ -122,10 +157,11 @@ export function getLoadout() { return { ..._loadout }; }
 export function getDefaultLoadout() { return { ...DEFAULT_LOADOUT }; }
 export function onEquipChange(cb) { _onEquip = cb; }
 
-// ── Init ──────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────
 
 export function initInventoryPanel() {
   _buildPanel();
+  _takeOverBagButton();
   window.addEventListener('keydown', e => {
     if (e.code === 'Escape' && _visible) {
       if (_activeCategory !== null) {
@@ -138,273 +174,368 @@ export function initInventoryPanel() {
   });
 }
 
-// ── Build DOM ─────────────────────────────────────────────────────────────
+// ── SVG art (catalog-style renders) ───────────────────────────────────
+
+function _rodSVG(meta) {
+  const B = { x: 28, y: 96 }, T = { x: 82, y: 10 };
+  const dx = T.x - B.x, dy = T.y - B.y, len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const P = (t, o) => ({ x: B.x + dx * t + px * o, y: B.y + dy * t + py * o });
+  const pts = a => a.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+  const wAt = t => 3.6 - 2.5 * t;
+  const facet = (o1, o2, fill) => {
+    const b1 = P(0, o1 * wAt(0)), b2 = P(0, o2 * wAt(0)), t2 = P(1, o2 * wAt(1)), t1 = P(1, o1 * wAt(1));
+    return '<polygon points="' + pts([b1, b2, t2, t1]) + '" fill="' + fill + '"/>';
+  };
+  let s = facet(-1, -0.15, meta.light) + facet(-0.15, 0.45, meta.main) + facet(0.45, 1, meta.dark);
+
+  const gripEnd = { x: B.x - ux * 18, y: B.y - uy * 18 };
+  s += '<polygon points="' + pts([P(0, -4.4), P(0, 4.4),
+        { x: gripEnd.x + px * 4.4, y: gripEnd.y + py * 4.4 },
+        { x: gripEnd.x - px * 4.4, y: gripEnd.y - py * 4.4 }]) + '" fill="#4A3018"/>';
+  for (let i = 1; i <= 3; i++) {
+    const c = { x: B.x - ux * 4.5 * i, y: B.y - uy * 4.5 * i };
+    s += '<line x1="' + (c.x + px * 4.2) + '" y1="' + (c.y + py * 4.2) + '" x2="' + (c.x - px * 4.2) + '" y2="' + (c.y - py * 4.2) + '" stroke="#3A2410" stroke-width="1.3"/>';
+  }
+  s += '<circle cx="' + gripEnd.x + '" cy="' + gripEnd.y + '" r="4.2" fill="#2A1A08"/>';
+
+  const rc = P(0.16, 7);
+  s += '<line x1="' + P(0.16, 0).x + '" y1="' + P(0.16, 0).y + '" x2="' + rc.x + '" y2="' + rc.y + '" stroke="#16333A" stroke-width="2.4"/>';
+  s += '<circle cx="' + rc.x + '" cy="' + rc.y + '" r="6" fill="#16333A"/><circle cx="' + rc.x + '" cy="' + rc.y + '" r="2.7" fill="#AFC3C9"/>';
+  s += '<circle cx="' + (rc.x + 6.5) + '" cy="' + (rc.y + 4) + '" r="1.9" fill="' + meta.main + '"/>';
+
+  [0.42, 0.66, 0.86].forEach((t, i) => {
+    const gp = P(t, 4.5 - t * 1.7);
+    s += '<circle cx="' + gp.x + '" cy="' + gp.y + '" r="' + (2.4 - i * 0.5) + '" fill="none" stroke="' + meta.dark + '" stroke-width="1"/>';
+  });
+
+  if (meta.bands) [0.3, 0.5, 0.7].forEach(t => {
+    const a = P(t, wAt(t)), b = P(t, -wAt(t));
+    s += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="' + meta.bands + '" stroke-width="2"/>';
+  });
+  if (meta.sparkle) s += '<path d="M89 20 l1.5 4 4 1.5 -4 1.5 -1.5 4 -1.5 -4 -4 -1.5 4 -1.5 Z" fill="#FFF3C4"/>';
+
+  s += '<path d="M' + T.x + ' ' + T.y + ' Q ' + (T.x + 10) + ' ' + (T.y + 24) + ' ' + (T.x + 6) + ' ' + (T.y + 46) + '" fill="none" stroke="#8FA0A6" stroke-width="1"/>';
+  s += '<circle cx="' + (T.x + 6) + '" cy="' + (T.y + 50) + '" r="3.6" fill="#FF6B4A"/><circle cx="' + (T.x + 4.9) + '" cy="' + (T.y + 48.6) + '" r="1.2" fill="#FFD9CE"/>';
+
+  return '<svg viewBox="0 0 104 110" width="86" height="92" aria-hidden="true">' + s + '</svg>';
+}
+
+function _baitSVG(id) {
+  if (id === 'worm') {
+    let s = '<ellipse cx="44" cy="52" rx="27" ry="5.5" fill="#5A3C20"/>';
+    const seg = [[21,42],[29,35],[38,33],[46,36],[54,42],[61,37],[66,30]];
+    for (let i = seg.length - 1; i >= 0; i--) {
+      s += '<circle cx="' + seg[i][0] + '" cy="' + seg[i][1] + '" r="' + (6.4 - i * 0.45) + '" fill="' + (i % 2 ? '#D98868' : '#C4724F') + '"/>';
+      s += '<circle cx="' + (seg[i][0] - 1.6) + '" cy="' + (seg[i][1] - 1.9) + '" r="' + (6.4 - i * 0.45) * 0.4 + '" fill="#E8A183"/>';
+    }
+    s += '<circle cx="19.5" cy="40" r="1.2" fill="#0D2428"/>';
+    return '<svg viewBox="0 0 88 62" width="72" height="52" aria-hidden="true">' + s + '</svg>';
+  }
+  if (id === 'shrimp') {
+    let s = '<path d="M23 24 Q9 17 6 9" fill="none" stroke="#E07B58" stroke-width="1.4"/>';
+    s += '<path d="M23 27 Q11 24 4 21" fill="none" stroke="#E07B58" stroke-width="1.4"/>';
+    const seg = [[25,26,8.8],[35,23,9.2],[45,24,8.4],[54,30,7.2],[60,37,6],[63,44,4.8]];
+    for (let i = seg.length - 1; i >= 0; i--) {
+      s += '<circle cx="' + seg[i][0] + '" cy="' + seg[i][1] + '" r="' + seg[i][2] + '" fill="' + (i % 2 ? '#FF9E7D' : '#F08461') + '"/>';
+    }
+    s += '<polygon points="63,44 77,38 74,48 77,53 66,50" fill="#F08461"/>';
+    s += '<circle cx="22" cy="23" r="1.8" fill="#0D2428"/>';
+    for (let lx = 29; lx <= 50; lx += 7) s += '<line x1="' + lx + '" y1="33" x2="' + (lx - 3) + '" y2="40" stroke="#E07B58" stroke-width="1.4"/>';
+    return '<svg viewBox="0 0 88 62" width="72" height="52" aria-hidden="true">' + s + '</svg>';
+  }
+  if (id === 'squid') {
+    let s = '<polygon points="44,4 57,27 31,27" fill="#C9A0D0"/>';
+    s += '<polygon points="44,4 57,27 44,27" fill="#B183BC"/>';
+    s += '<polygon points="44,8 63,17 57,26" fill="#B183BC"/>';
+    s += '<polygon points="44,8 25,17 31,26" fill="#D8B7DE"/>';
+    s += '<rect x="31" y="26" width="26" height="11" rx="3.5" fill="#C9A0D0"/>';
+    s += '<circle cx="38" cy="31.5" r="2.7" fill="#FFFFFF"/><circle cx="38" cy="31.5" r="1.4" fill="#0D2428"/>';
+    s += '<circle cx="50" cy="31.5" r="2.7" fill="#FFFFFF"/><circle cx="50" cy="31.5" r="1.4" fill="#0D2428"/>';
+    [[33,-11],[38,-5],[43,-13],[48,-5],[53,-11],[56,-6]].forEach((t, i) => {
+      s += '<path d="M' + t[0] + ' 37 q ' + t[1] * 0.3 + ' 8 ' + t[1] * 0.55 + ' 17" fill="none" stroke="' + (i % 2 ? '#B183BC' : '#C9A0D0') + '" stroke-width="3" stroke-linecap="round"/>';
+    });
+    return '<svg viewBox="0 0 88 62" width="72" height="52" aria-hidden="true">' + s + '</svg>';
+  }
+  return '<svg viewBox="0 0 88 62" width="72" height="52" aria-hidden="true"><circle cx="44" cy="31" r="14" fill="#8DA6B8"/></svg>';
+}
+
+function _fishSVG(color) {
+  return '<svg viewBox="0 0 44 26" width="40" height="24" aria-hidden="true">' +
+    '<polygon points="4,13 22,3 32,8 32,18 22,23" fill="' + color + '"/>' +
+    '<polygon points="4,13 22,3 22,23" fill="rgba(13,36,40,0.25)"/>' +
+    '<polygon points="32,8 41,3 41,23 32,18" fill="' + color + '" opacity="0.75"/>' +
+    '<circle cx="12" cy="11" r="1.6" fill="#0D2428"/></svg>';
+}
+
+// ── Build DOM ─────────────────────────────────────────────────────────
 
 function _buildPanel() {
   const style = document.createElement('style');
   style.textContent = `
     #inv-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.65);
+      background: rgba(6, 20, 23, 0.55);
+      backdrop-filter: blur(2px);
       z-index: 310; display: none;
       align-items: flex-end; justify-content: center;
-      font-family: 'DM Sans', 'Segoe UI', Arial, sans-serif;
+      font-family: Heebo, 'Segoe UI', Arial, sans-serif;
     }
     #inv-overlay.inv-open { display: flex; }
 
     #inv-panel {
-      width: 100%; max-width: 480px; height: 92dvh;
-      background: rgba(12,10,24,0.98);
-      border: 1px solid rgba(255,200,80,0.12); border-bottom: none;
-      border-radius: 24px 24px 0 0;
+      width: 100%; max-width: 720px; height: 90dvh;
+      background: rgba(13, 36, 40, 0.82);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(244, 231, 195, 0.20); border-bottom: none;
+      border-radius: 26px 26px 0 0;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.20), 0 -12px 50px rgba(0, 0, 0, 0.6);
       display: flex; flex-direction: column; overflow: hidden;
-      box-shadow: 0 -10px 50px rgba(0,0,0,0.7);
+      color: #F4E7C3;
       animation: inv-slidein .28s cubic-bezier(.32,1,.45,1);
     }
-    @keyframes inv-slidein {
-      from { transform: translateY(100%); }
-      to   { transform: translateY(0); }
-    }
+    @keyframes inv-slidein { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { #inv-panel { animation: none; } }
 
     #inv-handle {
-      width: 36px; height: 4px; border-radius: 2px;
-      background: rgba(255,255,255,0.18);
+      width: 40px; height: 4px; border-radius: 2px;
+      background: rgba(244, 231, 195, 0.28);
       margin: 10px auto 0; flex-shrink: 0;
     }
 
-    /* ── Header ── */
     #inv-header {
       display: flex; align-items: center; gap: 10px;
-      padding: 0 16px; height: 50px; flex-shrink: 0;
-      border-bottom: 1px solid rgba(255,200,80,0.10);
+      padding: 6px 18px 10px; flex-shrink: 0;
+      border-bottom: 1px solid rgba(244, 231, 195, 0.12);
     }
-    #inv-header-icon { font-size: 22px; }
     #inv-header h2 {
-      flex: 1; margin: 0; font-size: 17px; font-weight: 700;
-      color: rgba(255,255,255,0.95); letter-spacing: -.01em;
+      flex: 1; margin: 0; font-family: Fredoka, Heebo, sans-serif;
+      font-size: 21px; font-weight: 600; color: #F4E7C3;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.4);
     }
     #inv-equipped-count {
-      font-size: 11px; color: rgba(255,200,80,0.7);
-      background: rgba(255,200,80,0.1); border: 1px solid rgba(255,200,80,0.2);
-      border-radius: 20px; padding: 3px 10px; font-weight: 600;
+      font-size: 12px; color: #F0B429;
+      background: rgba(240, 180, 41, 0.14); border: 1px solid rgba(240, 180, 41, 0.35);
+      border-radius: 20px; padding: 4px 12px; font-weight: 700;
     }
     #inv-clear-all {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
-      color: rgba(255,80,80,0.65); background: rgba(255,80,80,0.08);
-      border: 1px solid rgba(255,80,80,0.18); border-radius: 20px;
-      padding: 3px 9px; cursor: pointer; transition: all .15s; white-space: nowrap;
+      font-size: 12px; font-weight: 700;
+      color: #FF8A6E; background: rgba(255, 107, 74, 0.12);
+      border: 1px solid rgba(255, 107, 74, 0.35); border-radius: 20px;
+      padding: 4px 12px; cursor: pointer; transition: all .15s; white-space: nowrap;
       font-family: inherit;
     }
-    #inv-clear-all:hover { background: rgba(255,80,80,0.18); color: rgba(255,100,100,0.95); border-color: rgba(255,80,80,0.4); }
+    #inv-clear-all:hover { background: rgba(255, 107, 74, 0.28); color: #FFD9CE; }
     #inv-close {
-      width: 30px; height: 30px; border-radius: 50%;
-      background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.6);
-      font-size: 14px; cursor: pointer; display: flex;
-      align-items: center; justify-content: center; transition: background .15s;
+      width: 34px; height: 34px; border-radius: 10px;
+      background: rgba(0,0,0,0.35); border: 1px solid rgba(244,231,195,0.25);
+      color: #F4E7C3; font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: all .15s;
     }
-    #inv-close:hover { background: rgba(255,255,255,0.16); }
+    #inv-close:hover { background: rgba(255, 107, 74, 0.3); border-color: #FF6B4A; }
+    #inv-close:focus-visible, .inv-section-pill:focus-visible, .inv-cat-row:focus-visible { outline: 2px solid #F0B429; outline-offset: 2px; }
 
-    /* ── Section pills (6-col grid for all sections including fishing) ── */
-    #inv-sections {
-      display: grid; grid-template-columns: repeat(6, 1fr);
-      gap: 6px; padding: 10px 14px 0; flex-shrink: 0;
-    }
-    .inv-section-pill {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 4px; padding: 8px 4px; border-radius: 12px;
-      border: 1.5px solid rgba(255,255,255,0.10);
-      background: transparent; color: rgba(255,255,255,0.45);
-      font-family: inherit; cursor: pointer; transition: all .18s;
-    }
-    .inv-section-icon { font-size: 20px; line-height: 1; }
-    .inv-section-label { font-size: 10px; font-weight: 700; white-space: nowrap; }
-    .inv-section-pill.active { background: rgba(124,106,247,0.22); border-color: #7c6af7; color: #c4b8ff; }
-    .inv-section-pill:hover:not(.active) { border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.65); }
-
-    .inv-sep {
-      height: 1px; background: rgba(255,200,80,0.08);
-      margin: 10px 14px 0; flex-shrink: 0;
-    }
-
-    /* ── Scrollable body ── */
-    #inv-body {
-      flex: 1; overflow-y: auto; padding: 12px 14px 32px;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
-    }
-
-    /* ── Category list ── */
-    .inv-cat-list { display: flex; flex-direction: column; gap: 6px; }
-    .inv-cat-row {
-      display: flex; align-items: center; gap: 14px;
-      padding: 12px 14px; border-radius: 14px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      cursor: pointer; transition: all .15s;
-    }
-    .inv-cat-row:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); }
-    .inv-cat-row-iconbox {
-      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-      background: rgba(124,106,247,0.14);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-    }
-    .inv-cat-row-info { flex: 1; min-width: 0; }
-    .inv-cat-row-name {
-      font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.9);
-    }
-    .inv-cat-row-sub {
-      font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px;
-    }
-    .inv-cat-row-equipped-badge {
-      font-size: 10px; font-weight: 700; color: #f59e0b;
-      background: rgba(245,158,11,0.12); border-radius: 20px; padding: 2px 9px;
-      flex-shrink: 0;
-    }
-    .inv-cat-row-chevron { color: rgba(255,255,255,0.2); font-size: 15px; flex-shrink: 0; }
-
-    /* ── Back button ── */
-    .inv-back-row {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 14px; padding: 6px 2px;
-      background: none; border: none; color: rgba(255,255,255,0.5);
-      font-family: inherit; font-size: 13px; font-weight: 700;
-      cursor: pointer; transition: color .15s;
-    }
-    .inv-back-row:hover { color: rgba(255,255,255,0.85); }
-
-    /* ── Grid header (inside body) ── */
-    .inv-cat-header {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
-    }
-    .inv-cat-header-icon { font-size: 20px; }
-    .inv-cat-header-name { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.9); }
-    .inv-cat-header-count { font-size: 11px; color: rgba(255,255,255,0.35); }
-
-    /* ── Item grid ── */
-    .inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-
-    .inv-slot {
-      position: relative; aspect-ratio: 1;
-      background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.09);
-      border-radius: 14px; cursor: pointer; text-align: center;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 5px;
-      padding: 8px 4px 6px; transition: all .15s;
-    }
-    .inv-slot:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
-    .inv-slot.equipped {
-      background: rgba(124,106,247,0.18); border-color: #7c6af7;
-      box-shadow: 0 0 12px rgba(124,106,247,0.25);
-    }
-    .inv-slot-icon { font-size: 26px; line-height: 1; }
-    .inv-slot-name {
-      font-size: 9px; color: rgba(255,255,255,0.45);
-      line-height: 1.2; word-break: break-word; text-align: center; max-width: 100%;
-    }
-    .inv-slot.equipped .inv-slot-name { color: #c4b8ff; }
-
-    .inv-badge {
-      position: absolute; top: 5px; right: 5px;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: #7c6af7; color: #fff; font-size: 9px; font-weight: 900;
-      display: flex; align-items: center; justify-content: center;
-    }
-
-    .inv-slot-none {
-      aspect-ratio: 1; background: transparent;
-      border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 14px;
-      cursor: pointer; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 3px;
-      padding: 8px 4px; transition: all .15s;
-      color: rgba(255,255,255,0.25); font-size: 10px; font-weight: 600;
-    }
-    .inv-slot-none:hover { border-color: rgba(255,255,255,0.28); color: rgba(255,255,255,0.45); }
-    .inv-slot-none.equipped {
-      border-color: #7c6af7; color: #c4b8ff; background: rgba(124,106,247,0.10);
-    }
-    .inv-slot-none-icon { font-size: 18px; opacity: .4; }
-
-    /* ── Locked / coming-soon slot ── */
-    .inv-slot-locked {
-      aspect-ratio: 1; background: rgba(255,255,255,0.02);
-      border: 1.5px dashed rgba(255,255,255,0.07); border-radius: 14px;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 4px;
-      padding: 8px 4px 6px; cursor: default; user-select: none;
-    }
-    .inv-slot-locked-icon { font-size: 22px; line-height: 1; opacity: .22; }
-    .inv-slot-locked-name {
-      font-size: 9px; color: rgba(255,255,255,0.22);
-      line-height: 1.2; word-break: break-word; text-align: center; max-width: 100%;
-    }
-    .inv-slot-locked-soon {
-      font-size: 8px; font-weight: 700; letter-spacing: 0.5px;
-      color: rgba(255,200,80,0.28); text-transform: uppercase;
-    }
-
-    /* ── 3-D character preview canvas ── */
+    /* Paper doll */
+    #inv-wearing-wrap { padding: 10px 18px 4px; flex-shrink: 0; }
+    #inv-doll { display: flex; gap: 10px; align-items: flex-start; }
     #inv-doll-figure {
-      width: 110px; height: 190px; flex-shrink: 0;
-      border-radius: 12px; overflow: hidden;
-      background: #0d0b1c;
-      border: 1px solid rgba(124,106,247,0.18);
+      width: 100px; height: 168px; flex-shrink: 0;
+      border-radius: 14px; overflow: hidden;
+      background: rgba(9, 26, 29, 0.85);
+      border: 1px solid rgba(43, 179, 189, 0.35);
     }
-    #inv-preview-canvas {
-      width: 100%; height: 100%; display: block;
-    }
-
-    /* ── Paper doll ── */
-    #inv-wearing-wrap {
-      padding: 10px 14px 6px; flex-shrink: 0;
-    }
-    #inv-wearing-label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.6px;
-      text-transform: uppercase; color: rgba(255,200,80,0.55);
-      margin-bottom: 8px;
-    }
-    #inv-doll {
-      display: flex; gap: 10px; align-items: flex-start;
-    }
-    #inv-doll-zones {
-      flex: 1; display: flex; flex-direction: column; gap: 5px;
-    }
+    #inv-preview-canvas { width: 100%; height: 100%; display: block; }
+    #inv-doll-zones { flex: 1; display: flex; flex-direction: column; gap: 5px; }
     .inv-zone {
-      border-radius: 10px; padding: 5px 8px 6px;
-      background: rgba(255,255,255,0.03);
-      border-left: 3px solid transparent;
+      border-radius: 12px; padding: 6px 9px 7px;
+      background: rgba(244, 231, 195, 0.05);
+      border-right: 3px solid transparent;
     }
     .inv-zone-label {
-      font-size: 9px; font-weight: 800; letter-spacing: 0.7px;
-      text-transform: uppercase; margin-bottom: 5px;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.4px; margin-bottom: 5px;
     }
     .inv-zone-slots { display: flex; flex-wrap: wrap; gap: 4px; }
     .inv-zone-slot {
-      display: flex; align-items: center; gap: 4px;
-      padding: 4px 7px; border-radius: 7px;
-      border: 1px dashed rgba(255,255,255,0.13);
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 8px; border-radius: 8px;
+      border: 1px dashed rgba(244, 231, 195, 0.22);
       background: none; cursor: pointer; transition: all .15s;
-      font-family: inherit;
+      font-family: inherit; color: inherit;
     }
-    .inv-zone-slot:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.25); }
+    .inv-zone-slot:hover { background: rgba(244, 231, 195, 0.08); }
     .inv-zone-slot.on {
-      border-style: solid; border-color: rgba(255,200,80,0.42);
-      background: rgba(255,200,80,0.09);
+      border-style: solid; border-color: rgba(240, 180, 41, 0.55);
+      background: rgba(240, 180, 41, 0.12);
     }
-    .inv-zone-slot.on:hover { background: rgba(255,200,80,0.17); }
-    .inv-zone-slot-icon { font-size: 13px; line-height: 1; flex-shrink: 0; }
+    .inv-zone-slot-icon { font-size: 13px; line-height: 1; }
     .inv-zone-slot-name {
-      font-size: 10px; font-weight: 600; max-width: 72px;
+      font-size: 10.5px; font-weight: 600; max-width: 76px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      color: rgba(255,255,255,0.28);
+      color: rgba(244, 231, 195, 0.45);
     }
-    .inv-zone-slot.on .inv-zone-slot-name { color: rgba(255,215,90,0.92); }
+    .inv-zone-slot.on .inv-zone-slot-name { color: #F0B429; }
     .inv-zone-remove {
       background: none; border: none; cursor: pointer; padding: 0;
-      color: rgba(255,200,80,0.38); font-size: 9px; flex-shrink: 0;
-      line-height: 1; transition: color .15s;
+      color: rgba(255, 107, 74, 0.6); font-size: 10px; line-height: 1;
     }
-    .inv-zone-remove:hover { color: rgba(255,60,60,0.90); }
+    .inv-zone-remove:hover { color: #FF6B4A; }
+
+    /* Section pills */
+    #inv-sections {
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      gap: 7px; padding: 10px 18px 0; flex-shrink: 0;
+    }
+    .inv-section-pill {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 9px 4px; border-radius: 14px;
+      border: 1.5px solid rgba(244, 231, 195, 0.15);
+      background: rgba(244, 231, 195, 0.04);
+      color: rgba(244, 231, 195, 0.6);
+      font-family: inherit; cursor: pointer; transition: all .18s;
+    }
+    .inv-section-icon { font-size: 21px; line-height: 1; }
+    .inv-section-label { font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .inv-section-pill.active {
+      background: color-mix(in srgb, var(--sec-accent) 22%, transparent);
+      border-color: var(--sec-accent);
+      color: #FFFFFF;
+      box-shadow: 0 0 14px color-mix(in srgb, var(--sec-accent) 35%, transparent);
+    }
+    .inv-section-pill:hover:not(.active) { border-color: rgba(244,231,195,0.35); color: #F4E7C3; }
+
+    .inv-sep { height: 1px; background: rgba(244, 231, 195, 0.10); margin: 10px 18px 0; flex-shrink: 0; }
+
+    /* Body */
+    #inv-body {
+      flex: 1; overflow-y: auto; padding: 12px 18px 34px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin; scrollbar-color: rgba(244,231,195,0.18) transparent;
+    }
+
+    .inv-cat-list { display: flex; flex-direction: column; gap: 7px; }
+    .inv-cat-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 14px; border-radius: 16px;
+      background: rgba(244, 231, 195, 0.05);
+      border: 1px solid rgba(244, 231, 195, 0.10);
+      cursor: pointer; transition: all .15s; color: inherit; font-family: inherit;
+      text-align: right; width: 100%;
+    }
+    .inv-cat-row:hover { background: rgba(244, 231, 195, 0.10); transform: translateY(-1px); }
+    .inv-cat-row-iconbox {
+      width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+      background: color-mix(in srgb, var(--row-accent, #2BB3BD) 18%, transparent);
+      border: 1px solid color-mix(in srgb, var(--row-accent, #2BB3BD) 40%, transparent);
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .inv-cat-row-info { flex: 1; min-width: 0; }
+    .inv-cat-row-name { font-size: 15px; font-weight: 700; color: #F4E7C3; }
+    .inv-cat-row-sub { font-size: 11.5px; color: rgba(244, 231, 195, 0.45); margin-top: 2px; }
+    .inv-cat-row-equipped-badge {
+      font-size: 10px; font-weight: 700; color: #0D2428;
+      background: #F0B429; border-radius: 20px; padding: 3px 10px; flex-shrink: 0;
+    }
+    .inv-cat-row-chevron { color: rgba(244, 231, 195, 0.3); font-size: 16px; flex-shrink: 0; }
+
+    .inv-back-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px; padding: 8px 12px; border-radius: 10px;
+      background: rgba(244,231,195,0.06); border: 1px solid rgba(244,231,195,0.14);
+      color: #F4E7C3; font-family: inherit; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: all .15s;
+    }
+    .inv-back-row:hover { background: rgba(244,231,195,0.12); }
+
+    .inv-cat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .inv-cat-header-icon { font-size: 21px; }
+    .inv-cat-header-name { font-family: Fredoka, Heebo, sans-serif; font-size: 17px; font-weight: 600; color: #F4E7C3; }
+    .inv-cat-header-count { font-size: 12px; color: rgba(244, 231, 195, 0.45); }
+
+    .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 9px; }
+    .inv-slot {
+      position: relative; aspect-ratio: 1;
+      background: rgba(244, 231, 195, 0.06); border: 1.5px solid rgba(244, 231, 195, 0.12);
+      border-radius: 16px; cursor: pointer; text-align: center;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; padding: 8px 4px 6px; transition: all .15s;
+    }
+    .inv-slot:hover { background: rgba(244, 231, 195, 0.12); transform: translateY(-2px); }
+    .inv-slot.equipped {
+      background: rgba(240, 180, 41, 0.15); border-color: #F0B429;
+      box-shadow: 0 0 14px rgba(240, 180, 41, 0.30);
+    }
+    .inv-slot-icon { font-size: 27px; line-height: 1; }
+    .inv-slot-name {
+      font-size: 9.5px; color: rgba(244, 231, 195, 0.55);
+      line-height: 1.2; word-break: break-word; max-width: 100%;
+    }
+    .inv-slot.equipped .inv-slot-name { color: #F0B429; }
+    .inv-badge {
+      position: absolute; top: 6px; left: 6px;
+      width: 17px; height: 17px; border-radius: 50%;
+      background: #F0B429; color: #0D2428; font-size: 10px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .inv-slot-none {
+      aspect-ratio: 1; background: transparent;
+      border: 1.5px dashed rgba(244, 231, 195, 0.18); border-radius: 16px;
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      color: rgba(244, 231, 195, 0.35); font-size: 11px; font-weight: 600; transition: all .15s;
+    }
+    .inv-slot-none:hover { border-color: rgba(244,231,195,0.4); color: rgba(244,231,195,0.6); }
+    .inv-slot-none.equipped { border-color: #F0B429; color: #F0B429; background: rgba(240,180,41,0.08); }
+    .inv-slot-locked {
+      aspect-ratio: 1; background: rgba(244, 231, 195, 0.025);
+      border: 1.5px dashed rgba(244, 231, 195, 0.10); border-radius: 16px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 8px 4px 6px; cursor: default; user-select: none;
+    }
+    .inv-slot-locked-icon { font-size: 22px; opacity: .25; }
+    .inv-slot-locked-name { font-size: 9.5px; color: rgba(244,231,195,0.3); text-align: center; }
+    .inv-slot-locked-soon { font-size: 9px; font-weight: 700; color: rgba(240, 180, 41, 0.5); }
+
+    /* Fishing cards */
+    .inv-fish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .inv-rod-card, .inv-bait-card {
+      background: rgba(244, 231, 195, 0.055);
+      border: 1.5px solid rgba(244, 231, 195, 0.12);
+      border-radius: 16px; padding: 12px;
+      display: flex; flex-direction: column; transition: all .15s;
+    }
+    .inv-rod-card:hover, .inv-bait-card:hover { background: rgba(244, 231, 195, 0.09); }
+    .inv-rod-card.equipped { border-color: #F0B429; box-shadow: 0 0 16px rgba(240, 180, 41, 0.25); background: rgba(240,180,41,0.09); }
+    .inv-card-top { display: flex; align-items: center; justify-content: space-between; }
+    .inv-card-name { font-family: Fredoka, Heebo, sans-serif; font-size: 15.5px; font-weight: 600; }
+    .inv-tier-chip { font-size: 10px; font-weight: 800; color: #0D2428; padding: 2px 9px; border-radius: 8px; }
+    .inv-card-art { display: flex; justify-content: center; padding: 4px 0 2px; }
+    .inv-stat-row { display: flex; justify-content: space-between; font-size: 11.5px; opacity: 0.85; margin-top: 6px; }
+    .inv-stat-bar { height: 6px; border-radius: 4px; background: rgba(244,231,195,0.14); overflow: hidden; margin-top: 3px; }
+    .inv-stat-fill { height: 100%; border-radius: 4px; }
+    .inv-equip-btn {
+      margin-top: 10px; padding: 9px 0; width: 100%;
+      background: #2BB3BD; border: 1px solid rgba(255,255,255,0.25); border-radius: 10px;
+      color: #0D2428; font-family: Fredoka, Heebo, sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .inv-equip-btn:hover { filter: brightness(1.12); }
+    .inv-equipped-tag {
+      margin-top: 10px; padding: 8px 0; width: 100%; text-align: center;
+      background: rgba(240, 180, 41, 0.16); border: 1px solid #F0B429; border-radius: 10px;
+      color: #F0B429; font-size: 13px; font-weight: 800;
+    }
+    .inv-sell-btn {
+      padding: 8px 16px; background: #FF6B4A; border: 1px solid #E04B2A; border-radius: 10px;
+      color: #FFF; font-family: Fredoka, Heebo, sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .15s; flex-shrink: 0;
+    }
+    .inv-sell-btn:hover { background: #E85A4A; }
+    .inv-caught-row {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(244, 231, 195, 0.055); border: 1px solid rgba(244, 231, 195, 0.12);
+      border-radius: 14px; padding: 11px 13px; margin-bottom: 8px;
+    }
+    .inv-empty { padding: 34px 10px; text-align: center; color: rgba(244,231,195,0.5); font-size: 15px; }
   `;
   document.head.appendChild(style);
 
@@ -417,8 +548,8 @@ function _buildPanel() {
 
   const panel = document.createElement('div');
   panel.id = 'inv-panel';
+  panel.setAttribute('dir', 'rtl');
 
-  // Handle
   const handle = document.createElement('div');
   handle.id = 'inv-handle';
   panel.appendChild(handle);
@@ -426,56 +557,38 @@ function _buildPanel() {
   // Header
   const header = document.createElement('div');
   header.id = 'inv-header';
-  const headerIcon = document.createElement('span');
-  headerIcon.id = 'inv-header-icon';
-  headerIcon.innerHTML = `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M11 13 C11 7 21 7 21 13" stroke="#5C2D0E" stroke-width="2.5" stroke-linecap="round"/>
-    <rect x="3" y="13" width="26" height="17" rx="5" fill="#8B4513"/>
-    <rect x="3" y="24" width="26" height="6" rx="5" fill="#7A3C10"/>
-    <path d="M3 20 L3 16 Q3 13 7 13 L25 13 Q29 13 29 16 L29 20 Q29 24 16 24 Q3 24 3 20Z" fill="#9E5520"/>
-    <path d="M4 20.5 Q16 25 28 20.5" fill="none" stroke="#7A3C10" stroke-width="1" opacity="0.5"/>
-    <path d="M6 16 Q16 17.5 26 16" fill="none" stroke="#7A3F18" stroke-width="0.8" stroke-dasharray="2,1.5" opacity="0.7"/>
-    <rect x="12" y="20" width="8" height="5.5" rx="1.5" fill="#C8861A" stroke="#9B6515" stroke-width="1"/>
-    <rect x="14" y="21.5" width="4" height="2.5" rx="0.8" fill="#9B6515"/>
-    <circle cx="7.5" cy="21" r="1.4" fill="#C8861A" stroke="#9B6515" stroke-width="0.7"/>
-    <circle cx="24.5" cy="21" r="1.4" fill="#C8861A" stroke="#9B6515" stroke-width="0.7"/>
-    <rect x="5" y="15" width="22" height="13" rx="3.5" fill="none" stroke="#7A3F18" stroke-width="0.7" stroke-dasharray="2,2" opacity="0.3"/>
-  </svg>`;
   const headerTitle = document.createElement('h2');
-  headerTitle.textContent = 'Bag';
+  headerTitle.textContent = '🎒 התיק שלי';
   const equippedCount = document.createElement('span');
   equippedCount.id = 'inv-equipped-count';
-  equippedCount.textContent = _equippedCount() + ' equipped';
+  equippedCount.textContent = _equippedCount() + ' פריטים לבושים';
   const clearAllBtn = document.createElement('button');
   clearAllBtn.id = 'inv-clear-all';
-  clearAllBtn.textContent = 'Clear all';
+  clearAllBtn.textContent = 'נקה הכל';
   clearAllBtn.addEventListener('click', () => {
     for (const sec of Object.values(SECTIONS)) {
       for (const cat of Object.keys(sec.categories)) {
-        // Body and Emotions are the base character — reset to default, never null
+        if (SECTIONS.Fishing.categories[cat]) continue; // fishing isn't a loadout
         _equip(cat, DEFAULT_LOADOUT[cat] ?? null);
       }
     }
     _renderEquipped();
     _renderBody();
-    panel._countEl.textContent = _equippedCount() + ' equipped';
+    panel._countEl.textContent = _equippedCount() + ' פריטים לבושים';
   });
-
   const closeBtn = document.createElement('button');
   closeBtn.id = 'inv-close'; closeBtn.textContent = '✕';
+  closeBtn.setAttribute('aria-label', 'סגירת התיק');
   closeBtn.addEventListener('click', hideInventoryPanel);
-  header.append(headerIcon, headerTitle, equippedCount, clearAllBtn, closeBtn);
+  header.append(headerTitle, equippedCount, clearAllBtn, closeBtn);
   panel.appendChild(header);
 
   // Currently-wearing strip
   const wearingWrap = document.createElement('div');
   wearingWrap.id = 'inv-wearing-wrap';
-  const wearingLabel = document.createElement('div');
-  wearingLabel.id = 'inv-wearing-label';
-  wearingLabel.textContent = 'Currently wearing';
   const wearingChips = document.createElement('div');
   wearingChips.id = 'inv-wearing-chips';
-  wearingWrap.append(wearingLabel, wearingChips);
+  wearingWrap.append(wearingChips);
   panel.appendChild(wearingWrap);
   _equippedStrip = wearingChips;
 
@@ -483,12 +596,12 @@ function _buildPanel() {
   const sectionsRow = document.createElement('div');
   sectionsRow.id = 'inv-sections';
   const sectionEls = {};
-
-  for (const [secKey, { icon }] of Object.entries(SECTIONS)) {
+  for (const [secKey, { icon, label, accent }] of Object.entries(SECTIONS)) {
     const pill = document.createElement('button');
     pill.className = 'inv-section-pill' + (secKey === _activeSection ? ' active' : '');
     pill.dataset.section = secKey;
-    pill.innerHTML = `<span class="inv-section-icon">${icon}</span><span class="inv-section-label">${secKey}</span>`;
+    pill.style.setProperty('--sec-accent', accent);
+    pill.innerHTML = `<span class="inv-section-icon">${icon}</span><span class="inv-section-label">${label}</span>`;
     pill.addEventListener('click', () => {
       if (_activeSection === secKey) return;
       _activeSection = secKey;
@@ -515,10 +628,8 @@ function _buildPanel() {
 
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
-
   panel._countEl = equippedCount;
 
-  // Create the preview canvas once — re-inserted into the figure div each render
   _previewCanvas = document.createElement('canvas');
   _previewCanvas.id = 'inv-preview-canvas';
 
@@ -526,7 +637,7 @@ function _buildPanel() {
   _renderBody();
 }
 
-// ── Paper doll ────────────────────────────────────────────────────────────
+// ── Paper doll ────────────────────────────────────────────────────────
 
 function _getCatIcon(cat) {
   for (const sec of Object.values(SECTIONS)) {
@@ -547,10 +658,10 @@ function _renderEquipped() {
   _equippedStrip.innerHTML = '';
 
   const ZONES = [
-    { label: 'Head',       color: '#6B8FF8', cats: ['Hair', 'Hat', 'Glasses', 'Face', 'Headphones'] },
-    { label: 'Body',       color: '#5BD4B0', cats: ['Shirt', 'Outwear', 'Costume', 'Gloves'] },
-    { label: 'Lower Body', color: '#F0A050', cats: ['Pants', 'Shorts', 'Socks'] },
-    { label: 'Feet',       color: '#B07EF0', cats: ['Shoes'] },
+    { label: 'ראש',   color: '#64B5F6', cats: ['Hair', 'Hat', 'Glasses', 'Face', 'Headphones'] },
+    { label: 'גוף',   color: '#7ACB5E', cats: ['Shirt', 'Outwear', 'Costume', 'Gloves'] },
+    { label: 'רגליים', color: '#F0B429', cats: ['Pants', 'Shorts', 'Socks'] },
+    { label: 'נעליים', color: '#FF6B4A', cats: ['Shoes'] },
   ];
 
   const _unequip = (cat) => {
@@ -558,7 +669,7 @@ function _renderEquipped() {
     _renderEquipped();
     _renderBody();
     const panel = document.getElementById('inv-panel');
-    if (panel?._countEl) panel._countEl.textContent = _equippedCount() + ' equipped';
+    if (panel?._countEl) panel._countEl.textContent = _equippedCount() + ' פריטים לבושים';
   };
 
   const _goTo = (cat) => {
@@ -575,19 +686,17 @@ function _renderEquipped() {
   const doll = document.createElement('div');
   doll.id = 'inv-doll';
 
-  // ── Live 3-D character preview (canvas kept across re-renders) ──
   const figure = document.createElement('div');
   figure.id = 'inv-doll-figure';
   figure.appendChild(_previewCanvas);
 
-  // ── Right-side zone blocks ──
   const zonesEl = document.createElement('div');
   zonesEl.id = 'inv-doll-zones';
 
   for (const zone of ZONES) {
     const zoneEl = document.createElement('div');
     zoneEl.className = 'inv-zone';
-    zoneEl.style.borderLeftColor = zone.color + 'AA';
+    zoneEl.style.borderRightColor = zone.color + 'CC';
 
     const labelEl = document.createElement('div');
     labelEl.className = 'inv-zone-label';
@@ -603,12 +712,12 @@ function _renderEquipped() {
       const file  = _loadout[cat] ?? null;
       const label = file
         ? file.replace('.glb', '').replace(/_\d{1,3}$/, '').replace(/_/g, ' ')
-        : cat;
+        : (CAT_HE[cat] || cat);
 
       const slot = document.createElement('button');
       slot.className = 'inv-zone-slot' + (file ? ' on' : '');
       slot.type = 'button';
-      slot.title = cat;
+      slot.title = CAT_HE[cat] || cat;
 
       const iconEl = document.createElement('span');
       iconEl.className = 'inv-zone-slot-icon';
@@ -625,6 +734,7 @@ function _renderEquipped() {
         rm.className = 'inv-zone-remove';
         rm.textContent = '✕';
         rm.type = 'button';
+        rm.setAttribute('aria-label', 'הסרה');
         rm.addEventListener('click', e => { e.stopPropagation(); _unequip(cat); });
         slot.appendChild(rm);
       }
@@ -641,24 +751,19 @@ function _renderEquipped() {
   _equippedStrip.appendChild(doll);
 }
 
-// ── Fishing rendering ──────────────────────────────────────────────────────
+// ── Fishing rendering ─────────────────────────────────────────────────
 
 function _renderFishingGrid() {
   const { icon } = SECTIONS.Fishing.categories[_activeCategory];
 
-  // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'inv-back-row';
-  backBtn.innerHTML = `‹ <span style="margin-left:2px">${_activeCategory}</span>`;
-  backBtn.addEventListener('click', () => {
-    _activeCategory = null;
-    _renderBody();
-  });
+  backBtn.textContent = '‹ חזרה לכלי דייג';
+  backBtn.addEventListener('click', () => { _activeCategory = null; _renderBody(); });
   _gridArea.appendChild(backBtn);
 
-  // Get fishing inventory
   if (!window.getPlayerInventory) {
-    _gridArea.innerHTML += '<div style="padding:20px;text-align:center;opacity:0.5">Loading...</div>';
+    _gridArea.innerHTML += '<div class="inv-empty">טוען…</div>';
     return;
   }
 
@@ -668,236 +773,158 @@ function _renderFishingGrid() {
 
   if (_activeCategory === 'Rods') {
     const rods = inv.ownedRods || [];
-    catHeader.innerHTML = `
-      <span class="inv-cat-header-icon">${icon}</span>
+    catHeader.innerHTML = `<span class="inv-cat-header-icon">${icon}</span>
       <span class="inv-cat-header-name">חכות</span>
-      <span class="inv-cat-header-count">${rods.length} rod${rods.length !== 1 ? 's' : ''}</span>`;
+      <span class="inv-cat-header-count">${rods.length} בבעלותך</span>`;
     _gridArea.appendChild(catHeader);
 
     if (rods.length === 0) {
-      _gridArea.innerHTML += '<div style="padding:20px;text-align:center;opacity:0.5">אין חכות. קנה אצל הדייג!</div>';
+      _gridArea.innerHTML += '<div class="inv-empty">אין חכות עדיין — קנה אצל הדייג במרינה 🎣</div>';
       return;
     }
 
-    const list = document.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px';
+    const grid = document.createElement('div');
+    grid.className = 'inv-fish-grid';
 
     rods.forEach(rodId => {
       const rodData = window.getRodById ? window.getRodById(rodId) : null;
-      const row = document.createElement('div');
-      row.style.cssText = `
-        padding: 14px;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-      `;
-
+      const meta = ROD_META[rodId] || { tierHe: '', capColor: '#F4E7C3', main: '#C98F14', light: '#E0AA2E', dark: '#8A6210' };
       const equipped = inv.currentRod === rodId;
-      if (equipped) {
-        row.style.borderColor = '#7c6af7';
-        row.style.background = 'rgba(124,106,247,0.15)';
-      }
+      const zone = Math.round((rodData?.centerZone || 0.26) * 100);
+      const speed = rodData?.meterSpeed ?? 1.0;
+      const controlPct = Math.round((1.05 - speed) / 0.4 * 100);
 
-      // Use procedural SVG icon
-      const iconUrl = generateRodIcon(rodId);
-      const iconImg = document.createElement('img');
-      iconImg.src = iconUrl;
-      iconImg.style.cssText = 'width:48px;height:48px;';
-
-      const infoDiv = document.createElement('div');
-      infoDiv.style.cssText = 'flex:1';
-      infoDiv.innerHTML = `
-        <div style="font-weight:700;font-size:14px">${rodData?.nameHe || rodId}</div>
-        <div style="font-size:11px;opacity:0.6;margin-top:2px">
-          Tier ${rodData?.tier || '?'} • Zone ${Math.round((rodData?.centerZone || 0.3) * 100)}%
+      const card = document.createElement('div');
+      card.className = 'inv-rod-card' + (equipped ? ' equipped' : '');
+      card.innerHTML = `
+        <div class="inv-card-top">
+          <span class="inv-card-name">${rodData?.nameHe || rodId}</span>
+          <span class="inv-tier-chip" style="background:${meta.capColor}">${meta.tierHe}</span>
         </div>
+        <div class="inv-card-art">${_rodSVG(meta)}</div>
+        <div class="inv-stat-row"><span>דיוק Sweet Spot</span><b>${zone}%</b></div>
+        <div class="inv-stat-bar"><div class="inv-stat-fill" style="width:${zone / 0.4}%;background:${meta.main === '#1C3A40' ? '#2BB3BD' : meta.main}"></div></div>
+        <div class="inv-stat-row"><span>שליטה במד</span><b>${controlPct}%</b></div>
+        <div class="inv-stat-bar"><div class="inv-stat-fill" style="width:${controlPct}%;background:#2BB3BD"></div></div>
+        <div class="inv-stat-row"><span>עד נדירות</span><b style="color:${meta.capColor}">${rodData?.maxRarity || ''}</b></div>
       `;
 
       if (equipped) {
-        const badge = document.createElement('span');
-        badge.style.cssText = 'color:#f59e0b;font-size:11px;font-weight:700';
-        badge.textContent = 'מצויד';
-        row.appendChild(iconImg);
-        row.appendChild(infoDiv);
-        row.appendChild(badge);
+        const tag = document.createElement('div');
+        tag.className = 'inv-equipped-tag';
+        tag.textContent = '✓ מצוידת';
+        card.appendChild(tag);
       } else {
-        row.appendChild(iconImg);
-        row.appendChild(infoDiv);
-
-        // Add equip button
-        const equipBtn = document.createElement('button');
-        equipBtn.textContent = 'ציוד';
-        equipBtn.style.cssText = `
-          padding: 6px 12px;
-          background: #7c6af7;
-          border: none;
-          border-radius: 8px;
-          color: white;
-          font-size: 11px;
-          font-weight: 700;
-          cursor: pointer;
-        `;
-        equipBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          _equipRod(rodId);
-        });
-        row.appendChild(equipBtn);
+        const btn = document.createElement('button');
+        btn.className = 'inv-equip-btn';
+        btn.textContent = 'צייד חכה';
+        btn.addEventListener('click', (e) => { e.stopPropagation(); _equipRod(rodId); });
+        card.appendChild(btn);
       }
 
-      list.appendChild(row);
+      grid.appendChild(card);
     });
 
-    _gridArea.appendChild(list);
+    _gridArea.appendChild(grid);
 
   } else if (_activeCategory === 'Baits') {
     const baits = inv.baits || {};
     const totalBaits = (baits.worm || 0) + (baits.shrimp || 0) + (baits.squid || 0);
 
-    catHeader.innerHTML = `
-      <span class="inv-cat-header-icon">${icon}</span>
+    catHeader.innerHTML = `<span class="inv-cat-header-icon">${icon}</span>
       <span class="inv-cat-header-name">פיתיונות</span>
-      <span class="inv-cat-header-count">${totalBaits} total</span>`;
+      <span class="inv-cat-header-count">${totalBaits} סה״כ</span>`;
     _gridArea.appendChild(catHeader);
 
-    const list = document.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px';
+    const grid = document.createElement('div');
+    grid.className = 'inv-fish-grid';
 
-    const baitTypes = [
-      { id: 'worm', icon: '🪱', nameHe: 'תולעת' },
-      { id: 'shrimp', icon: '🦐', nameHe: 'שרימפס' },
-      { id: 'squid', icon: '🦑', nameHe: 'קלמארי' }
-    ];
-
-    baitTypes.forEach(({ id, icon: baitIcon, nameHe }) => {
+    ['worm', 'shrimp', 'squid'].forEach(id => {
+      const meta = BAIT_META[id];
       const count = baits[id] || 0;
-      const row = document.createElement('div');
-      row.style.cssText = `
-        padding: 14px;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
+
+      const card = document.createElement('div');
+      card.className = 'inv-bait-card';
+      card.style.opacity = count > 0 ? '1' : '0.55';
+      card.innerHTML = `
+        <div class="inv-card-top">
+          <span class="inv-card-name">${meta.nameHe}</span>
+          <span class="inv-tier-chip" style="background:${count > 0 ? '#7ACB5E' : 'rgba(244,231,195,0.35)'}">${count} יח׳</span>
+        </div>
+        <div class="inv-card-art">${_baitSVG(id)}</div>
+        <div class="inv-stat-row"><span>אפקט</span><b style="color:${meta.boostColor}">${meta.effectHe}</b></div>
+        ${count === 0 ? '<div style="font-size:11px;opacity:0.55;margin-top:6px;text-align:center">אזל — קנה אצל הדייג</div>' : ''}
       `;
-
-      // Use procedural SVG icon
-      const iconUrl = generateBaitIcon(id);
-      const iconImg = document.createElement('img');
-      iconImg.src = iconUrl;
-      iconImg.style.cssText = 'width:32px;height:32px;';
-
-      const infoDiv = document.createElement('div');
-      infoDiv.style.cssText = 'flex:1';
-      infoDiv.innerHTML = `
-        <div style="font-weight:700;font-size:14px">${nameHe}</div>
-        <div style="font-size:11px;opacity:0.6;margin-top:2px">${count} available</div>
-      `;
-
-      row.appendChild(iconImg);
-      row.appendChild(infoDiv);
-      list.appendChild(row);
+      grid.appendChild(card);
     });
 
-    _gridArea.appendChild(list);
+    _gridArea.appendChild(grid);
 
   } else if (_activeCategory === 'Caught') {
     const caught = inv.caughtFish || [];
-    catHeader.innerHTML = `
-      <span class="inv-cat-header-icon">${icon}</span>
+    catHeader.innerHTML = `<span class="inv-cat-header-icon">${icon}</span>
       <span class="inv-cat-header-name">דגים שנתפסו</span>
-      <span class="inv-cat-header-count">${caught.length} fish</span>`;
+      <span class="inv-cat-header-count">${caught.length} דגים</span>`;
     _gridArea.appendChild(catHeader);
 
     if (caught.length === 0) {
-      _gridArea.innerHTML += '<div style="padding:20px;text-align:center;opacity:0.5">לא תפסת דגים עדיין!</div>';
+      _gridArea.innerHTML += '<div class="inv-empty">עוד לא תפסת דגים — לך לרציף הדיג! 🎣</div>';
       return;
     }
 
-    const list = document.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px';
-
-    caught.forEach(({ fishId }, index) => {
+    caught.forEach(({ fishId }) => {
       const fishData = window.getFishById ? window.getFishById(fishId) : null;
+      const rarityColor = RARITY_COLORS[fishData?.rarity] || '#8DA6B8';
+
       const row = document.createElement('div');
-      row.style.cssText = `
-        padding: 14px;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      `;
+      row.className = 'inv-caught-row';
 
-      const rarityColors = {
-        common: '#8DA6B8',
-        uncommon: '#81C784',
-        rare: '#64B5F6',
-        epic: '#BA68C8',
-        legendary: '#F0B429'
-      };
+      const art = document.createElement('span');
+      art.innerHTML = _fishSVG(rarityColor);
 
-      const rarityColor = rarityColors[fishData?.rarity] || '#999';
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1;min-width:0';
+      info.innerHTML = `
+        <div style="font-weight:700;font-size:14.5px">${fishData?.nameHe || fishId}</div>
+        <div style="font-size:11.5px;margin-top:2px;color:${rarityColor};font-weight:600">
+          ${RARITY_HE[fishData?.rarity] || fishData?.rarity || ''} · ${fishData?.price || 0} 🪙
+        </div>`;
 
-      row.innerHTML = `
-        <span style="font-size:24px">🐟</span>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px">${fishData?.nameHe || fishId}</div>
-          <div style="font-size:11px;margin-top:2px;color:${rarityColor}">
-            ${fishData?.rarity || 'unknown'} • ${fishData?.price || 0} 🪙
-          </div>
-        </div>
-        <button onclick="window.openFishermanShop('sell')" style="
-          padding:6px 12px;
-          background:#FF6B4A;
-          border:none;
-          border-radius:8px;
-          color:#F4E7C3;
-          font-size:11px;
-          font-weight:700;
-          cursor:pointer;
-        ">מכור</button>
-      `;
+      const sellBtn = document.createElement('button');
+      sellBtn.className = 'inv-sell-btn';
+      sellBtn.textContent = 'מכירה אצל הדייג';
+      sellBtn.addEventListener('click', () => {
+        hideInventoryPanel();
+        if (window.openFishermanShop) window.openFishermanShop('sell');
+      });
 
-      list.appendChild(row);
+      row.append(art, info, sellBtn);
+      _gridArea.appendChild(row);
     });
-
-    _gridArea.appendChild(list);
   }
 }
 
-// ── Fishing data helper ────────────────────────────────────────────────────
-
 function _getFishingCategoryData(category) {
-  if (!window.getPlayerInventory) return 'Loading...';
-
+  if (!window.getPlayerInventory) return 'טוען…';
   try {
     const inv = window.getPlayerInventory();
-
     if (category === 'Rods') {
       const count = inv.ownedRods?.length || 0;
-      return count > 0 ? `${count} rod${count !== 1 ? 's' : ''}` : 'Empty';
+      return count > 0 ? count + ' חכות' : 'ריק';
     } else if (category === 'Baits') {
       const total = (inv.baits?.worm || 0) + (inv.baits?.shrimp || 0) + (inv.baits?.squid || 0);
-      return total > 0 ? `${total} bait${total !== 1 ? 's' : ''}` : 'Empty';
+      return total > 0 ? total + ' פיתיונות' : 'ריק';
     } else if (category === 'Caught') {
       const count = inv.caughtFish?.length || 0;
-      return count > 0 ? `${count} fish` : 'Empty';
+      return count > 0 ? count + ' דגים' : 'ריק';
     }
   } catch (err) {
     console.error('[inventory] Error getting fishing data:', err);
   }
-
-  return 'Empty';
+  return 'ריק';
 }
 
-// ── Render body (list or grid) ─────────────────────────────────────────────
+// ── Render body (list or grid) ────────────────────────────────────────
 
 function _renderBody() {
   if (_activeCategory === null) {
@@ -909,7 +936,8 @@ function _renderBody() {
 
 function _renderList() {
   _gridArea.innerHTML = '';
-  const cats = SECTIONS[_activeSection].categories;
+  const section = SECTIONS[_activeSection];
+  const cats = section.categories;
 
   const list = document.createElement('div');
   list.className = 'inv-cat-list';
@@ -917,6 +945,7 @@ function _renderList() {
   for (const [cat, { icon, items, placeholders }] of Object.entries(cats)) {
     const row = document.createElement('button');
     row.className = 'inv-cat-row';
+    row.style.setProperty('--row-accent', section.accent);
 
     const iconBox = document.createElement('div');
     iconBox.className = 'inv-cat-row-iconbox';
@@ -927,21 +956,19 @@ function _renderList() {
 
     const name = document.createElement('div');
     name.className = 'inv-cat-row-name';
-    name.textContent = cat;
+    name.textContent = CAT_HE[cat] || cat;
 
     const sub = document.createElement('div');
     sub.className = 'inv-cat-row-sub';
 
-    // Special handling for Fishing section
     if (_activeSection === 'Fishing') {
-      const fishingData = _getFishingCategoryData(cat);
-      sub.textContent = fishingData;
+      sub.textContent = _getFishingCategoryData(cat);
     } else if (items.length > 0) {
-      sub.textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
+      sub.textContent = items.length + ' פריטים';
     } else if (placeholders?.length) {
-      sub.textContent = 'Coming soon';
+      sub.textContent = 'בקרוב';
     } else {
-      sub.textContent = 'Empty';
+      sub.textContent = 'ריק';
     }
 
     info.append(name, sub);
@@ -952,13 +979,13 @@ function _renderList() {
     if (_loadout[cat]) {
       const badge = document.createElement('span');
       badge.className = 'inv-cat-row-equipped-badge';
-      badge.textContent = 'Equipped';
+      badge.textContent = 'לבוש';
       right.appendChild(badge);
     }
 
     const chevron = document.createElement('span');
     chevron.className = 'inv-cat-row-chevron';
-    chevron.textContent = '›';
+    chevron.textContent = '‹';
     right.appendChild(chevron);
 
     row.append(iconBox, info, right);
@@ -976,7 +1003,6 @@ function _renderList() {
 function _renderGrid() {
   _gridArea.innerHTML = '';
 
-  // Special rendering for Fishing section
   if (_activeSection === 'Fishing') {
     _renderFishingGrid();
     return;
@@ -984,23 +1010,18 @@ function _renderGrid() {
 
   const { icon, items, placeholders } = SECTIONS[_activeSection].categories[_activeCategory];
 
-  // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'inv-back-row';
-  backBtn.innerHTML = `‹ <span style="margin-left:2px">${_activeCategory}</span>`;
-  backBtn.addEventListener('click', () => {
-    _activeCategory = null;
-    _renderBody();
-  });
+  backBtn.textContent = '‹ חזרה ל' + SECTIONS[_activeSection].label;
+  backBtn.addEventListener('click', () => { _activeCategory = null; _renderBody(); });
   _gridArea.appendChild(backBtn);
 
-  // Category header
   const catHeader = document.createElement('div');
   catHeader.className = 'inv-cat-header';
   catHeader.innerHTML = `
     <span class="inv-cat-header-icon">${icon}</span>
-    <span class="inv-cat-header-name">${_activeCategory}</span>
-    <span class="inv-cat-header-count">${items.length} item${items.length !== 1 ? 's' : ''}</span>`;
+    <span class="inv-cat-header-name">${CAT_HE[_activeCategory] || _activeCategory}</span>
+    <span class="inv-cat-header-count">${items.length} פריטים</span>`;
   _gridArea.appendChild(catHeader);
 
   if (items.length === 0) {
@@ -1013,7 +1034,7 @@ function _renderGrid() {
         slot.innerHTML = `
           <span class="inv-slot-locked-icon">${icon}</span>
           <span class="inv-slot-locked-name">${pname}</span>
-          <span class="inv-slot-locked-soon">Soon</span>`;
+          <span class="inv-slot-locked-soon">בקרוב</span>`;
         grid.appendChild(slot);
       }
       _gridArea.appendChild(grid);
@@ -1026,7 +1047,7 @@ function _renderGrid() {
 
   const noneSlot = document.createElement('div');
   noneSlot.className = 'inv-slot-none' + (_loadout[_activeCategory] == null ? ' equipped' : '');
-  noneSlot.innerHTML = `<span class="inv-slot-none-icon">✕</span><span>None</span>`;
+  noneSlot.innerHTML = `<span style="font-size:18px;opacity:.5">✕</span><span>בלי</span>`;
   noneSlot.addEventListener('click', () => { _equip(_activeCategory, null); _afterEquip(); });
   grid.appendChild(noneSlot);
 
@@ -1071,7 +1092,7 @@ function _afterEquip() {
   _renderEquipped();
   _renderGrid();
   const panel = document.getElementById('inv-panel');
-  if (panel?._countEl) panel._countEl.textContent = _equippedCount() + ' equipped';
+  if (panel?._countEl) panel._countEl.textContent = _equippedCount() + ' פריטים לבושים';
 }
 
 function _equippedCount() {
@@ -1084,10 +1105,39 @@ function _equip(cat, file) {
   if (_onEquip) _onEquip(cat, file);
 }
 
+// ── One-bag unification ───────────────────────────────────────────────
+// The HUD bag button (🎒) used to open a separate, older bag UI. This
+// panel is the single bag: find that button, strip its old listeners by
+// cloning it, and wire it here. Retries while the HUD builds during boot.
+
+function _takeOverBagButton() {
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries++;
+    const btn = [...document.querySelectorAll('button')]
+      .find(b => b.textContent.trim() === '🎒' && !b.dataset.invBound);
+    if (btn) {
+      const clone = btn.cloneNode(true);
+      clone.dataset.invBound = '1';
+      clone.addEventListener('click', (e) => {
+        e.stopImmediatePropagation();
+        toggleInventoryPanel();
+      });
+      btn.replaceWith(clone);
+      console.log('[inventory] 🎒 HUD button now opens the unified bag');
+      clearInterval(timer);
+    } else if (tries > 40) {
+      clearInterval(timer);
+    }
+  }, 500);
+}
+
 export function showInventoryPanel() {
   if (isChatOpen()) return;
   document.getElementById('inv-overlay')?.classList.add('inv-open');
   _visible = true;
+  _renderEquipped();
+  _renderBody();
 }
 
 export function hideInventoryPanel() {
@@ -1104,18 +1154,11 @@ export function toggleInventoryPanel() {
 function _equipRod(rodId) {
   console.log('[inventory] Equipping rod:', rodId);
 
-  // Update server
   if (window.getSocket && window.getSocket()) {
     window.getSocket().emit('equipRod', { rodId });
   }
-
-  // Update local state
   if (window.updateFishingInventory) {
     window.updateFishingInventory({ currentRod: rodId });
   }
-
-  // Re-render to show new equipped state
-  setTimeout(() => {
-    _renderBody();
-  }, 100);
+  setTimeout(() => { _renderBody(); }, 100);
 }
