@@ -16,64 +16,83 @@ let   _treeCount = 0;
 export function preloadTrees() {
   if (_promise) return _promise;
 
-  const trunkColor = _texLoader.load(
-    TEX_BASE + 'T_HP_Tree_Trunk.PNG',
-    undefined,
-    undefined,
-    (err) => {
-      if (!window._trunkColorError) {
-        console.warn('[trees] Failed to load trunk color texture:', err);
-        window._trunkColorError = true;
-      }
-    }
-  );
-  const trunkNorm = _texLoader.load(
-    TEX_BASE + 'T_HP_Tree_Trunk_normal.PNG',
-    undefined,
-    undefined,
-    (err) => {
-      if (!window._trunkNormError) {
-        console.warn('[trees] Failed to load trunk normal texture:', err);
-        window._trunkNormError = true;
-      }
-    }
-  );
-  const leafColor = _texLoader.load(
-    TEX_BASE + 'T_HP_Tree_Leaf.PNG',
-    undefined,
-    undefined,
-    (err) => {
-      if (!window._leafColorError) {
-        console.warn('[trees] Failed to load leaf color texture:', err);
-        window._leafColorError = true;
-      }
-    }
-  );
-  trunkColor.colorSpace = THREE.SRGBColorSpace;
-  leafColor.colorSpace  = THREE.SRGBColorSpace;
+  try {
+    // Fallback materials in case textures fail
+    const fallbackTrunkMat = new THREE.MeshStandardMaterial({
+      color: 0x6B4820, // Brown trunk
+      roughness: 0.85,
+      metalness: 0.0
+    });
+    const fallbackLeafMat = new THREE.MeshStandardMaterial({
+      color: 0x4A7A34, // Green leaves
+      side: THREE.DoubleSide,
+      roughness: 0.8,
+      metalness: 0.0
+    });
 
-  // Enhanced textures with anisotropic filtering
-  trunkColor.anisotropy = 16;
-  trunkNorm.anisotropy = 16;
-  leafColor.anisotropy = 16;
+    const trunkColor = _texLoader.load(
+      TEX_BASE + 'T_HP_Tree_Trunk.PNG',
+      (texture) => {
+        // Set all properties ONLY after image data exists
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 16;
+        texture.needsUpdate = true;
+      },
+      undefined,
+      (err) => {
+        if (!window._trunkColorError) {
+          console.error('[trees] texture failed: trunk color', err);
+          window._trunkColorError = true;
+        }
+      }
+    );
+    const trunkNorm = _texLoader.load(
+      TEX_BASE + 'T_HP_Tree_Trunk_normal.PNG',
+      (texture) => {
+        texture.anisotropy = 16;
+        texture.needsUpdate = true;
+      },
+      undefined,
+      (err) => {
+        if (!window._trunkNormError) {
+          console.error('[trees] texture failed: trunk normal', err);
+          window._trunkNormError = true;
+        }
+      }
+    );
+    const leafColor = _texLoader.load(
+      TEX_BASE + 'T_HP_Tree_Leaf.PNG',
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 16;
+        texture.needsUpdate = true;
+      },
+      undefined,
+      (err) => {
+        if (!window._leafColorError) {
+          console.error('[trees] texture failed: leaf color', err);
+          window._leafColorError = true;
+        }
+      }
+    );
 
-  const trunkMat = new THREE.MeshStandardMaterial({
-    map: trunkColor, normalMap: trunkNorm,
-    color: new THREE.Color(0x8B6F47), // Rich brown trunk color
-    roughness: 0.85, metalness: 0.0,
-    emissive: new THREE.Color(0x3a2817), // Warm brown emissive
-    emissiveIntensity: 0.2,
-  });
-  const leafMat = new THREE.MeshStandardMaterial({
-    map: leafColor, alphaTest: 0.45,
-    color: new THREE.Color(0x4a8a2a), // Vibrant green leaves
-    side: THREE.DoubleSide, roughness: 0.8, metalness: 0.0,
-    emissive: new THREE.Color(0x1a4010), // Deep green emissive
-    emissiveIntensity: 0.3,
-  });
+    const trunkMat = new THREE.MeshStandardMaterial({
+      map: trunkColor, normalMap: trunkNorm,
+      color: new THREE.Color(0x8B6F47), // Rich brown trunk color
+      roughness: 0.85, metalness: 0.0,
+      emissive: new THREE.Color(0x3a2817), // Warm brown emissive
+      emissiveIntensity: 0.2,
+    });
+    const leafMat = new THREE.MeshStandardMaterial({
+      map: leafColor, alphaTest: 0.45,
+      color: new THREE.Color(0x4a8a2a), // Vibrant green leaves
+      side: THREE.DoubleSide, roughness: 0.8, metalness: 0.0,
+      emissive: new THREE.Color(0x1a4010), // Deep green emissive
+      emissiveIntensity: 0.3,
+    });
 
-  _promise = new Promise((resolve, reject) =>
-    _loader.load(GLB_URL, gltf => {
+    _promise = new Promise((resolve, reject) =>
+      _loader.load(GLB_URL, gltf => {
       const root = gltf.scene;
       root.updateMatrixWorld(true);
 
@@ -116,154 +135,167 @@ export function preloadTrees() {
       _template = new THREE.Group();
       _template.add(root);
 
-      console.log('[trees] ready — trunk:', trunkCount, '| leaf:', leafCount,
-                  '| scale:', (TARGET_HEIGHT / h).toFixed(4));
-      resolve();
-    }, undefined, reject)
-  );
-  return _promise;
+        console.log('[trees] ready — trunk:', trunkCount, '| leaf:', leafCount,
+                    '| scale:', (TARGET_HEIGHT / h).toFixed(4));
+        resolve();
+      }, undefined, reject)
+    );
+    return _promise;
+  } catch (err) {
+    console.error('[trees] preload failed:', err);
+    return Promise.reject(err);
+  }
 }
 
 // ── Plaza centrepiece maple tree (FBX) ───────────────────────────────
 
 export function spawnPlazaTree(scene) {
-  const tl   = new THREE.TextureLoader();
-  const BASE = '/models/nature/trees/plaza_tree/textures/';
+  try {
+    const tl   = new THREE.TextureLoader();
+    const BASE = '/models/nature/trees/plaza_tree/textures/';
 
-  // Texture loading with error handling to prevent "marked for update but no image" warnings
-  const barkTex = tl.load(
-    BASE + 'Trunk_D_Tiled2.webp',
-    undefined,
-    undefined,
-    (err) => {
-      if (!window._barkTexError) {
-        console.warn('[trees] Failed to load bark texture:', err);
-        window._barkTexError = true;
-      }
-    }
-  );
-  barkTex.colorSpace = THREE.SRGBColorSpace;
-  barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
-  barkTex.anisotropy = 16;
-
-  // Leaf texture — loaded explicitly so leaf meshes always get it even if FBX
-  // auto-resolution via setResourcePath fails (common with renamed files).
-  const leafTex = tl.load(
-    BASE + 'maplebranch.webp',
-    undefined,
-    undefined,
-    (err) => {
-      if (!window._leafTexError) {
-        console.warn('[trees] Failed to load leaf texture:', err);
-        window._leafTexError = true;
-      }
-    }
-  );
-  leafTex.colorSpace = THREE.SRGBColorSpace;
-  leafTex.anisotropy = 8;
-
-  const loader = new FBXLoader();
-  loader.setResourcePath(BASE);
-
-  loader.load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
-    const meshNames = [];
-    fbx.traverse(n => {
-      if (!n.isMesh) return;
-      meshNames.push(n.name);
-      const name = n.name.toLowerCase();
-      const isLeaf = name.includes('leaf') || name.includes('leaves')
-                  || name.includes('foliage') || name.includes('maple')
-                  || name.includes('branch');
-
-      const mats = Array.isArray(n.material) ? n.material : [n.material];
-      mats.forEach(mat => {
-        if (!mat) return;
-        for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap']) {
-          if (mat[key]) {
-            if (key === 'map' || key === 'emissiveMap') mat[key].colorSpace = THREE.SRGBColorSpace;
-            mat[key].anisotropy = 16;
-            mat[key].needsUpdate = true;
-          }
-        }
-        if (!mat.map && !isLeaf) { mat.map = barkTex; mat.needsUpdate = true; }
-        // Always assign leaf texture to leaf meshes that have no map loaded
-        if (isLeaf && !mat.map)  { mat.map = leafTex; mat.needsUpdate = true; }
-
-        if (isLeaf) {
-          mat.side        = THREE.DoubleSide;
-          mat.alphaTest   = 0.28; // was 0.65 — too aggressive, cut most leaf pixels
-          mat.transparent = false;
-          mat.depthWrite  = true;
-          mat.color.setHex(0x4a8a2a); // Vibrant green (matching regular trees)
-          mat.emissive    = new THREE.Color(0x1a4010); // Deep green emissive
-          mat.emissiveIntensity = 0.25;
-        } else {
-          mat.color.setHex(0x8B6F47); // Rich brown trunk
-          mat.emissive    = new THREE.Color(0x3a2817); // Warm brown emissive
-          mat.emissiveIntensity = 0.15;
-        }
-        mat.roughness = isLeaf ? 0.80 : 0.90;
-        mat.metalness = 0.0;
-        mat.needsUpdate = true;
-      });
-
-      n.castShadow    = true;
-      n.receiveShadow = !isLeaf;
-    });
-    console.log('[trees] plaza mesh names:', meshNames.join(', '));
-
-    // Upright correction
-    fbx.updateMatrixWorld(true);
-    const s0 = new THREE.Box3().setFromObject(fbx).getSize(new THREE.Vector3());
-    if      (s0.z > s0.y * 1.5) { fbx.rotation.x = -Math.PI / 2; fbx.updateMatrixWorld(true); }
-    else if (s0.x > s0.y * 1.5) { fbx.rotation.z =  Math.PI / 2; fbx.updateMatrixWorld(true); }
-
-    // Scale to 27.5 m (22 * 1.25 = 27.5, 25% larger)
-    const box1 = new THREE.Box3().setFromObject(fbx);
-    const h    = Math.max(box1.max.y - box1.min.y, 0.01);
-    fbx.scale.setScalar(27.5 / h);
-
-    // Seat on ground at plaza location
-    const box2 = new THREE.Box3().setFromObject(fbx);
-    fbx.position.set(-50, -box2.min.y, 0); // Plaza offset: -50m toward marina
-    scene.add(fbx);
-
-    // Procedural leaf canopy — guarantees visible foliage regardless of FBX mesh names
-    _addPlazaLeafCanopy(scene, leafTex);
-
-    _treeCount++;
-    const plazaLabel = createLabel(`TREE ${_treeCount}`);
-    plazaLabel.position.set(-50, 32.5, 0); // Plaza offset + tree height
-    scene.add(plazaLabel);
-
-    // Ground AO shadow decal
-    const aoTex = tl.load(
-      BASE + 'internal_ground_ao_texture.jpeg',
-      undefined,
+    // Texture loading with error handling to prevent "marked for update but no image" warnings
+    const barkTex = tl.load(
+      BASE + 'Trunk_D_Tiled2.webp',
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.anisotropy = 16;
+        texture.needsUpdate = true;
+      },
       undefined,
       (err) => {
-        if (!window._aoTexError) {
-          console.warn('[trees] Failed to load AO texture, using color fallback:', err);
-          window._aoTexError = true;
+        if (!window._barkTexError) {
+          console.error('[trees] texture failed: bark', err);
+          window._barkTexError = true;
         }
       }
     );
-    aoTex.colorSpace = THREE.SRGBColorSpace;
-    const aoDecal = new THREE.Mesh(
-      new THREE.CircleGeometry(8, 48),
-      new THREE.MeshStandardMaterial({
-        map: aoTex, transparent: true,
-        blending: THREE.MultiplyBlending,
-        depthWrite: false, roughness: 1.0, metalness: 0.0,
-        color: 0x404040 // Fallback dark gray if texture fails
-      })
-    );
-    aoDecal.rotation.x = -Math.PI / 2;
-    aoDecal.position.set(-50, 0.03, 0); // Plaza offset
-    scene.add(aoDecal);
 
-    console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 27.5 m (25% larger)');
-  }, undefined, err => console.warn('[trees] plaza maple failed:', err?.message ?? err));
+    // Leaf texture — loaded explicitly so leaf meshes always get it even if FBX
+    // auto-resolution via setResourcePath fails (common with renamed files).
+    const leafTex = tl.load(
+      BASE + 'maplebranch.webp',
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+        texture.needsUpdate = true;
+      },
+      undefined,
+      (err) => {
+        if (!window._leafTexError2) {
+          console.error('[trees] texture failed: plaza leaf', err);
+          window._leafTexError2 = true;
+        }
+      }
+    );
+
+    const loader = new FBXLoader();
+    loader.setResourcePath(BASE);
+
+    loader.load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
+      const meshNames = [];
+      fbx.traverse(n => {
+        if (!n.isMesh) return;
+        meshNames.push(n.name);
+        const name = n.name.toLowerCase();
+        const isLeaf = name.includes('leaf') || name.includes('leaves')
+                    || name.includes('foliage') || name.includes('maple')
+                    || name.includes('branch');
+
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        mats.forEach(mat => {
+          if (!mat) return;
+          for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap']) {
+            if (mat[key]) {
+              if (key === 'map' || key === 'emissiveMap') mat[key].colorSpace = THREE.SRGBColorSpace;
+              mat[key].anisotropy = 16;
+              // Don't set needsUpdate here - texture loader handles it
+            }
+          }
+          if (!mat.map && !isLeaf) { mat.map = barkTex; }
+          // Always assign leaf texture to leaf meshes that have no map loaded
+          if (isLeaf && !mat.map)  { mat.map = leafTex; }
+
+          if (isLeaf) {
+            mat.side        = THREE.DoubleSide;
+            mat.alphaTest   = 0.28; // was 0.65 — too aggressive, cut most leaf pixels
+            mat.transparent = false;
+            mat.depthWrite  = true;
+            mat.color.setHex(0x4a8a2a); // Vibrant green (matching regular trees)
+            mat.emissive    = new THREE.Color(0x1a4010); // Deep green emissive
+            mat.emissiveIntensity = 0.25;
+          } else {
+            mat.color.setHex(0x8B6F47); // Rich brown trunk
+            mat.emissive    = new THREE.Color(0x3a2817); // Warm brown emissive
+            mat.emissiveIntensity = 0.15;
+          }
+          mat.roughness = isLeaf ? 0.80 : 0.90;
+          mat.metalness = 0.0;
+        });
+
+        n.castShadow    = true;
+        n.receiveShadow = !isLeaf;
+      });
+      console.log('[trees] plaza mesh names:', meshNames.join(', '));
+
+      // Upright correction
+      fbx.updateMatrixWorld(true);
+      const s0 = new THREE.Box3().setFromObject(fbx).getSize(new THREE.Vector3());
+      if      (s0.z > s0.y * 1.5) { fbx.rotation.x = -Math.PI / 2; fbx.updateMatrixWorld(true); }
+      else if (s0.x > s0.y * 1.5) { fbx.rotation.z =  Math.PI / 2; fbx.updateMatrixWorld(true); }
+
+      // Scale to 27.5 m (22 * 1.25 = 27.5, 25% larger)
+      const box1 = new THREE.Box3().setFromObject(fbx);
+      const h    = Math.max(box1.max.y - box1.min.y, 0.01);
+      fbx.scale.setScalar(27.5 / h);
+
+      // Seat on ground at plaza location
+      const box2 = new THREE.Box3().setFromObject(fbx);
+      fbx.position.set(-50, -box2.min.y, 0); // Plaza offset: -50m toward marina
+      scene.add(fbx);
+
+      // Procedural leaf canopy — guarantees visible foliage regardless of FBX mesh names
+      _addPlazaLeafCanopy(scene, leafTex);
+
+      _treeCount++;
+      const plazaLabel = createLabel(`TREE ${_treeCount}`);
+      plazaLabel.position.set(-50, 32.5, 0); // Plaza offset + tree height
+      scene.add(plazaLabel);
+
+      // Ground AO shadow decal
+      const aoTex = tl.load(
+        BASE + 'internal_ground_ao_texture.jpeg',
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.needsUpdate = true;
+        },
+        undefined,
+        (err) => {
+          if (!window._aoTexError) {
+            console.error('[trees] texture failed: AO ground shadow', err);
+            window._aoTexError = true;
+          }
+        }
+      );
+      const aoDecal = new THREE.Mesh(
+        new THREE.CircleGeometry(8, 48),
+        new THREE.MeshStandardMaterial({
+          map: aoTex, transparent: true,
+          blending: THREE.MultiplyBlending,
+          depthWrite: false, roughness: 1.0, metalness: 0.0,
+          color: 0x404040 // Fallback dark gray if texture fails
+        })
+      );
+      aoDecal.rotation.x = -Math.PI / 2;
+      aoDecal.position.set(-50, 0.03, 0); // Plaza offset
+      scene.add(aoDecal);
+
+      console.log('[trees] plaza maple — h:', h.toFixed(2), '→ 27.5 m (25% larger)');
+    }, undefined, err => console.warn('[trees] plaza maple failed:', err?.message ?? err));
+  } catch (err) {
+    console.error('[trees] spawnPlazaTree failed:', err);
+  }
 }
 
 // Procedural leaf canopy for the plaza hero tree.
@@ -271,67 +303,75 @@ export function spawnPlazaTree(scene) {
 // This runs regardless of whether the FBX already has leaf meshes, so the tree
 // always has visible foliage even if the model's mesh names don't match keywords.
 function _addPlazaLeafCanopy(scene, leafTex) {
-  const mat = new THREE.MeshStandardMaterial({
-    map:         leafTex,
-    alphaTest:   0.28,
-    side:        THREE.DoubleSide,
-    roughness:   0.80,
-    metalness:   0.0,
-    transparent: false,
-    depthWrite:  true,
-    color:       new THREE.Color(0x4a8a2a), // Vibrant green (matching other trees)
-    emissive:    new THREE.Color(0x1a4010), // Deep green emissive
-    emissiveIntensity: 0.25,
-  });
+  try {
+    const mat = new THREE.MeshStandardMaterial({
+      map:         leafTex,
+      alphaTest:   0.28,
+      side:        THREE.DoubleSide,
+      roughness:   0.80,
+      metalness:   0.0,
+      transparent: false,
+      depthWrite:  true,
+      color:       new THREE.Color(0x4a8a2a), // Vibrant green (matching other trees)
+      emissive:    new THREE.Color(0x1a4010), // Deep green emissive
+      emissiveIntensity: 0.25,
+    });
 
-  let s = 31;
-  const rng = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    let s = 31;
+    const rng = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 
-  // 20 clusters × 5 leaf cards = 100 quads spread through the canopy (scaled 25% larger)
-  for (let c = 0; c < 20; c++) {
-    const angle  = (c / 20) * Math.PI * 2 + rng() * 0.7;
-    const radius = (1.5 + rng() * 3.8) * 1.25;  // 1.875–6.625 m from trunk (25% larger)
-    const baseH  = (6   + rng() * 14) * 1.25;   // 7.5–25 m height (25% larger)
+    // 20 clusters × 5 leaf cards = 100 quads spread through the canopy (scaled 25% larger)
+    for (let c = 0; c < 20; c++) {
+      const angle  = (c / 20) * Math.PI * 2 + rng() * 0.7;
+      const radius = (1.5 + rng() * 3.8) * 1.25;  // 1.875–6.625 m from trunk (25% larger)
+      const baseH  = (6   + rng() * 14) * 1.25;   // 7.5–25 m height (25% larger)
 
-    for (let q = 0; q < 5; q++) {
-      const w    = (2.8 + rng() * 2.8) * 1.25;  // 3.5–7 m card width (25% larger)
-      const card = new THREE.Mesh(new THREE.PlaneGeometry(w, w), mat);
-      card.position.set(
-        -50 + Math.cos(angle) * radius + (rng() - 0.5) * 2.0, // Plaza offset X
-        baseH            + (rng() - 0.5) * 2.5,
-        Math.sin(angle) * radius + (rng() - 0.5) * 2.0
-      );
-      card.rotation.set(
-        (rng() - 0.5) * 1.4,
-        rng() * Math.PI * 2,
-        (rng() - 0.5) * 1.4
-      );
-      card.castShadow    = false;
-      card.receiveShadow = false;
-      scene.add(card);
+      for (let q = 0; q < 5; q++) {
+        const w    = (2.8 + rng() * 2.8) * 1.25;  // 3.5–7 m card width (25% larger)
+        const card = new THREE.Mesh(new THREE.PlaneGeometry(w, w), mat);
+        card.position.set(
+          -50 + Math.cos(angle) * radius + (rng() - 0.5) * 2.0, // Plaza offset X
+          baseH            + (rng() - 0.5) * 2.5,
+          Math.sin(angle) * radius + (rng() - 0.5) * 2.0
+        );
+        card.rotation.set(
+          (rng() - 0.5) * 1.4,
+          rng() * Math.PI * 2,
+          (rng() - 0.5) * 1.4
+        );
+        card.castShadow    = false;
+        card.receiveShadow = false;
+        scene.add(card);
+      }
     }
+  } catch (err) {
+    console.error('[trees] _addPlazaLeafCanopy failed:', err);
   }
 }
 
 export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
-  const place = () => {
-    const tree = _template.clone(true);
-    tree.position.set(x, y, z);
-    tree.scale.setScalar(scale);
-    tree.rotation.y = (rotY !== undefined) ? rotY : Math.random() * Math.PI * 2;
-    tree.userData._isTree = true; // Mark for identification/cleanup
-    scene.add(tree);
-    if (scale > 0) {
-      _treeCount++;
-      attachLabel(tree, `TREE ${_treeCount}`, 17);
-    }
-  };
+  try {
+    const place = () => {
+      const tree = _template.clone(true);
+      tree.position.set(x, y, z);
+      tree.scale.setScalar(scale);
+      tree.rotation.y = (rotY !== undefined) ? rotY : Math.random() * Math.PI * 2;
+      tree.userData._isTree = true; // Mark for identification/cleanup
+      scene.add(tree);
+      if (scale > 0) {
+        _treeCount++;
+        attachLabel(tree, `TREE ${_treeCount}`, 17);
+      }
+    };
 
-  if (_template) {
-    place();
-  } else {
-    preloadTrees().then(place).catch(err => {
-      console.warn('[trees] spawn skipped at', x, z, '|', err?.message ?? err);
-    });
+    if (_template) {
+      place();
+    } else {
+      preloadTrees().then(place).catch(err => {
+        console.warn('[trees] spawn skipped at', x, z, '|', err?.message ?? err);
+      });
+    }
+  } catch (err) {
+    console.error('[trees] spawnTree failed:', err);
   }
 }

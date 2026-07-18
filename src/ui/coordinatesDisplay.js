@@ -7,7 +7,13 @@ let _coordsContainer = null;
 let _xText = null;
 let _yText = null;
 let _zText = null;
+let _fpsText = null;
 let _isVisible = true;
+
+// FPS tracking
+let _fpsFrameCount = 0;
+let _fpsStartTime = performance.now();
+let _fpsLastUpdate = 0;
 
 export function initCoordinatesDisplay() {
   _coordsContainer = document.createElement('div');
@@ -107,6 +113,10 @@ export function initCoordinatesDisplay() {
       <span class="coord-label">Z:</span>
       <span class="coord-value" id="coord-z">0.00</span>
     </div>
+    <div class="coord-row">
+      <span class="coord-label">FPS:</span>
+      <span class="coord-value" id="coord-fps">0</span>
+    </div>
   `;
 
   document.body.appendChild(_coordsContainer);
@@ -114,6 +124,7 @@ export function initCoordinatesDisplay() {
   _xText = document.getElementById('coord-x');
   _yText = document.getElementById('coord-y');
   _zText = document.getElementById('coord-z');
+  _fpsText = document.getElementById('coord-fps');
 
   // Toggle button
   const toggleBtn = document.getElementById('coords-toggle-btn');
@@ -142,6 +153,38 @@ export function updateCoordinates(position) {
   _xText.textContent = position.x.toFixed(2);
   _yText.textContent = position.y.toFixed(2);
   _zText.textContent = position.z.toFixed(2);
+}
+
+export function updateFPS() {
+  try {
+    _fpsFrameCount++;
+    const now = performance.now();
+    const elapsed = (now - _fpsStartTime) / 1000; // seconds
+
+    // Update FPS display every ~0.5s
+    if (elapsed >= 0.5) {
+      const fps = Math.round(_fpsFrameCount / elapsed);
+
+      if (_fpsText) {
+        _fpsText.textContent = fps.toString();
+
+        // Color based on FPS: >=45 green, 25-44 gold, <25 coral
+        if (fps >= 45) {
+          _fpsText.style.color = '#7ACB5E'; // green
+        } else if (fps >= 25) {
+          _fpsText.style.color = '#F0B429'; // gold
+        } else {
+          _fpsText.style.color = '#FF6B4A'; // coral
+        }
+      }
+
+      // Reset counters
+      _fpsFrameCount = 0;
+      _fpsStartTime = now;
+    }
+  } catch (err) {
+    console.error('[coords] FPS update failed:', err);
+  }
 }
 
 export function toggleVisibility() {

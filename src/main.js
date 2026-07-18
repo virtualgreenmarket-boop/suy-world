@@ -56,7 +56,7 @@ import { initInteractionUI, updateInteractions, registerInteraction }         fr
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
-import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
+import { initCoordinatesDisplay, updateCoordinates, updateFPS } from './ui/coordinatesDisplay.js';
 import { initLiveMap, updateLiveMap, disposeLiveMap, getMapPin, setMapPin } from './ui/liveMap.js';
 import { createLiveMapUI, updateOnlineCount as updateLiveMapOnlineCount, removeLiveMapUI } from './ui/liveMapUI.js';
 import { openFullscreenMap } from './ui/liveMapFullscreen.js';
@@ -539,6 +539,57 @@ window.addEventListener('resize', () => {
   if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
 });
 
+// ── Performance optimization: Shadow caster reduction ─────────────────
+function optimizeShadowCasters() {
+  try {
+    let totalMeshes = 0;
+    let originalCasters = 0;
+    let newCasters = 0;
+    let hiddenUCX = 0;
+
+    scene.traverse((obj) => {
+      if (obj.isMesh) {
+        totalMeshes++;
+
+        // Hide Unreal collision meshes
+        if (obj.name && obj.name.startsWith('UCX_')) {
+          obj.visible = false;
+          hiddenUCX++;
+          return;
+        }
+
+        // Count original shadow casters
+        if (obj.castShadow) {
+          originalCasters++;
+        }
+
+        // Compute bounding box size
+        const bbox = new THREE.Box3().setFromObject(obj);
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+
+        // Keep castShadow only for objects >= 8 units in largest horizontal dimension
+        const maxHorizontal = Math.max(size.x, size.z);
+        if (maxHorizontal >= 8) {
+          obj.castShadow = true;
+          newCasters++;
+        } else {
+          obj.castShadow = false;
+        }
+      }
+    });
+
+    console.log(`[perf] shadow casters reduced from ${originalCasters} to ${newCasters}, hid ${hiddenUCX} UCX meshes`);
+  } catch (err) {
+    console.error('[perf] Shadow optimization failed:', err);
+  }
+}
+
+// Schedule optimization after world loads (3s delay)
+setTimeout(() => {
+  optimizeShadowCasters();
+}, 3000);
+
 // ── Game loop ──────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
 let npcTime = 0;
@@ -567,6 +618,7 @@ function animate() {
   // Update coordinates display
   if (pos) {
     updateCoordinates(pos);
+    updateFPS(); // Update FPS meter every frame
 
     // Track steps for EXP (award every meter moved)
     if (_lastPlayerPosition) {
