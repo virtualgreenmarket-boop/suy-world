@@ -35,15 +35,20 @@ import { getSocket } from './multiplayer.js';
 // North side (worldZ≈+24), South side (worldZ≈-24)
 
 export const FISHING_SPOTS = [
-  { x: -397.9, y: 0.9, z: 24.0, name: 'North Alcove 1' },
-  { x: -383.9, y: 0.9, z: 24.0, name: 'North Alcove 2' },
-  { x: -369.9, y: 0.9, z: 24.0, name: 'North Alcove 3' },
-  { x: -397.9, y: 0.9, z: -24.0, name: 'South Alcove 1' },
-  { x: -383.9, y: 0.9, z: -24.0, name: 'South Alcove 2' },
-  { x: -369.9, y: 0.9, z: -24.0, name: 'South Alcove 3' }
+  { x: -397.9, y: 0.9, z: 24.0,  name: 'North Alcove 1', dir: { x: 0, z: 1 } },
+  { x: -383.9, y: 0.9, z: 24.0,  name: 'North Alcove 2', dir: { x: 0, z: 1 } },
+  { x: -369.9, y: 0.9, z: 24.0,  name: 'North Alcove 3', dir: { x: 0, z: 1 } },
+  { x: -397.9, y: 0.9, z: -24.0, name: 'South Alcove 1', dir: { x: 0, z: -1 } },
+  { x: -383.9, y: 0.9, z: -24.0, name: 'South Alcove 2', dir: { x: 0, z: -1 } },
+  { x: -369.9, y: 0.9, z: -24.0, name: 'South Alcove 3', dir: { x: 0, z: -1 } },
+  // West edge (pier end, casting into open sea toward -X)
+  { x: -403.8, y: 0.9, z: -12.0, name: 'West Edge 1', dir: { x: -1, z: 0 } },
+  { x: -403.8, y: 0.9, z: 0.0,   name: 'West Edge 2', dir: { x: -1, z: 0 } },
+  { x: -403.8, y: 0.9, z: 12.0,  name: 'West Edge 3', dir: { x: -1, z: 0 } }
 ];
 
 const SPOT_RADIUS = 4.5;   // metres — horizontal distance for the button to appear
+const METER_SPEED_MULT = 3.0; // pull-meter difficulty (higher = faster bar)
 const PROX_INTERVAL = 0.2; // seconds between proximity checks
 
 // ── Visual Elements ───────────────────────────────────────────────────
@@ -167,6 +172,23 @@ function _updateProximity(delta) {
   if (_fishingState === 'biting') { _setButtonMode('pull'); return; }
   if (_fishingState !== 'idle')   { _setButtonMode(null);   return; }
 
+  // Session still active (catch/escape screen open, or state not fully released):
+  // keep the button hidden instead of showing "לדוג" that would fail.
+  try {
+    if (isActiveFishing()) {
+      _setButtonMode(null);
+      // Self-heal: if the active flag is stuck for a while with no state, release it
+      if (!window.__fishingStuckSince) window.__fishingStuckSince = Date.now();
+      else if (Date.now() - window.__fishingStuckSince > 6000) {
+        console.warn('[fishingLoop] active-fishing flag stuck — releasing');
+        try { endFishing(); } catch (_) {}
+        window.__fishingStuckSince = 0;
+      }
+      return;
+    }
+    window.__fishingStuckSince = 0;
+  } catch (_) {}
+
   const playerGroup = window._localPlayerGroup;
   if (!playerGroup) { _setButtonMode(null); return; }
 
@@ -198,24 +220,70 @@ function _currentRodColor() {
   }
 }
 
+let _arm = null;      // { shoulder, foreArm, hand, other, rest } — the character's real arm pivots
+let _poseOn = false;
+
+// The blocky character has real pivot groups: shoulder Group (|x|≈0.54, y≈0.42)
+// → forearm Group (elbow) → hand mesh (0.22³ box). Calibrated live in-game.
+function _findArm(playerGroup) {
+  let shoulder = null, other = null;
+  playerGroup.traverse(o => {
+    if (o.type !== 'Group') return;
+    if (Math.abs(Math.abs(o.position.x) - 0.54) < 0.08 && Math.abs(o.position.y - 0.42) < 0.12) {
+      if (o.position.x < 0 && !shoulder) shoulder = o;
+      else if (o.position.x > 0 && !other) other = o;
+    }
+  });
+  if (!shoulder) return null;
+  const foreArm = shoulder.children.find(c => c.type === 'Group');
+  if (!foreArm) return null;
+  const hand = foreArm.children.find(c =>
+    c.isMesh && c.geometry && c.geometry.type === 'BoxGeometry' &&
+    Math.abs((c.geometry.parameters.width || 0) - 0.22) < 0.04 &&
+    Math.abs((c.geometry.parameters.height || 0) - 0.22) < 0.04);
+  if (!hand) return null;
+  return {
+    shoulder, foreArm, hand, other,
+    rest: {
+      sx: shoulder.rotation.x, sz: shoulder.rotation.z,
+      fx: foreArm.rotation.x,
+      ox: other ? other.rotation.x : 0
+    }
+  };
+}
+
+function _setFishingPose(on) {
+  if (!_arm) return;
+  if (on && !_poseOn) {
+    _poseOn = true;
+  } else if (!on && _poseOn) {
+    _poseOn = false;
+    _arm.shoulder.rotation.x = _arm.rest.sx;
+    _arm.shoulder.rotation.z = _arm.rest.sz;
+    _arm.foreArm.rotation.x = _arm.rest.fx;
+    if (_arm.other) _arm.other.rotation.x = _arm.rest.ox;
+  }
+}
+
 function _ensureRod() {
   const playerGroup = window._localPlayerGroup;
   if (!playerGroup) return null;
-  if (_rodGroup && _rodGroup.parent === playerGroup) return _rodGroup;
+  const wantedParent = _arm ? _arm.hand : playerGroup;
+  if (_rodGroup && _rodGroup.parent === wantedParent) return _rodGroup;
 
   try {
+    if (!_arm) _arm = _findArm(playerGroup);
+
     const { id, color } = _currentRodColor();
 
     _rodGroup = new THREE.Group();
     _rodGroup.name = 'fishingRod';
 
-    // Shaft — 1.6m tapered cylinder along +Y
     const shaftMat = new THREE.MeshLambertMaterial({ color });
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.025, 1.6, 6), shaftMat);
     shaft.position.y = 0.8;
     _rodGroup.add(shaft);
 
-    // Handle — 0.25m darker grip at the base
     const handle = new THREE.Mesh(
       new THREE.CylinderGeometry(0.03, 0.032, 0.25, 6),
       new THREE.MeshLambertMaterial({ color: 0x4A3018 })
@@ -223,7 +291,6 @@ function _ensureRod() {
     handle.position.y = 0.125;
     _rodGroup.add(handle);
 
-    // Reel — small box near the handle
     const reel = new THREE.Mesh(
       new THREE.BoxGeometry(0.07, 0.09, 0.05),
       new THREE.MeshLambertMaterial({ color: 0x0D2428 })
@@ -231,22 +298,27 @@ function _ensureRod() {
     reel.position.set(0, 0.32, 0.05);
     _rodGroup.add(reel);
 
-    // Tip marker — world anchor for the fishing line
     _rodTip = new THREE.Object3D();
     _rodTip.position.y = 1.6;
     _rodGroup.add(_rodTip);
 
-    // 50% larger rod
-    _rodGroup.scale.setScalar(1.5);
-
-    // Held at the right hip, tilted forward (player forward = -Z)
-    _rodGroup.position.set(0.3, 1.2, 0.25);
-    _rodGroup.rotation.x = ROD_REST_TILT;
+    _rodGroup.scale.setScalar(1.5);   // 50% larger rod
     _rodGroup.visible = false;
 
-    playerGroup.add(_rodGroup);
+    if (_arm) {
+      // In the hand: butt at the palm, tip forward-up (values calibrated live)
+      _rodGroup.position.set(0, -0.05, 0);
+      _rodGroup.rotation.set(2.5, 0, 0);
+      _arm.hand.add(_rodGroup);
+      console.log('[fishingLoop] Rod attached to the character hand (' + id + ')');
+    } else {
+      // Fallback: no arm structure found — attach to the player group
+      _rodGroup.position.set(0.3, 1.2, 0.25);
+      _rodGroup.rotation.x = ROD_REST_TILT;
+      playerGroup.add(_rodGroup);
+      console.log('[fishingLoop] Rod attached to player group fallback (' + id + ')');
+    }
     _rodColorId = id;
-    console.log('[fishingLoop] Rod model attached to player (' + id + ')');
     return _rodGroup;
   } catch (err) {
     console.error('[fishingLoop] Rod build error:', err);
@@ -268,41 +340,76 @@ function _updateRod(delta) {
   const rod = _ensureRod();
   if (!rod) return;
 
-  // Visible only near a fishing spot or while fishing
   rod.visible = _nearAnySpot || _fishingState !== 'idle';
-  if (!rod.visible) { _castAnim = null; return; }
+  if (!rod.visible) { _castAnim = null; _setFishingPose(false); return; }
 
   _refreshRodColor();
+  _setFishingPose(true);
 
   const time = Date.now() * 0.001;
 
-  if (_castAnim) {
-    // Cast swing: back (~60°) then forward, 0.8s total
-    _castAnim.t += delta;
-    const t = Math.min(1, _castAnim.t / 0.8);
-    if (t < 0.35) {
-      const k = t / 0.35;                                   // wind back (up-behind)
-      rod.rotation.x = ROD_REST_TILT - k * 1.05;
-    } else if (t < 0.65) {
-      const k = (t - 0.35) / 0.3;                           // swing forward
-      rod.rotation.x = (ROD_REST_TILT - 1.05) + k * 1.75;
+  if (_arm) {
+    // ── Real arm animation (shoulder + elbow pivots, live-calibrated) ──
+    const S = _arm.shoulder, F = _arm.foreArm;
+    F.rotation.x = -0.9;
+    if (_arm.other) _arm.other.rotation.x = -0.45;  // second hand joins the hold
+    rod.rotation.set(2.5, 0, 0);
+
+    if (_castAnim) {
+      _castAnim.t += delta;
+      const t = Math.min(1, _castAnim.t / 0.8);
+      if (t < 0.35) {
+        const k = t / 0.35;                       // wind up-back over the head
+        S.rotation.x = -0.55 - k * 1.35;
+      } else if (t < 0.65) {
+        const k = (t - 0.35) / 0.3;               // swing forward-down
+        S.rotation.x = -1.9 + k * 1.8;
+        F.rotation.x = -0.9 + k * 0.5;            // elbow extends with the throw
+      } else {
+        const k = (t - 0.65) / 0.35;              // settle to hold
+        S.rotation.x = -0.1 - k * 0.45;
+        F.rotation.x = -0.4 - k * 0.5;
+      }
+      if (t >= 1) { _castAnim = null; S.rotation.x = -0.55; F.rotation.x = -0.9; }
+    } else if (_fishingState === 'waiting') {
+      S.rotation.x = -0.55 + Math.sin(time * 1.5) * 0.04;
+    } else if (_fishingState === 'biting') {
+      S.rotation.x = -0.55 + Math.sin(time * 30) * 0.05;
+      rod.rotation.z = Math.sin(time * 37) * 0.08;
+    } else if (_fishingState === 'meter') {
+      S.rotation.x = -0.8 + Math.sin(time * 8) * 0.05;   // straining pull
     } else {
-      const k = (t - 0.65) / 0.35;                          // settle to rest
-      rod.rotation.x = (ROD_REST_TILT + 0.7) - k * 0.7;
+      S.rotation.x = -0.55 + Math.sin(time * 1.2) * 0.03;
     }
-    if (t >= 1) { _castAnim = null; rod.rotation.x = ROD_REST_TILT; }
-  } else if (_fishingState === 'waiting') {
-    rod.rotation.x = ROD_REST_TILT + Math.sin(time * 1.5) * 0.05;   // gentle hold
-    rod.rotation.z = 0;
-  } else if (_fishingState === 'biting') {
-    rod.rotation.x = ROD_REST_TILT + Math.sin(time * 30) * 0.08;    // tip shaking
-    rod.rotation.z = Math.sin(time * 37) * 0.06;
-  } else if (_fishingState === 'meter') {
-    rod.rotation.x = ROD_REST_TILT - 0.35 + Math.sin(time * 8) * 0.05; // straining
-    rod.rotation.z = 0;
   } else {
-    rod.rotation.x = ROD_REST_TILT + Math.sin(time * 1.2) * 0.03;   // idle sway
-    rod.rotation.z = 0;
+    // ── Fallback: animate the rod itself (no arm pivots found) ──
+    if (_castAnim) {
+      _castAnim.t += delta;
+      const t = Math.min(1, _castAnim.t / 0.8);
+      if (t < 0.35) {
+        const k = t / 0.35;
+        rod.rotation.x = ROD_REST_TILT - k * 1.05;
+      } else if (t < 0.65) {
+        const k = (t - 0.35) / 0.3;
+        rod.rotation.x = (ROD_REST_TILT - 1.05) + k * 1.75;
+      } else {
+        const k = (t - 0.65) / 0.35;
+        rod.rotation.x = (ROD_REST_TILT + 0.7) - k * 0.7;
+      }
+      if (t >= 1) { _castAnim = null; rod.rotation.x = ROD_REST_TILT; }
+    } else if (_fishingState === 'waiting') {
+      rod.rotation.x = ROD_REST_TILT + Math.sin(time * 1.5) * 0.05;
+      rod.rotation.z = 0;
+    } else if (_fishingState === 'biting') {
+      rod.rotation.x = ROD_REST_TILT + Math.sin(time * 30) * 0.08;
+      rod.rotation.z = Math.sin(time * 37) * 0.06;
+    } else if (_fishingState === 'meter') {
+      rod.rotation.x = ROD_REST_TILT - 0.35 + Math.sin(time * 8) * 0.05;
+      rod.rotation.z = 0;
+    } else {
+      rod.rotation.x = ROD_REST_TILT + Math.sin(time * 1.2) * 0.03;
+      rod.rotation.z = 0;
+    }
   }
 
   // Keep the fishing line anchored to the rod tip
@@ -326,10 +433,115 @@ function _updateRod(delta) {
 
 // ── Initialization ────────────────────────────────────────────────────
 
+let _serverSyncDone = false;
+
+function _syncInventoryFromServer() {
+  if (_serverSyncDone) return;
+  try {
+    const s = getSocket();
+    if (!s) return;
+    _serverSyncDone = true;
+    s.on('fishingDataLoaded', (data) => {
+      try {
+        if (!data || !window.updateFishingInventory) return;
+        window.updateFishingInventory({
+          ownedRods: data.ownedRods,
+          currentRod: data.currentRod,
+          baits: data.baits
+        });
+        console.log('[fishingLoop] Inventory synced from server:', JSON.stringify(data.baits || {}));
+      } catch (err) { console.error('[fishingLoop] sync apply error:', err); }
+    });
+    s.emit('loadFishingData');
+    console.log('[fishingLoop] Requested inventory sync from server');
+  } catch (_) { /* socket not ready yet — retried from update */ }
+}
+
+// ── Marina extras (pure additions — marina.js untouched) ─────────────
+// 1. Three fishing pads on the pier's west edge (black squares like the
+//    side alcoves; casting goes over the end rail into open sea).
+// 2. Wood cladding closing the exposed gap between the upper deck and
+//    the fishing pier across the stairs frontage.
+// 3. Sloped railings with posts + ball caps along both sides of the stairs.
+// All coordinates measured live in-game.
+
+function _buildMarinaExtras(scene) {
+  try {
+    const M = (c) => new THREE.MeshLambertMaterial({ color: c });
+    const WOOD = 0xC98F14, WOOD_D = 0x8A6210, WOOD_DD = 0x5C3A10, PAD = 0x1A1208;
+
+    // 1. West fishing pads (black squares)
+    for (const z of [-12, 0, 12]) {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.07, 1.7), M(PAD));
+      pad.position.set(-403.8, 0.94, z);
+      scene.add(pad);
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.03, 1.9), M(WOOD_DD));
+      trim.position.set(-403.8, 0.905, z);
+      scene.add(trim);
+    }
+
+    // 2. Cladding between the floors (deck edge X≈-346.4, deck y=3.2 → pier y=0.9)
+    //    Two wall sections leaving the stair opening (|z| < 7.5) framed.
+    for (const zc of [15, -15]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.3, 15), M(WOOD_D));
+      wall.position.set(-346.4, 2.05, zc);
+      scene.add(wall);
+      // Plank lines (thin darker strips for a paneled look)
+      for (let i = 0; i < 3; i++) {
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.05, 15), M(WOOD_DD));
+        strip.position.set(-346.4, 1.35 + i * 0.7, zc);
+        scene.add(strip);
+      }
+      // Top trim aligned with the deck edge
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 15.2), M(WOOD));
+      trim.position.set(-346.4, 3.14, zc);
+      scene.add(trim);
+    }
+    // Frame cheeks around the stair opening
+    for (const zc of [7.5, -7.5]) {
+      const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.35, 0.35), M(WOOD));
+      cheek.position.set(-346.4, 2.05, zc);
+      scene.add(cheek);
+    }
+
+    // 3. Stair railings — sloped handrail + posts + ball caps, both sides
+    //    Stairs descend X -346.4 (top, y 3.2) → -353.4 (bottom, y 0.9)
+    const railLen = Math.hypot(7, 2.3);
+    const slope = Math.atan2(2.3, 7);
+    for (const zs of [7.4, -7.4]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(railLen, 0.12, 0.12), M(WOOD));
+      rail.position.set(-349.9, 3.0, zs);
+      rail.rotation.z = slope;
+      scene.add(rail);
+      const mid = new THREE.Mesh(new THREE.BoxGeometry(railLen, 0.07, 0.07), M(WOOD_D));
+      mid.position.set(-349.9, 2.45, zs);
+      mid.rotation.z = slope;
+      scene.add(mid);
+      for (const px of [-352.6, -350.8, -349.0, -347.2]) {
+        const railY = 1.85 + ((px + 353.4) / 7) * 2.3;
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.95, 6), M(WOOD_D));
+        post.position.set(px, railY - 0.47, zs);
+        scene.add(post);
+      }
+      for (const [ex, ey] of [[-346.4, 4.15], [-353.4, 1.85]]) {
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), M(WOOD_DD));
+        cap.position.set(ex, ey + 0.08, zs);
+        scene.add(cap);
+      }
+    }
+
+    console.log('[fishingLoop] Marina extras built: 3 west pads, stairs cladding + railings');
+  } catch (err) {
+    console.error('[fishingLoop] Marina extras error:', err);
+  }
+}
+
 export function initFishingSpots(scene) {
   try {
     _scene = scene;
     _ensureActionButton();
+    _syncInventoryFromServer();
+    _buildMarinaExtras(scene);
     console.log('[fishingLoop] Initialized', FISHING_SPOTS.length, 'fishing spots (marina alcoves)');
   } catch (err) {
     console.error('[fishingLoop] Init error:', err);
@@ -338,6 +550,7 @@ export function initFishingSpots(scene) {
 
 export function updateFishingSpots(delta) {
   try {
+    if (!_serverSyncDone) _syncInventoryFromServer();
     _updateProximity(delta);
     _updateRod(delta);
 
@@ -371,9 +584,15 @@ export function canStartFishing(spotIndex) {
 export function tryStartFishing(spotIndex, scene, playerPos) {
   if (scene) _scene = scene;
 
+  if (isActiveFishing()) {
+    // Already mid-session (e.g. result screen still open) — ignore silently
+    return false;
+  }
+
   if (!canStartFishing(spotIndex)) {
+    const anyBait = ['worm', 'shrimp', 'squid'].some(b => { try { return hasBait(b); } catch (_) { return false; } });
     if (window.showTemporaryMessage) {
-      window.showTemporaryMessage('אין פיתיונות! קנה אצל הדייג 🎣');
+      window.showTemporaryMessage(anyBait ? 'אי אפשר לדוג כרגע' : 'אין פיתיונות! קנה אצל הדייג 🎣');
     }
     return false;
   }
@@ -405,11 +624,12 @@ function _startCasting(scene, playerPos) {
 
   // Random cast distance: 5–30m outward into the water + small sideways drift
   const dist = 5 + Math.random() * 25;
-  const outward = _currentSpot.z >= 0 ? 1 : -1;   // north spots cast +Z, south cast -Z
+  const dir = _currentSpot.dir || { x: 0, z: _currentSpot.z >= 0 ? 1 : -1 };
+  const side = (Math.random() - 0.5) * 4;
   _castTarget = new THREE.Vector3(
-    _currentSpot.x + (Math.random() - 0.5) * 4,
+    _currentSpot.x + dir.x * dist + dir.z * side,
     WATER_Y,
-    _currentSpot.z + outward * dist
+    _currentSpot.z + dir.z * dist + dir.x * side
   );
 
   const startPos = new THREE.Vector3(playerPos.x, playerPos.y + 1.6, playerPos.z);
@@ -525,7 +745,9 @@ export function pullRod(scene) {
   _setButtonMode(null);
 
   const rod = getCurrentRod();
-  showFishingMeter(rod.meterSpeed, rod.centerZone, (success, accuracy) => {
+  // Meter challenge tuning: fishingUI moves the bar speed*0.8 per frame.
+  // x3.0 ≈ full sweep in ~0.7s on the wood rod (golden ≈ 1s). Raise/lower to taste.
+  showFishingMeter(rod.meterSpeed * METER_SPEED_MULT, rod.centerZone, (success, accuracy) => {
     if (success) {
       _catchFish(_scene, accuracy);
     } else {

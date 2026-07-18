@@ -8,6 +8,8 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { isChatOpen } from './chatUI.js';
+import { getPlayerInventory, getRodById, getFishById } from '../systems/fishing.js';
+import { getSocket } from '../systems/multiplayer.js';
 
 const STORAGE_KEY = 'suy_loadout_v8';
 
@@ -64,16 +66,6 @@ const SECTIONS = {
       'Pets':            { icon: '🐶', items: [], placeholders: ['כלב', 'חתול', 'ארנב', 'דרקון', 'שועל', 'ינשוף'] },
       'Pet Accessories': { icon: '🎀', items: [], placeholders: ['קולר', 'רצועה', 'תלבושת', 'כובע'] },
       'Pet Skins':       { icon: '🎨', items: [], placeholders: ['צבע פרווה', 'דוגמה', 'זוהר', 'נצנצים'] },
-    },
-  },
-  Profile: {
-    label: 'פרופיל', icon: '🪪', accent: '#64B5F6',
-    categories: {
-      'Emotions':  { icon: '😄', items: ['Male_emotion_happy_002.glb', 'Male_emotion_usual_001.glb', 'Male_emotion_angry_003.glb'] },
-      'Body':      { icon: '🧍', items: ['Body_010.glb'] },
-      'Badges':    { icon: '🏅', items: [], placeholders: ['מתחיל', 'חוקר', 'VIP', 'יוצר', 'אגדה'] },
-      'Nameplate': { icon: '🔤', items: [], placeholders: ['קלאסי', 'זהב', 'ניאון', 'יהלום'] },
-      'Chat Skin': { icon: '💬', items: [], placeholders: ['רגיל', 'בועה', 'רטרו', 'מינימלי'] },
     },
   },
   Vehicles: {
@@ -278,23 +270,23 @@ function _buildPanel() {
       background: rgba(6, 20, 23, 0.55);
       backdrop-filter: blur(2px);
       z-index: 310; display: none;
-      align-items: flex-end; justify-content: center;
+      align-items: center; justify-content: center; padding: 14px;
       font-family: Heebo, 'Segoe UI', Arial, sans-serif;
     }
     #inv-overlay.inv-open { display: flex; }
 
     #inv-panel {
-      width: 100%; max-width: 720px; height: 90dvh;
+      width: min(980px, 100%); height: min(600px, 100%);
       background: rgba(13, 36, 40, 0.82);
       backdrop-filter: blur(14px);
-      border: 1px solid rgba(244, 231, 195, 0.20); border-bottom: none;
-      border-radius: 26px 26px 0 0;
+      border: 1px solid rgba(244, 231, 195, 0.20);
+      border-radius: 22px;
       box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.20), 0 -12px 50px rgba(0, 0, 0, 0.6);
       display: flex; flex-direction: column; overflow: hidden;
       color: #F4E7C3;
       animation: inv-slidein .28s cubic-bezier(.32,1,.45,1);
     }
-    @keyframes inv-slidein { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes inv-slidein { from { transform: translateY(20px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
     @media (prefers-reduced-motion: reduce) { #inv-panel { animation: none; } }
 
     #inv-handle {
@@ -318,6 +310,26 @@ function _buildPanel() {
       background: rgba(240, 180, 41, 0.14); border: 1px solid rgba(240, 180, 41, 0.35);
       border-radius: 20px; padding: 4px 12px; font-weight: 700;
     }
+    #inv-save {
+      font-size: 12px; font-weight: 700;
+      color: #7ACB5E; background: rgba(122, 203, 94, 0.14);
+      border: 1px solid rgba(122, 203, 94, 0.4); border-radius: 20px;
+      padding: 4px 12px; cursor: pointer; transition: all .15s; white-space: nowrap;
+      font-family: inherit;
+    }
+    #inv-save:hover { background: rgba(122, 203, 94, 0.28); }
+    #inv-chips { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+    .inv-chip {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; border-radius: 10px;
+      border: 1px solid rgba(240, 180, 41, 0.5); background: rgba(240, 180, 41, 0.1);
+      color: #F0B429; font-family: inherit; font-size: 11.5px; font-weight: 700;
+      cursor: pointer; transition: all .15s;
+    }
+    .inv-chip:hover { background: rgba(240, 180, 41, 0.2); }
+    .inv-chip-name { max-width: 88px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inv-chip-x { color: rgba(255, 107, 74, 0.7); font-size: 10px; }
+    .inv-chip-x:hover { color: #FF6B4A; }
     #inv-clear-all {
       font-size: 12px; font-weight: 700;
       color: #FF8A6E; background: rgba(255, 107, 74, 0.12);
@@ -336,10 +348,10 @@ function _buildPanel() {
     #inv-close:focus-visible, .inv-section-pill:focus-visible, .inv-cat-row:focus-visible { outline: 2px solid #F0B429; outline-offset: 2px; }
 
     /* Paper doll */
-    #inv-wearing-wrap { padding: 10px 18px 4px; flex-shrink: 0; }
+    #inv-wearing-wrap { padding: 10px 16px 2px; flex-shrink: 0; }
     #inv-doll { display: flex; gap: 10px; align-items: flex-start; }
     #inv-doll-figure {
-      width: 100px; height: 168px; flex-shrink: 0;
+      width: 100%; height: 150px; flex-shrink: 0;
       border-radius: 14px; overflow: hidden;
       background: rgba(9, 26, 29, 0.85);
       border: 1px solid rgba(43, 179, 189, 0.35);
@@ -382,19 +394,19 @@ function _buildPanel() {
 
     /* Section pills */
     #inv-sections {
-      display: grid; grid-template-columns: repeat(6, 1fr);
-      gap: 7px; padding: 10px 18px 0; flex-shrink: 0;
+      display: flex; flex-direction: column;
+      gap: 6px; padding: 0; flex: 1; overflow-y: auto; min-height: 0;
     }
     .inv-section-pill {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 4px; padding: 9px 4px; border-radius: 14px;
+      display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+      gap: 9px; padding: 10px 12px; border-radius: 12px;
       border: 1.5px solid rgba(244, 231, 195, 0.15);
       background: rgba(244, 231, 195, 0.04);
       color: rgba(244, 231, 195, 0.6);
       font-family: inherit; cursor: pointer; transition: all .18s;
     }
     .inv-section-icon { font-size: 21px; line-height: 1; }
-    .inv-section-label { font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .inv-section-label { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
     .inv-section-pill.active {
       background: color-mix(in srgb, var(--sec-accent) 22%, transparent);
       border-color: var(--sec-accent);
@@ -405,9 +417,18 @@ function _buildPanel() {
 
     .inv-sep { height: 1px; background: rgba(244, 231, 195, 0.10); margin: 10px 18px 0; flex-shrink: 0; }
 
+    #inv-layout { flex: 1; display: flex; min-height: 0; }
+    #inv-side {
+      width: 190px; flex-shrink: 0; display: flex; flex-direction: column;
+      gap: 10px; padding: 12px 14px 14px;
+      border-left: 1px solid rgba(244, 231, 195, 0.12);
+      min-height: 0;
+    }
+    #inv-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
     /* Body */
     #inv-body {
-      flex: 1; overflow-y: auto; padding: 12px 18px 34px;
+      flex: 1; overflow-y: auto; padding: 10px 16px 24px;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin; scrollbar-color: rgba(244,231,195,0.18) transparent;
     }
@@ -550,10 +571,6 @@ function _buildPanel() {
   panel.id = 'inv-panel';
   panel.setAttribute('dir', 'rtl');
 
-  const handle = document.createElement('div');
-  handle.id = 'inv-handle';
-  panel.appendChild(handle);
-
   // Header
   const header = document.createElement('div');
   header.id = 'inv-header';
@@ -562,6 +579,14 @@ function _buildPanel() {
   const equippedCount = document.createElement('span');
   equippedCount.id = 'inv-equipped-count';
   equippedCount.textContent = _equippedCount() + ' פריטים לבושים';
+  const saveBtn = document.createElement('button');
+  saveBtn.id = 'inv-save';
+  saveBtn.textContent = '💾 שמירה';
+  saveBtn.addEventListener('click', () => {
+    _saveCurrent();
+    saveBtn.textContent = '✓ נשמר!';
+    setTimeout(() => { saveBtn.textContent = '💾 שמירה'; }, 1600);
+  });
   const clearAllBtn = document.createElement('button');
   clearAllBtn.id = 'inv-clear-all';
   clearAllBtn.textContent = 'נקה הכל';
@@ -580,7 +605,7 @@ function _buildPanel() {
   closeBtn.id = 'inv-close'; closeBtn.textContent = '✕';
   closeBtn.setAttribute('aria-label', 'סגירת התיק');
   closeBtn.addEventListener('click', hideInventoryPanel);
-  header.append(headerTitle, equippedCount, clearAllBtn, closeBtn);
+  header.append(headerTitle, equippedCount, saveBtn, clearAllBtn, closeBtn);
   panel.appendChild(header);
 
   // Currently-wearing strip
@@ -589,7 +614,6 @@ function _buildPanel() {
   const wearingChips = document.createElement('div');
   wearingChips.id = 'inv-wearing-chips';
   wearingWrap.append(wearingChips);
-  panel.appendChild(wearingWrap);
   _equippedStrip = wearingChips;
 
   // Section pills
@@ -613,25 +637,29 @@ function _buildPanel() {
     sectionEls[secKey] = pill;
     sectionsRow.appendChild(pill);
   }
-  panel.appendChild(sectionsRow);
-
-  const sep = document.createElement('div');
-  sep.className = 'inv-sep';
-  panel.appendChild(sep);
 
   // Body
   const body = document.createElement('div');
   body.id = 'inv-body';
   _gridArea = document.createElement('div');
   body.appendChild(_gridArea);
-  panel.appendChild(body);
+
+  const layout = document.createElement('div');
+  layout.id = 'inv-layout';
+  const side = document.createElement('div');
+  side.id = 'inv-side';
+  const figureBox = document.createElement('div');
+  figureBox.id = 'inv-doll-figure';
+  side.append(figureBox, sectionsRow);
+  const main = document.createElement('div');
+  main.id = 'inv-main';
+  main.append(wearingWrap, body);
+  layout.append(side, main);
+  panel.appendChild(layout);
 
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
   panel._countEl = equippedCount;
-
-  _previewCanvas = document.createElement('canvas');
-  _previewCanvas.id = 'inv-preview-canvas';
 
   _renderEquipped();
   _renderBody();
@@ -657,98 +685,74 @@ function _renderEquipped() {
   if (!_equippedStrip) return;
   _equippedStrip.innerHTML = '';
 
-  const ZONES = [
-    { label: 'ראש',   color: '#64B5F6', cats: ['Hair', 'Hat', 'Glasses', 'Face', 'Headphones'] },
-    { label: 'גוף',   color: '#7ACB5E', cats: ['Shirt', 'Outwear', 'Costume', 'Gloves'] },
-    { label: 'רגליים', color: '#F0B429', cats: ['Pants', 'Shorts', 'Socks'] },
-    { label: 'נעליים', color: '#FF6B4A', cats: ['Shoes'] },
-  ];
+  // Live avatar — redraws from the current loadout on every equip change
+  const fig = document.getElementById('inv-doll-figure');
+  if (fig) fig.innerHTML = _avatarSVG();
 
-  const _unequip = (cat) => {
-    _equip(cat, null);
-    _renderEquipped();
-    _renderBody();
-    const panel = document.getElementById('inv-panel');
-    if (panel?._countEl) panel._countEl.textContent = _equippedCount() + ' פריטים לבושים';
-  };
+  const chips = document.createElement('div');
+  chips.id = 'inv-chips';
 
-  const _goTo = (cat) => {
-    const sec = _findSection(cat);
-    if (!sec) return;
-    _activeSection = sec;
-    _activeCategory = cat;
-    document.querySelectorAll('.inv-section-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.section === sec)
-    );
-    _renderBody();
-  };
-
-  const doll = document.createElement('div');
-  doll.id = 'inv-doll';
-
-  const figure = document.createElement('div');
-  figure.id = 'inv-doll-figure';
-  figure.appendChild(_previewCanvas);
-
-  const zonesEl = document.createElement('div');
-  zonesEl.id = 'inv-doll-zones';
-
-  for (const zone of ZONES) {
-    const zoneEl = document.createElement('div');
-    zoneEl.className = 'inv-zone';
-    zoneEl.style.borderRightColor = zone.color + 'CC';
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'inv-zone-label';
-    labelEl.style.color = zone.color;
-    labelEl.textContent = zone.label;
-    zoneEl.appendChild(labelEl);
-
-    const slotsEl = document.createElement('div');
-    slotsEl.className = 'inv-zone-slots';
-
-    for (const cat of zone.cats) {
-      const icon  = _getCatIcon(cat);
-      const file  = _loadout[cat] ?? null;
-      const label = file
-        ? file.replace('.glb', '').replace(/_\d{1,3}$/, '').replace(/_/g, ' ')
-        : (CAT_HE[cat] || cat);
-
-      const slot = document.createElement('button');
-      slot.className = 'inv-zone-slot' + (file ? ' on' : '');
-      slot.type = 'button';
-      slot.title = CAT_HE[cat] || cat;
-
-      const iconEl = document.createElement('span');
-      iconEl.className = 'inv-zone-slot-icon';
-      iconEl.textContent = icon;
-
-      const nameEl = document.createElement('span');
-      nameEl.className = 'inv-zone-slot-name';
-      nameEl.textContent = label;
-
-      slot.append(iconEl, nameEl);
-
-      if (file) {
-        const rm = document.createElement('button');
-        rm.className = 'inv-zone-remove';
-        rm.textContent = '✕';
-        rm.type = 'button';
-        rm.setAttribute('aria-label', 'הסרה');
-        rm.addEventListener('click', e => { e.stopPropagation(); _unequip(cat); });
-        slot.appendChild(rm);
-      }
-
-      slot.addEventListener('click', () => _goTo(cat));
-      slotsEl.appendChild(slot);
-    }
-
-    zoneEl.appendChild(slotsEl);
-    zonesEl.appendChild(zoneEl);
+  const WEARABLE = ['Hat','Hair','Glasses','Headphones','Face','Shirt','Outwear','Costume','Gloves','Pants','Shorts','Socks','Shoes'];
+  let anyOn = false;
+  for (const cat of WEARABLE) {
+    const file = _loadout[cat] ?? null;
+    if (!file) continue;
+    anyOn = true;
+    const chip = document.createElement('button');
+    chip.className = 'inv-chip';
+    chip.type = 'button';
+    const label = file.replace('.glb','').replace(/_\d{1,3}$/,'').replace(/_/g,' ');
+    chip.innerHTML = `<span>${_getCatIcon(cat)}</span><span class="inv-chip-name">${label}</span><span class="inv-chip-x">✕</span>`;
+    chip.querySelector('.inv-chip-x').addEventListener('click', e => {
+      e.stopPropagation();
+      _equip(cat, null);
+      _renderEquipped(); _renderBody();
+      const panel = document.getElementById('inv-panel');
+      if (panel?._countEl) panel._countEl.textContent = _equippedCount() + ' פריטים לבושים';
+    });
+    chip.addEventListener('click', () => {
+      const sec = _findSection(cat);
+      if (!sec) return;
+      _activeSection = sec; _activeCategory = cat;
+      document.querySelectorAll('.inv-section-pill').forEach(p => p.classList.toggle('active', p.dataset.section === sec));
+      _renderBody();
+    });
+    chips.appendChild(chip);
+  }
+  if (!anyOn) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:12px;opacity:0.5;padding:6px 2px';
+    empty.textContent = 'עוד לא לבשת כלום — בחר פריטים מהקטגוריות';
+    chips.appendChild(empty);
   }
 
-  doll.append(figure, zonesEl);
-  _equippedStrip.appendChild(doll);
+  _equippedStrip.appendChild(chips);
+}
+
+// Low-poly avatar preview that reflects the equipped loadout
+function _avatarSVG() {
+  const has = c => !!_loadout[c];
+  let s = '';
+  s += '<rect x="40" y="108" width="11" height="34" rx="2" fill="#23272E"/><rect x="54" y="108" width="11" height="34" rx="2" fill="#2E333B"/>';
+  if (has('Shoes')) s += '<rect x="37" y="138" width="15" height="8" rx="3" fill="#FF6B4A"/><rect x="53" y="138" width="15" height="8" rx="3" fill="#FF6B4A"/>';
+  if (has('Socks')) s += '<rect x="40" y="130" width="11" height="8" fill="#F4E7C3"/><rect x="54" y="130" width="11" height="8" fill="#F4E7C3"/>';
+  const torso = has('Costume') ? '#BA68C8' : has('Outwear') ? '#F0B429' : '#3B6FD4';
+  s += '<rect x="34" y="66" width="37" height="46" rx="5" fill="' + torso + '"/>';
+  s += '<rect x="34" y="66" width="12" height="46" rx="5" fill="rgba(255,255,255,0.16)"/>';
+  if (has('Gloves')) s += '<rect x="26" y="97" width="9" height="9" rx="2" fill="#7ACB5E"/><rect x="70" y="97" width="9" height="9" rx="2" fill="#7ACB5E"/>';
+  s += '<rect x="37" y="30" width="31" height="30" rx="5" fill="#E8B98A"/>';
+  s += '<rect x="37" y="30" width="10" height="30" rx="5" fill="#F2CBA2"/>';
+  s += '<rect x="35" y="24" width="35" height="11" rx="4" fill="#2A2014"/>';
+  if (has('Hat')) s += '<rect x="32" y="17" width="41" height="10" rx="4" fill="#F0B429"/><rect x="38" y="8" width="29" height="11" rx="4" fill="#C98F14"/>';
+  if (has('Glasses')) {
+    s += '<rect x="40" y="40" width="10" height="7" rx="2" fill="#0D2428"/><rect x="55" y="40" width="10" height="7" rx="2" fill="#0D2428"/><line x1="50" y1="43" x2="55" y2="43" stroke="#0D2428" stroke-width="2"/>';
+  } else {
+    s += '<rect x="43" y="41" width="4" height="4" rx="1" fill="#1A1D22"/><rect x="58" y="41" width="4" height="4" rx="1" fill="#1A1D22"/>';
+  }
+  if (has('Headphones')) s += '<path d="M36 38 Q52 18 69 38" fill="none" stroke="#FF6B4A" stroke-width="4"/><rect x="31" y="38" width="7" height="12" rx="3" fill="#FF6B4A"/><rect x="67" y="38" width="7" height="12" rx="3" fill="#FF6B4A"/>';
+  if (has('Face')) s += '<rect x="46" y="52" width="13" height="3.5" rx="1.7" fill="#4A3018"/>';
+  s += '<path d="M46 51 Q52.5 55 59 51" fill="none" stroke="#B8895E" stroke-width="1.6" stroke-linecap="round"/>';
+  return '<svg viewBox="0 0 105 152" width="100%" height="100%" aria-hidden="true">' + s + '</svg>';
 }
 
 // ── Fishing rendering ─────────────────────────────────────────────────
@@ -762,12 +766,7 @@ function _renderFishingGrid() {
   backBtn.addEventListener('click', () => { _activeCategory = null; _renderBody(); });
   _gridArea.appendChild(backBtn);
 
-  if (!window.getPlayerInventory) {
-    _gridArea.innerHTML += '<div class="inv-empty">טוען…</div>';
-    return;
-  }
-
-  const inv = window.getPlayerInventory();
+  const inv = _inv();
   const catHeader = document.createElement('div');
   catHeader.className = 'inv-cat-header';
 
@@ -787,7 +786,7 @@ function _renderFishingGrid() {
     grid.className = 'inv-fish-grid';
 
     rods.forEach(rodId => {
-      const rodData = window.getRodById ? window.getRodById(rodId) : null;
+      const rodData = _rodData(rodId);
       const meta = ROD_META[rodId] || { tierHe: '', capColor: '#F4E7C3', main: '#C98F14', light: '#E0AA2E', dark: '#8A6210' };
       const equipped = inv.currentRod === rodId;
       const zone = Math.round((rodData?.centerZone || 0.26) * 100);
@@ -873,7 +872,7 @@ function _renderFishingGrid() {
     }
 
     caught.forEach(({ fishId }) => {
-      const fishData = window.getFishById ? window.getFishById(fishId) : null;
+      const fishData = _fishData(fishId);
       const rarityColor = RARITY_COLORS[fishData?.rarity] || '#8DA6B8';
 
       const row = document.createElement('div');
@@ -904,22 +903,21 @@ function _renderFishingGrid() {
   }
 }
 
+function _inv() { try { return getPlayerInventory() || {}; } catch { return {}; } }
+function _rodData(id) { try { return getRodById(id); } catch { return null; } }
+function _fishData(id) { try { return getFishById(id); } catch { return null; } }
+
 function _getFishingCategoryData(category) {
-  if (!window.getPlayerInventory) return 'טוען…';
-  try {
-    const inv = window.getPlayerInventory();
-    if (category === 'Rods') {
-      const count = inv.ownedRods?.length || 0;
-      return count > 0 ? count + ' חכות' : 'ריק';
-    } else if (category === 'Baits') {
-      const total = (inv.baits?.worm || 0) + (inv.baits?.shrimp || 0) + (inv.baits?.squid || 0);
-      return total > 0 ? total + ' פיתיונות' : 'ריק';
-    } else if (category === 'Caught') {
-      const count = inv.caughtFish?.length || 0;
-      return count > 0 ? count + ' דגים' : 'ריק';
-    }
-  } catch (err) {
-    console.error('[inventory] Error getting fishing data:', err);
+  const inv = _inv();
+  if (category === 'Rods') {
+    const count = inv.ownedRods?.length || 0;
+    return count > 0 ? count + ' חכות' : 'ריק';
+  } else if (category === 'Baits') {
+    const total = (inv.baits?.worm || 0) + (inv.baits?.shrimp || 0) + (inv.baits?.squid || 0);
+    return total > 0 ? total + ' פיתיונות' : 'ריק';
+  } else if (category === 'Caught') {
+    const count = inv.caughtFish?.length || 0;
+    return count > 0 ? count + ' דגים' : 'ריק';
   }
   return 'ריק';
 }
@@ -1154,9 +1152,10 @@ export function toggleInventoryPanel() {
 function _equipRod(rodId) {
   console.log('[inventory] Equipping rod:', rodId);
 
-  if (window.getSocket && window.getSocket()) {
-    window.getSocket().emit('equipRod', { rodId });
-  }
+  try {
+    const s = getSocket();
+    if (s) s.emit('equipRod', { rodId });
+  } catch (_) {}
   if (window.updateFishingInventory) {
     window.updateFishingInventory({ currentRod: rodId });
   }

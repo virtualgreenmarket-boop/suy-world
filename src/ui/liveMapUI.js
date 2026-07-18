@@ -11,7 +11,7 @@ let _compassInterval = null;     // Interval syncing the N pin in camera mode
 
 // ── Constants ──────────────────────────────────────────────────────────
 
-const MINIMAP_SIZE = 360; // 360×360px circular container
+const MINIMAP_SIZE = 270; // 270×270px circular container (25% smaller)
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
 const ZOOM_IN_FACTOR = 0.8; // Zoom in = smaller worldRadius
