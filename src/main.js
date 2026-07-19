@@ -158,7 +158,9 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 // ── Quality tier ──────────────────────────────────────────────────────
-const isMobile = true; // force mobile quality tier for testing
+// Auto-detect mobile vs desktop for performance optimization
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                 || window.innerWidth < 768;
 
 // ── Renderer ───────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
@@ -245,7 +247,11 @@ if (hasHighVRAM) {
 composer.addPass(new OutputPass());
 
 // ── World ──────────────────────────────────────────────────────────────
-initIsland(scene, { lowQuality: isMobile, maxTrees: isMobile ? 28 : 55 });
+initIsland(scene, {
+  lowQuality: isMobile,
+  maxTrees: isMobile ? 25 : 55,
+  maxPlants: isMobile ? 80 : 200
+});
 initPlaza(scene);
 initPaths(scene);
 clearAllBoxes(); // Clear any phantom collision boxes from previous builds
@@ -254,15 +260,15 @@ initMarina(scene);
 initLighthouse(scene);
 
 // Initialize ocean fish (decorative swimming fish)
-// Dense population around marina for realistic ocean ambience
+// Adaptive count based on device performance
 try {
   initOceanFish(scene, {
-    count: 180,  // Increased from 60 - lots of fish for realistic feel
-    area: { x: -325, z: 0, radius: 150 },  // Centered on marina, wider spread
+    count: isMobile ? 20 : 60,  // Fewer fish on mobile for performance
+    area: { x: -325, z: 0, radius: 120 },
     waterY: 0,
-    depth: 15,  // Deeper range for more vertical variety
-    scaleBig: 0.7,  // Slightly larger big fish
-    scaleSmall: 0.8  // Slightly larger small fish for visibility
+    depth: 12,
+    scaleBig: 0.6,
+    scaleSmall: 0.7
   });
 } catch (err) {
   console.error('[main] initOceanFish failed:', err);
