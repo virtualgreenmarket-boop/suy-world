@@ -402,8 +402,8 @@ function _onPath(x, z) {
 function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zone
   const rng = seededRng(17);
 
-  // ZONE-AWARE DISTRIBUTION: Use randomGrassPosition from mapZones.js
-  // This ensures trees are scattered across the ENTIRE grass zone,
+  // ZONE-AWARE DISTRIBUTION: Use randomGrassPosition with seeded RNG
+  // This ensures trees spawn in IDENTICAL positions every time (deterministic)
   // respecting the asymmetric ellipse shape, avoiding paths and buildings.
 
   let treesSpawned = 0;
@@ -413,13 +413,13 @@ function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zon
   while (treesSpawned < maxTrees && attempts < maxAttempts) {
     attempts++;
 
-    // Get random valid position in grass zone
-    const pos = randomGrassPosition(50);
+    // Get random valid position in grass zone (using seeded RNG for deterministic placement)
+    const pos = randomGrassPosition(50, rng);
     if (!pos) continue; // No valid position found
 
     const { x, z } = pos;
 
-    // Random scale and rotation for natural variation
+    // Random scale and rotation for natural variation (also seeded)
     const scale = 0.55 + rng() * 0.45;
     const rotY = rng() * Math.PI * 2;
     const y = getSurfaceY(x, z);

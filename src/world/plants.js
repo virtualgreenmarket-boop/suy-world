@@ -10,6 +10,15 @@ import { getSurfaceY } from '../systems/terrain.js';
 
 let _plantCount = 0;
 
+// Seeded RNG for deterministic plant placement
+function seededRng(seed) {
+  let s = seed;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+// Global RNG used for all plant randomization (set in initPlants)
+let _plantRng = Math.random;
+
 /**
  * Creates a simple flower: stem + petals
  */
@@ -74,18 +83,18 @@ function createBush(color = 0x2d5016) {
     metalness: 0.0
   });
 
-  // Create 3-5 small spheres clustered together
-  const sphereCount = 3 + Math.floor(Math.random() * 3);
+  // Create 3-5 small spheres clustered together (seeded)
+  const sphereCount = 3 + Math.floor(_plantRng() * 3);
   for (let i = 0; i < sphereCount; i++) {
-    const radius = 0.15 + Math.random() * 0.1;
+    const radius = 0.15 + _plantRng() * 0.1;
     const sphereGeometry = new THREE.SphereGeometry(radius, 8, 8);
     const sphere = new THREE.Mesh(sphereGeometry, bushMaterial);
 
-    // Random offset from center
+    // Random offset from center (seeded)
     sphere.position.set(
-      (Math.random() - 0.5) * 0.3,
+      (_plantRng() - 0.5) * 0.3,
       radius * 0.8,
-      (Math.random() - 0.5) * 0.3
+      (_plantRng() - 0.5) * 0.3
     );
 
     sphere.castShadow = true;
@@ -101,10 +110,10 @@ function createBush(color = 0x2d5016) {
 function createRock() {
   const group = new THREE.Group();
 
-  // Create 2-3 small angular rocks
-  const rockCount = 2 + Math.floor(Math.random() * 2);
+  // Create 2-3 small angular rocks (seeded)
+  const rockCount = 2 + Math.floor(_plantRng() * 2);
   for (let i = 0; i < rockCount; i++) {
-    const geometry = new THREE.DodecahedronGeometry(0.1 + Math.random() * 0.15, 0);
+    const geometry = new THREE.DodecahedronGeometry(0.1 + _plantRng() * 0.15, 0);
     const material = new THREE.MeshStandardMaterial({
       color: 0x808080,
       roughness: 0.95,
@@ -113,14 +122,14 @@ function createRock() {
     const rock = new THREE.Mesh(geometry, material);
 
     rock.position.set(
-      (Math.random() - 0.5) * 0.4,
+      (_plantRng() - 0.5) * 0.4,
       0.05,
-      (Math.random() - 0.5) * 0.4
+      (_plantRng() - 0.5) * 0.4
     );
     rock.rotation.set(
-      Math.random() * Math.PI,
-      Math.random() * Math.PI,
-      Math.random() * Math.PI
+      _plantRng() * Math.PI,
+      _plantRng() * Math.PI,
+      _plantRng() * Math.PI
     );
 
     rock.castShadow = true;
@@ -138,16 +147,16 @@ export function spawnPlant(scene, x, z, y = 0, type = 'random') {
   let plant;
 
   if (type === 'random') {
-    const rand = Math.random();
+    const rand = _plantRng(); // Use seeded RNG
     if (rand < 0.5) {
       // 50% flowers (various colors)
       const flowerColors = [0xff69b4, 0xff4444, 0xffeb3b, 0xffffff, 0xff9800, 0x9c27b0];
-      const color = flowerColors[Math.floor(Math.random() * flowerColors.length)];
-      plant = createFlower(color, 4 + Math.floor(Math.random() * 3));
+      const color = flowerColors[Math.floor(_plantRng() * flowerColors.length)];
+      plant = createFlower(color, 4 + Math.floor(_plantRng() * 3));
     } else if (rand < 0.8) {
       // 30% bushes
       const bushColors = [0x2d5016, 0x1b3a0f, 0x3d6020];
-      const color = bushColors[Math.floor(Math.random() * bushColors.length)];
+      const color = bushColors[Math.floor(_plantRng() * bushColors.length)];
       plant = createBush(color);
     } else {
       // 20% rocks
@@ -166,11 +175,11 @@ export function spawnPlant(scene, x, z, y = 0, type = 'random') {
   plant.position.set(x, y, z);
   plant.userData._isPlant = true; // Mark for identification/cleanup
 
-  // Random rotation for variety
-  plant.rotation.y = Math.random() * Math.PI * 2;
+  // Random rotation for variety (seeded)
+  plant.rotation.y = _plantRng() * Math.PI * 2;
 
-  // Random scale (80%-120%)
-  const scale = 0.8 + Math.random() * 0.4;
+  // Random scale (80%-120%, seeded)
+  const scale = 0.8 + _plantRng() * 0.4;
   plant.scale.setScalar(scale);
 
   scene.add(plant);
@@ -179,9 +188,13 @@ export function spawnPlant(scene, x, z, y = 0, type = 'random') {
 
 /**
  * Spawns plants scattered across the grass zone
+ * Uses seeded RNG for deterministic placement (plants stay in same spots after reload)
  */
 export function initPlants(scene, plantCount = 200) {
   console.log('[plants] Scattering plants across grass zone...');
+
+  const rng = seededRng(42); // Different seed from trees (42 vs 17)
+  _plantRng = rng; // Set global RNG for spawnPlant to use
 
   let plantsSpawned = 0;
   let attempts = 0;
@@ -190,7 +203,7 @@ export function initPlants(scene, plantCount = 200) {
   while (plantsSpawned < plantCount && attempts < maxAttempts) {
     attempts++;
 
-    const pos = randomGrassPosition(50);
+    const pos = randomGrassPosition(50, rng); // Pass seeded RNG
     if (!pos) continue;
 
     const y = getSurfaceY(pos.x, pos.z);

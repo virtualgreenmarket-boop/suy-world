@@ -144,8 +144,13 @@ export function isValidShallowWaterPosition(x, z) {
  * Generates a random position within the GRASS zone.
  * SAFE APPROACH: Only spawn in central safe zones, never near water.
  * Returns { x, z } or null if no valid position found after maxAttempts.
+ *
+ * @param {number} maxAttempts - Maximum attempts to find valid position
+ * @param {function} rng - Optional seeded RNG function (returns 0-1). If not provided, uses Math.random()
  */
-export function randomGrassPosition(maxAttempts = 100) {
+export function randomGrassPosition(maxAttempts = 100, rng = null) {
+  const random = rng || Math.random;
+
   // SAFE SPAWN ZONES - areas GUARANTEED to be on grass, never water
   const safeZones = [
     // Plaza center
@@ -170,11 +175,11 @@ export function randomGrassPosition(maxAttempts = 100) {
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     // Pick random safe zone
-    const zone = safeZones[Math.floor(Math.random() * safeZones.length)];
+    const zone = safeZones[Math.floor(random() * safeZones.length)];
 
     // Random position within zone
-    const x = zone.xMin + Math.random() * (zone.xMax - zone.xMin);
-    const z = zone.zMin + Math.random() * (zone.zMax - zone.zMin);
+    const x = zone.xMin + random() * (zone.xMax - zone.xMin);
+    const z = zone.zMin + random() * (zone.zMax - zone.zMin);
 
     // Check if valid (not on path/building)
     if (isValidGrassPosition(x, z)) {
