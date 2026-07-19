@@ -41,6 +41,8 @@ let _isSitting  = false;
 let _isPlayingSpecialAnim = false; // Prevents auto-overriding dance
 let _isMoving   = false; // Track if player is currently moving
 let _spawnLockUntil = 0; // While active, external repositions are ignored (marina spawn is authoritative)
+let _playerSpawned = false; // Becomes true once character model has spawned
+let _cameraInitialized = false; // Becomes true after first camera snap (prevents lerp from origin)
 
 const keys = {};
 let isDragging = false, lastMouseX = 0, lastMouseY = 0;
@@ -56,13 +58,24 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   playerGroup.position.set(_savedSpawn.x, _savedSpawn.y, _savedSpawn.z);
   console.log('[local-player] Initial spawn position set:', _savedSpawn);
 
-  // BOOT SPAWN LOCK: for the first seconds after init, ignore any external
-  // reposition (e.g. the server's init packet carrying an old SPAWN constant).
-  // The marina spawn above is authoritative at game start.
-  _spawnLockUntil = Date.now() + 6000;
+  // BOOT SPAWN LOCK: Extended to 15s to handle slow world loading.
+  // Lock stays active until BOTH conditions are met:
+  // 1. 15 seconds have passed since init
+  // 2. Character model has actually spawned (_playerSpawned = true)
+  _spawnLockUntil = Date.now() + 15000;
+  _playerSpawned = false;
 
   scene.add(playerGroup);
   attachLabel(playerGroup, name || 'Player', 3.0, 'player');
+
+  // CRITICAL: Snap camera to player position IMMEDIATELY to prevent "jump" on first frame
+  // Without this, camera starts at origin (0,0,0) and snaps to marina after first render
+  try {
+    _snapCameraToPlayer();
+    console.log('[local-player] Camera pre-positioned at marina (prevents spawn jump)');
+  } catch (err) {
+    console.error('[local-player] Failed to pre-position camera:', err);
+  }
 
   // DEBUG: Log parentGroup details
   console.log('[debug] parentGroup position:', playerGroup.position);
@@ -72,11 +85,14 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   // Spawn the character model
   console.log(`[local-player] 🎭 Spawning character for player: ${name}`);
   spawnPlayerCharacter(playerGroup, characterId).then(() => {
+    _playerSpawned = true;
+    console.log('[local-player] ✅ Character spawned, spawn lock can now expire');
     console.log('[debug] _charModel:', playerGroup.userData._charModel);
     console.log('[debug] _charModel children:', playerGroup.userData._charModel?.children?.length);
     console.log('[debug] _charModel visible:', playerGroup.userData._charModel?.visible);
   }).catch(err => {
     console.error('[local-player] Failed to spawn character:', err);
+    _playerSpawned = true; // Allow repositions even if spawn failed
   });
 
   // Wire up global function for inventory customization
@@ -302,18 +318,32 @@ export function updateLocalPlayer(delta) {
   syncCamera();
 }
 
+// Helper: Snap camera to player position (extracted for reuse)
+function _snapCameraToPlayer() {
+  try {
+    const p  = playerGroup.position;
+    const cy = Math.cos(cameraPitch);
+    const cx = p.x + Math.sin(cameraYaw) * _camDist * cy;
+    const cz = p.z + Math.cos(cameraYaw) * _camDist * cy;
+    let camY = p.y + CAM_LOOK_H + Math.sin(cameraPitch) * _camDist;
+
+    const floorAtCam = getSurfaceY(cx, cz);
+    if (camY < floorAtCam + 0.4) camY = floorAtCam + 0.4;
+
+    _camera.position.set(cx, camY, cz);
+    _camera.lookAt(p.x, p.y + CAM_LOOK_H * 0.65, p.z);
+
+    if (!_cameraInitialized) {
+      console.log('[local-player] Camera initialized at:', { x: cx.toFixed(2), y: camY.toFixed(2), z: cz.toFixed(2) });
+      _cameraInitialized = true;
+    }
+  } catch (err) {
+    console.error('[local-player] _snapCameraToPlayer error:', err);
+  }
+}
+
 function syncCamera() {
-  const p  = playerGroup.position;
-  const cy = Math.cos(cameraPitch);
-  const cx = p.x + Math.sin(cameraYaw) * _camDist * cy;
-  const cz = p.z + Math.cos(cameraYaw) * _camDist * cy;
-  let camY = p.y + CAM_LOOK_H + Math.sin(cameraPitch) * _camDist;
-
-  const floorAtCam = getSurfaceY(cx, cz);
-  if (camY < floorAtCam + 0.4) camY = floorAtCam + 0.4;
-
-  _camera.position.set(cx, camY, cz);
-  _camera.lookAt(p.x, p.y + CAM_LOOK_H * 0.65, p.z);
+  _snapCameraToPlayer();
 }
 
 // ── Exports ───────────────────────────────────────────────────────────
@@ -432,19 +462,39 @@ function _loadSpawn() {
 }
 
 export function setLocalPlayerPosition(x, z) {
-  // BOOT SPAWN LOCK: during the first seconds after init, the marina spawn is
-  // authoritative. The server's init packet (or any other boot-time caller)
-  // must not drag the player to an old saved location.
-  if (Date.now() < _spawnLockUntil) {
-    console.log('[local-player] 🔒 Boot spawn lock — ignoring external reposition to:', { x, z });
-    return;
+  try {
+    // BOOT SPAWN LOCK: Active until BOTH conditions are met:
+    // 1. Character model has spawned (_playerSpawned = true)
+    // 2. At least 15 seconds have passed since init
+    const lockActive = !_playerSpawned || Date.now() < _spawnLockUntil;
+
+    if (lockActive) {
+      // Marina whitelist: Allow repositions to the marina itself (within 3 units of -325, 0)
+      const MARINA_X = -325;
+      const MARINA_Z = 0;
+      const MARINA_RADIUS = 3;
+      const distToMarina = Math.hypot(x - MARINA_X, z - MARINA_Z);
+
+      if (distToMarina > MARINA_RADIUS) {
+        // Not the marina — block this reposition
+        console.log(`[local-player] 🔒 blocked reposition to (${x.toFixed(1)}, ${z.toFixed(1)}) — lock active, not marina`);
+        console.trace('[local-player] setLocalPlayerPosition called from:');
+        return;
+      }
+
+      // It IS the marina — allow it through
+      console.log(`[local-player] ✓ Allowing marina reposition (${x.toFixed(1)}, ${z.toFixed(1)}) despite active lock`);
+    }
+
+    const y = getSurfaceY(x, z);
+    console.log('[local-player] ⚠️ Position changed externally to:', { x, y, z });
+    console.trace('[local-player] setLocalPlayerPosition called from:');
+    playerGroup.position.set(x, y, z);
+    velocityY = 0;
+    syncCamera();
+  } catch (err) {
+    console.error('[local-player] setLocalPlayerPosition error:', err);
   }
-  const y = getSurfaceY(x, z);
-  console.log('[local-player] ⚠️ Position changed externally to:', { x, y, z });
-  console.trace('[local-player] setLocalPlayerPosition called from:');
-  playerGroup.position.set(x, y, z);
-  velocityY = 0;
-  syncCamera();
 }
 
 export function isPlayerSitting() { return _isSitting; }

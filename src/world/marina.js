@@ -5,7 +5,7 @@ import { registerGround } from '../systems/terrain.js';
 import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 
-const HOUSE_URL = '/models/nature/marina/Medieval%20Village%20Houses%20GLB/Medieval%20Village%20Houses.glb';
+// REMOVED: House model (was at Medieval Village Houses GLB)
 
 // Heights (local Y, sea level = 0)
 const DECK_Y = 3.2;   // elevated deck surface
@@ -58,54 +58,13 @@ export function initMarina(scene) {
   addFishingPier(group);
   _registerDeckCollision(group);
 
-  _loadHouse(group);
+  // REMOVED: _loadHouse(group) - house deleted
   _loadFishermanNpc(group);
   _loadSkylarNpc(group);
 }
 
-// ── House (added to group so it inherits deck position) ───────────────
-
-function _loadHouse(group) {
-  createGLTFLoader().load(HOUSE_URL, gltf => {
-    const model = gltf.scene;
-    model.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
-
-    const box  = new THREE.Box3().setFromObject(model);
-    const h    = Math.max(box.max.y - box.min.y, 0.001);
-    const sc   = 24 / h;
-    model.scale.setScalar(sc);
-
-    const box2 = new THREE.Box3().setFromObject(model);
-    // Place house on the grass (local Z=45 → world X=-185, inside grass zone)
-    model.position.set(0, -box2.min.y, 45);
-    model.rotation.y = 0;
-    group.add(model);
-
-    // Register world-space collision box (group rot PI/2: worldX=-230+localZ, worldZ=-localX)
-    group.updateWorldMatrix(true, true);
-    const wb = new THREE.Box3().setFromObject(model);
-    registerBox(wb.min.x - 0.4, wb.max.x + 0.4, wb.min.z - 0.4, wb.max.z + 0.4);
-
-    console.log('[marina] house on grass — scale:', sc.toFixed(3));
-  }, undefined, err => {
-    console.warn('[marina] house load failed:', err?.message ?? err);
-    _fallbackHut(group);
-  });
-}
-
-function _fallbackHut(group) {
-  const walls = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 8), solidMat(0xD4C8A8, 0.88));
-  walls.position.set(0, 3, 45);  // on grass: y=3 (centre of 6m box), localZ=45→worldX=-185
-  walls.castShadow = walls.receiveShadow = true;
-  group.add(walls);
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(8, 4, 4), solidMat(0x7B5E3A, 0.9));
-  roof.position.set(0, 8, 45);
-  roof.rotation.y = Math.PI / 4;
-  roof.castShadow = true;
-  group.add(roof);
-  // world: localZ=45 → worldX=-185, localX∈[-5,+5] → worldZ∈[-5,+5]
-  registerBox(-191, -179, -6, 6);
-}
+// ── House REMOVED ─────────────────────────────────────────────────────
+// The house that was at world position X=-185 (local Z=45) has been completely deleted
 
 // ── Elevated wooden deck (house platform) ─────────────────────────────
 //
@@ -159,10 +118,10 @@ function addElevatedDeck(group) {
   const backZ     = DZ + DL / 2;       // z = +23 (land edge)
   const deckSurf  = DECK_Y + 0.38;     // top of deck planks
 
-  // Front (sea) side: two segments with gap for sea stairs (25m wide)
-  const seaGapHalf   = STEP_W / 2;        // 12.5 m — matches stair width
-  const seaSideLen   = DW / 2 - seaGapHalf;  // 52.5 m each side of gap
-  const seaSideCX    = (DW / 2 + seaGapHalf) / 2; // 38.75 m from centre
+  // Front (sea) side: two segments with gap for sea stairs (34m wide)
+  const seaGapHalf   = STEP_W / 2;        // 17 m — matches stair width
+  const seaSideLen   = DW / 2 - seaGapHalf;  // 48 m each side of gap
+  const seaSideCX    = (DW / 2 + seaGapHalf) / 2; // 41 m from centre
   _railSegment(group, -seaSideCX, frontZ, seaSideLen, 'x', deckSurf);   // front left
   _railSegment(group,  seaSideCX, frontZ, seaSideLen, 'x', deckSurf);   // front right
 
@@ -188,7 +147,7 @@ function _railSegment(group, cx, cz, length, axis, baseY = DECK_Y + 0.38) {
   const rY       = baseY;
   const postH    = 1.05;
   const spacing  = 1.8;
-  const count    = Math.floor(length / spacing);
+  const count    = Math.max(1, Math.floor(length / spacing));
 
   for (let i = 0; i <= count; i++) {
     const t   = (i / count) - 0.5;
@@ -270,14 +229,17 @@ function _buildPierRailingWithGaps(group, cx, cz, length, axis, baseY, gapCenter
 }
 
 // Add gate post at gap edge (Lambert, no collision)
-function _addGatePost(group, cx, cz, baseY) {
+// For 'z'-axis railings px/pz are (cx, gapEdgeZ); for the 'x'-axis end
+// railing call it as (_addGatePost(group, gapEdgeX, railZ, baseY)) —
+// the first coordinate is always localX, the second localZ.
+function _addGatePost(group, px, pz, baseY) {
   const postMat = new THREE.MeshLambertMaterial({ color: 0x7D5D3C });
   const postH = 1.2;
   const post = new THREE.Mesh(
     new THREE.CylinderGeometry(0.08, 0.10, postH, 8),
     postMat
   );
-  post.position.set(cx, baseY + postH / 2, cz);
+  post.position.set(px, baseY + postH / 2, pz);
   post.castShadow = true;
   group.add(post);
 }
@@ -285,7 +247,7 @@ function _addGatePost(group, cx, cz, baseY) {
 // ── Stairs from deck down to pier ─────────────────────────────────────
 
 const STEP_COUNT = 8;
-const STEP_W     = 25.0;
+const STEP_W     = 34.0;   // widened (was 25) — world z ∈ [−17, +17]
 const STEP_H     = (DECK_Y - PIER_Y) / STEP_COUNT;  // ≈ 0.33 m each
 const STEP_D     = 0.85;
 const STAIRS_Z   = DZ - DL / 2 - 0.2;  // just past front edge of deck
@@ -305,9 +267,25 @@ function addStairs(group) {
     registerGround(step);
   }
 
-  // Side stringers
+  // ── Closing landing step ─────────────────────────────────────────────
+  // The last step ends at localZ = STAIRS_Z − STEP_COUNT·STEP_D (−28.0)
+  // while the pier surface starts at localZ = −28.5 → 0.5 m open gap.
+  // This landing sits flush with the pier surface (y = PIER_Y + 0.35)
+  // and bridges the gap, slightly overlapping the pier edge.
+  const landingD  = 0.9;
+  const landingZ0 = STAIRS_Z - STEP_COUNT * STEP_D;   // −28.0
+  const landing = new THREE.Mesh(
+    new THREE.BoxGeometry(STEP_W, 0.35, landingD),
+    woodMat(STEP_W / 2.0, 0.5)
+  );
+  landing.position.set(0, PIER_Y + 0.35 - 0.175, landingZ0 - landingD / 2 + 0.05);
+  landing.castShadow = landing.receiveShadow = true;
+  group.add(landing);
+  registerGround(landing);
+
+  // Side stringers (extended to cover the landing)
   const strMat = solidMat(0x5C3D1A);
-  const strLen = STEP_COUNT * STEP_D + 0.2;
+  const strLen = STEP_COUNT * STEP_D + landingD + 0.2;
   const strH   = DECK_Y - PIER_Y + 0.4;
   [-STEP_W / 2 - 0.1, STEP_W / 2 + 0.1].forEach(sx => {
     const str = new THREE.Mesh(new THREE.BoxGeometry(0.18, strH, strLen), strMat);
@@ -413,19 +391,30 @@ function addFishingPier(group) {
   _buildPierRailingWithGaps(group, -PIER_W / 2, PIER_CZ, PIER_LEN, 'z', pierSurface, gapCentersLocalZ, gapWidth);
   _buildPierRailingWithGaps(group, PIER_W / 2, PIER_CZ, PIER_LEN, 'z', pierSurface, gapCentersLocalZ, gapWidth);
 
-  // End cap railing
-  _railSegment(group, 0, PIER_START_Z - PIER_LEN, PIER_W, 'x', pierSurface);
-
-  // ── Fishing spots — spread across full pier width at far end ────────
-  const spotMat  = solidMat(0x3D2A0E, 0.98);
-  const spotEndZ = PIER_START_Z - PIER_LEN + 1.5;
-  for (let sx = -PIER_W / 2 + 3; sx <= PIER_W / 2 - 3; sx += 6) {
-    const spot = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 2.4), spotMat);
-    spot.position.set(sx, PIER_Y + 0.37, spotEndZ);
-    spot.userData.isFishingSpot = true;
-    spot.receiveShadow = true;
-    group.add(spot);
+  // ── End cap railing — WITH gaps facing the 4 west fishing pads ──────
+  // Pads at worldZ = −18, −6, +6, +18 → localX = +18, +6, −6, −18
+  // (worldZ = −localX). Each opening is 3 m wide with gate posts,
+  // and gets NO collision box (the segments register their own).
+  const endZ         = PIER_START_Z - PIER_LEN;
+  const endGapHalf   = 1.5;                       // 3 m openings
+  const endGapsX     = [-18, -6, 6, 18];          // localX gap centres
+  {
+    let cursor = -PIER_W / 2;
+    const segs = [];
+    for (const gx of endGapsX) {
+      if (gx - endGapHalf > cursor) segs.push([cursor, gx - endGapHalf]);
+      cursor = Math.max(cursor, gx + endGapHalf);
+      _addGatePost(group, gx - endGapHalf, endZ, pierSurface);
+      _addGatePost(group, gx + endGapHalf, endZ, pierSurface);
+    }
+    if (cursor < PIER_W / 2) segs.push([cursor, PIER_W / 2]);
+    for (const [a, b] of segs) {
+      _railSegment(group, (a + b) / 2, endZ, b - a, 'x', pierSurface);
+    }
   }
+
+  // (Old far-end fishing squares removed — the four west pads built by
+  //  fishingLoop._buildMarinaExtras are the real west fishing stations.)
 
   // ── Side fishing alcoves — multiple along each side ──────────────────
   const alcoveWorldPositions = []; // Store for interaction registration
@@ -441,6 +430,7 @@ function addFishingPier(group) {
       registerGround(alc); // Make walkable
 
       // Black spot (visual marker)
+      const spotMat = solidMat(0x3D2A0E, 0.98);
       const alcSpot = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.06, 2.0), spotMat);
       alcSpot.position.set(ax, PIER_Y + 0.39, az);
       alcSpot.userData.isFishingSpot = true;
@@ -480,7 +470,7 @@ function addFishingPier(group) {
 // ── Deck collision (world-space AABBs) ───────────────────────────────
 // Group at (-230,0,0) rot.y=PI/2 → worldX = -230+localZ, worldZ = -localX
 // Deck: localX∈[-65,+65], localZ∈[-21,+1]  →  worldX∈[-251,-229], worldZ∈[-65,+65]
-// Stairs opening: localX∈[-12.5,+12.5] → worldZ∈[-12.5,+12.5]
+// Stairs opening: localX∈[-17,+17] → worldZ∈[-17,+17]
 
 function _registerDeckCollision() {
   // REMOVED: All wall meshes and collision boxes that were blocking the grass path

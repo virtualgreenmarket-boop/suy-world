@@ -6,7 +6,8 @@ import { attachLabel, createLabel } from '../ui/labels.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
-const TEX_BASE = '/models/nature/trees/HighPoly%20Tree%20Model/Textures/';
+// FIXED: Use literal spaces in path, not %20 URL encoding (browser handles encoding)
+const TEX_BASE = '/models/nature/trees/HighPoly Tree Model/Textures/';
 
 const _loader    = createGLTFLoader();
 const _texLoader = new THREE.TextureLoader();
@@ -114,14 +115,13 @@ export function preloadTrees() {
       }
 
       let leafCount = 0, trunkCount = 0, ucxCount = 0;
-      const trunkGeometries = [];
-      const leafGeometries = [];
+      const originalMeshes = []; // Keep references to originals for fallback
 
-      // First pass: collect geometries and hide UCX meshes
+      // First pass: collect meshes, hide UCX, assign materials
       root.traverse(n => {
         if (!n.isMesh) return;
 
-        // PROBLEM 1: Hide UCX collision meshes
+        // Hide UCX collision meshes
         if (n.name && n.name.toUpperCase().includes('UCX')) {
           n.visible = false;
           n.castShadow = false;
@@ -135,43 +135,99 @@ export function preloadTrees() {
                       || combined.includes('foliage') || combined.includes('canopy')
                       || combined.includes('frond') || combined.includes('needle');
 
-        // Collect geometries for merging (clone and apply transform)
-        const clonedGeo = n.geometry.clone();
-        clonedGeo.applyMatrix4(n.matrixWorld);
+        // Apply materials to originals (so fallback works if merge fails)
+        n.material = isLeaf ? leafMat : trunkMat;
+        n.castShadow = false; // Will be set by main.js optimization
+        n.receiveShadow = !isLeaf;
 
-        if (isLeaf) {
-          leafGeometries.push(clonedGeo);
-          leafCount++;
-        } else {
-          trunkGeometries.push(clonedGeo);
-          trunkCount++;
-        }
-
-        // Hide original mesh - we'll replace with merged version
-        n.visible = false;
+        if (isLeaf) leafCount++; else trunkCount++;
+        originalMeshes.push({ mesh: n, isLeaf });
       });
 
       console.log(`[trees] hid ${ucxCount} UCX collision meshes`);
 
-      // PROBLEM 3: Merge geometries to reduce draw calls
+      // NON-DESTRUCTIVE merge: only replace originals if merge succeeds
       const originalMeshCount = trunkCount + leafCount;
-
-      // Clear the root's children and add merged meshes
-      while (root.children.length > 0) {
-        root.remove(root.children[0]);
-      }
+      let mergeSucceeded = false;
 
       try {
-        if (trunkGeometries.length > 0) {
-          const mergedTrunkGeo = mergeGeometries(trunkGeometries, false);
+        // Helper: normalize geometries to have matching attributes
+        function normalizeGeometries(geos) {
+          if (geos.length === 0) return [];
+
+          // Get attribute signature from first geometry
+          const firstAttrs = Object.keys(geos[0].attributes);
+
+          // Filter out geometries that don't match the signature
+          const matching = geos.filter(geo => {
+            const attrs = Object.keys(geo.attributes);
+            return firstAttrs.length === attrs.length &&
+                   firstAttrs.every(a => attrs.includes(a));
+          });
+
+          if (matching.length < geos.length) {
+            console.warn(`[trees] Skipped ${geos.length - matching.length} geometries with mismatched attributes`);
+          }
+
+          return matching;
+        }
+
+        // Collect and transform geometries for merging
+        const trunkGeometries = [];
+        const leafGeometries = [];
+
+        for (const { mesh, isLeaf } of originalMeshes) {
+          const clonedGeo = mesh.geometry.clone();
+          clonedGeo.applyMatrix4(mesh.matrixWorld);
+
+          if (isLeaf) {
+            leafGeometries.push(clonedGeo);
+          } else {
+            trunkGeometries.push(clonedGeo);
+          }
+        }
+
+        // Normalize before merging
+        const normalizedTrunk = normalizeGeometries(trunkGeometries);
+        const normalizedLeaf = normalizeGeometries(leafGeometries);
+
+        // Attempt merge (only if multiple geometries exist)
+        const mergedTrunkGeo = normalizedTrunk.length > 1 ? mergeGeometries(normalizedTrunk, false) : null;
+        const mergedLeafGeo = normalizedLeaf.length > 1 ? mergeGeometries(normalizedLeaf, false) : null;
+
+        // Check if merge succeeded when attempted
+        if (!mergedTrunkGeo && normalizedTrunk.length > 1) {
+          throw new Error('trunk merge returned null');
+        }
+        if (!mergedLeafGeo && normalizedLeaf.length > 1) {
+          throw new Error('leaf merge returned null');
+        }
+
+        // CRITICAL: Only remove/replace meshes that were actually merged
+        // Keep originals for categories that weren't merged (only 1 geometry)
+
+        if (mergedTrunkGeo) {
+          // Remove trunk originals, add merged trunk
+          for (const { mesh, isLeaf } of originalMeshes) {
+            if (!isLeaf) {
+              mesh.visible = false;
+              if (mesh.parent) mesh.parent.remove(mesh);
+            }
+          }
           const trunkMesh = new THREE.Mesh(mergedTrunkGeo, trunkMat);
-          trunkMesh.castShadow = false; // Will be set by main.js optimization
+          trunkMesh.castShadow = false;
           trunkMesh.receiveShadow = true;
           root.add(trunkMesh);
         }
 
-        if (leafGeometries.length > 0) {
-          const mergedLeafGeo = mergeGeometries(leafGeometries, false);
+        if (mergedLeafGeo) {
+          // Remove leaf originals, add merged leaves
+          for (const { mesh, isLeaf } of originalMeshes) {
+            if (isLeaf) {
+              mesh.visible = false;
+              if (mesh.parent) mesh.parent.remove(mesh);
+            }
+          }
           const leafMesh = new THREE.Mesh(mergedLeafGeo, leafMat);
           leafMesh.castShadow = false;
           leafMesh.receiveShadow = false;
@@ -179,9 +235,21 @@ export function preloadTrees() {
         }
 
         const newMeshCount = root.children.filter(c => c.isMesh).length;
-        console.log(`[perf] trees: ${originalMeshCount} meshes → ${newMeshCount} meshes (per tree)`);
+        if (mergedTrunkGeo || mergedLeafGeo) {
+          console.log(`[trees] merge ok: ${originalMeshCount} → ${newMeshCount} meshes`);
+        } else {
+          console.log(`[trees] merge skipped (only 1 geometry per type), kept ${newMeshCount} originals`);
+        }
+        mergeSucceeded = true;
+
       } catch (err) {
         console.error('[trees] Failed to merge geometries:', err);
+        console.log('[trees] merge skipped, kept originals');
+
+        // Restore visibility of originals (materials already applied above)
+        for (const { mesh } of originalMeshes) {
+          mesh.visible = true;
+        }
       }
 
       const box1 = new THREE.Box3().setFromObject(root);
