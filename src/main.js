@@ -158,16 +158,17 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 // ── Quality tier ──────────────────────────────────────────────────────
-// Auto-detect mobile vs desktop for performance optimization
+// Unified quality settings for smooth performance on all devices
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
                  || window.innerWidth < 768;
 
 // ── Renderer ───────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
+// UNIFIED: Same antialias and pixel ratio for consistent look
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(isMobile ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap at 1.5x for performance
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type    = isMobile ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+renderer.shadowMap.type    = THREE.BasicShadowMap; // Unified: faster shadows everywhere
 renderer.toneMapping         = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 // LinearSRGBColorSpace → OutputPass handles final sRGB conversion
@@ -182,10 +183,10 @@ document.body.appendChild(renderer.domElement);
 const sun = new THREE.DirectionalLight(0xFFF4D6, 2.8);
 sun.position.set(120, 220, 80);
 sun.castShadow = true;
-// Tight shadow frustum — covers the playable area, not the whole island
-const shadowSize = isMobile ? 80 : 160;
-sun.shadow.mapSize.width   = isMobile ? 1024 : 2048;
-sun.shadow.mapSize.height  = isMobile ? 1024 : 2048;
+// UNIFIED: Medium shadow quality for all devices (balanced perf/quality)
+const shadowSize = 120; // Between 80 (mobile) and 160 (desktop)
+sun.shadow.mapSize.width   = 1536; // Between 1024 and 2048
+sun.shadow.mapSize.height  = 1536;
 sun.shadow.camera.near     = 1;
 sun.shadow.camera.far      = 350;
 sun.shadow.camera.left     = -shadowSize;
@@ -213,44 +214,29 @@ plazaLight.position.set(0, 8, 0);
 plazaLight.castShadow = false; // perf: no shadow from area fill
 scene.add(plazaLight);
 
-// Hangar interior fill lights — skip on mobile (saves 3 light calculations)
-if (!isMobile) {
-  [
-    {x:   0, y: 8, z: -130},
-    {x: 130, y: 8, z:   0 },
-    {x:   0, y: 8, z:  130},
-  ].forEach(({ x, y, z }) => {
-    const l = new THREE.PointLight(0xF0E8D8, 1.2, 70, 1.5);
-    l.position.set(x, y, z);
-    scene.add(l);
-  });
-}
+// UNIFIED: Hangar interior fill lights enabled for all devices
+// Using single light instead of 3 for better performance
+const hangarLight = new THREE.PointLight(0xF0E8D8, 1.5, 100, 2.0);
+hangarLight.position.set(0, 12, 0); // Central position above plaza
+scene.add(hangarLight);
 
 // ── Post-processing ────────────────────────────────────────────────────
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
-// Bloom — disabled on mobile and low-VRAM devices (too expensive); half-res on desktop
-let bloomPass = null;
-const hasHighVRAM = !isMobile && (renderer.capabilities.maxTextures >= 16);
-if (hasHighVRAM) {
-  bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2)),
-    0.40,   // strength
-    0.50,   // radius
-    0.84    // threshold
-  );
-  composer.addPass(bloomPass);
-}
+// UNIFIED: Bloom disabled on all devices for consistent performance
+// (Bloom is expensive and not essential for gameplay)
+let bloomPass = null; // Disabled for unified smooth performance
 
 // Final colour-space conversion (linear → sRGB) + tone mapping output
 composer.addPass(new OutputPass());
 
 // ── World ──────────────────────────────────────────────────────────────
+// UNIFIED: Same quality settings for all devices
 initIsland(scene, {
-  lowQuality: isMobile,
-  maxTrees: isMobile ? 25 : 55,
-  maxPlants: isMobile ? 80 : 200
+  lowQuality: false, // Unified quality
+  maxTrees: 40,      // Balanced: between 25 (mobile) and 55 (desktop)
+  maxPlants: 120     // Balanced: between 80 (mobile) and 200 (desktop)
 });
 initPlaza(scene);
 initPaths(scene);
@@ -260,10 +246,10 @@ initMarina(scene);
 initLighthouse(scene);
 
 // Initialize ocean fish (decorative swimming fish)
-// Adaptive count based on device performance
+// UNIFIED: Same fish count for all devices (balanced for performance)
 try {
   initOceanFish(scene, {
-    count: isMobile ? 20 : 60,  // Fewer fish on mobile for performance
+    count: 35,  // Balanced: between 20 (mobile) and 60 (desktop)
     area: { x: -325, z: 0, radius: 120 },
     waterY: 0,
     depth: 12,
