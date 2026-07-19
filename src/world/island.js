@@ -76,7 +76,7 @@ export function initIsland(scene, opts = {}) {
   clearExistingTrees(scene);
   clearExistingPlants(scene);
 
-  addTrees(scene, opts.maxTrees ?? 150);
+  addTrees(scene, opts.maxTrees ?? 145); // Reduced from 150 (deleted 5 trees)
   initPlants(scene, opts.maxPlants ?? 200); // Add flowers, bushes, rocks
 }
 
