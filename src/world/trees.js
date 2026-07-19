@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { attachLabel, createLabel } from '../ui/labels.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
@@ -112,18 +113,76 @@ export function preloadTrees() {
         }
       }
 
-      let leafCount = 0, trunkCount = 0;
+      let leafCount = 0, trunkCount = 0, ucxCount = 0;
+      const trunkGeometries = [];
+      const leafGeometries = [];
+
+      // First pass: collect geometries and hide UCX meshes
       root.traverse(n => {
         if (!n.isMesh) return;
+
+        // PROBLEM 1: Hide UCX collision meshes
+        if (n.name && n.name.toUpperCase().includes('UCX')) {
+          n.visible = false;
+          n.castShadow = false;
+          n.receiveShadow = false;
+          ucxCount++;
+          return;
+        }
+
         const combined = n.name.toLowerCase();
         const isLeaf   = combined.includes('leaf') || combined.includes('leaves')
                       || combined.includes('foliage') || combined.includes('canopy')
                       || combined.includes('frond') || combined.includes('needle');
-        n.material      = isLeaf ? leafMat : trunkMat;
-        n.castShadow    = !isLeaf;
-        n.receiveShadow = !isLeaf;
-        if (isLeaf) leafCount++; else trunkCount++;
+
+        // Collect geometries for merging (clone and apply transform)
+        const clonedGeo = n.geometry.clone();
+        clonedGeo.applyMatrix4(n.matrixWorld);
+
+        if (isLeaf) {
+          leafGeometries.push(clonedGeo);
+          leafCount++;
+        } else {
+          trunkGeometries.push(clonedGeo);
+          trunkCount++;
+        }
+
+        // Hide original mesh - we'll replace with merged version
+        n.visible = false;
       });
+
+      console.log(`[trees] hid ${ucxCount} UCX collision meshes`);
+
+      // PROBLEM 3: Merge geometries to reduce draw calls
+      const originalMeshCount = trunkCount + leafCount;
+
+      // Clear the root's children and add merged meshes
+      while (root.children.length > 0) {
+        root.remove(root.children[0]);
+      }
+
+      try {
+        if (trunkGeometries.length > 0) {
+          const mergedTrunkGeo = mergeGeometries(trunkGeometries, false);
+          const trunkMesh = new THREE.Mesh(mergedTrunkGeo, trunkMat);
+          trunkMesh.castShadow = false; // Will be set by main.js optimization
+          trunkMesh.receiveShadow = true;
+          root.add(trunkMesh);
+        }
+
+        if (leafGeometries.length > 0) {
+          const mergedLeafGeo = mergeGeometries(leafGeometries, false);
+          const leafMesh = new THREE.Mesh(mergedLeafGeo, leafMat);
+          leafMesh.castShadow = false;
+          leafMesh.receiveShadow = false;
+          root.add(leafMesh);
+        }
+
+        const newMeshCount = root.children.filter(c => c.isMesh).length;
+        console.log(`[perf] trees: ${originalMeshCount} meshes → ${newMeshCount} meshes (per tree)`);
+      } catch (err) {
+        console.error('[trees] Failed to merge geometries:', err);
+      }
 
       const box1 = new THREE.Box3().setFromObject(root);
       const h    = Math.max(box1.max.y - box1.min.y, 0.01);
@@ -195,8 +254,20 @@ export function spawnPlazaTree(scene) {
 
     loader.load('/models/nature/trees/plaza_tree/source/HeroTree.fbx', fbx => {
       const meshNames = [];
+      let plazaUcxCount = 0;
+
       fbx.traverse(n => {
         if (!n.isMesh) return;
+
+        // PROBLEM 1: Hide UCX collision meshes in plaza tree
+        if (n.name && n.name.toUpperCase().includes('UCX')) {
+          n.visible = false;
+          n.castShadow = false;
+          n.receiveShadow = false;
+          plazaUcxCount++;
+          return;
+        }
+
         meshNames.push(n.name);
         const name = n.name.toLowerCase();
         const isLeaf = name.includes('leaf') || name.includes('leaves')
@@ -234,9 +305,12 @@ export function spawnPlazaTree(scene) {
           mat.metalness = 0.0;
         });
 
-        n.castShadow    = true;
+        n.castShadow    = false; // Will be set by main.js optimization
         n.receiveShadow = !isLeaf;
       });
+      if (plazaUcxCount > 0) {
+        console.log(`[trees] hid ${plazaUcxCount} UCX collision meshes (plaza tree)`);
+      }
       console.log('[trees] plaza mesh names:', meshNames.join(', '));
 
       // Upright correction

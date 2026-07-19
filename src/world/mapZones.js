@@ -28,9 +28,9 @@ const AVOID_ZONES = [
   { x: 0, z: 0, radius: 54, name: 'Plaza' },
 ];
 
-// Small buffer beyond the hangar walls so trees/plants don't spawn flush
-// against (or clipping into) the entrance columns.
-const HANGAR_FOOTPRINT_MARGIN = 3;
+// INCREASED: Larger buffer to ensure trees/plants/rocks don't spawn near or inside hangars
+// Prevents objects from appearing on hangar floors or clipping through walls
+const HANGAR_FOOTPRINT_MARGIN = 15;
 
 /**
  * Tests if (x, z) falls inside any hangar's rectangular footprint,
@@ -68,7 +68,8 @@ function isInAsymmetricEllipse(x, z, baseRadius) {
  * Paths connect plaza to hangars and marina.
  */
 function isOnPath(x, z) {
-  const PATH_HALF_WIDTH = 8;
+  // INCREASED: Wider exclusion zone to keep trees/plants off paths completely
+  const PATH_HALF_WIDTH = 12;
 
   // North path (to north hangar)
   if (Math.abs(x) < PATH_HALF_WIDTH && z < -40 && z > -240) return true;
