@@ -251,12 +251,15 @@ initMarina(scene);
 initLighthouse(scene);
 
 // Initialize ocean fish (decorative swimming fish)
+// Dense population around marina for realistic ocean ambience
 try {
   initOceanFish(scene, {
-    count: 60,
-    area: { x: -380, z: 0, radius: 130 },
+    count: 180,  // Increased from 60 - lots of fish for realistic feel
+    area: { x: -325, z: 0, radius: 150 },  // Centered on marina, wider spread
     waterY: 0,
-    depth: 12
+    depth: 15,  // Deeper range for more vertical variety
+    scaleBig: 0.7,  // Slightly larger big fish
+    scaleSmall: 0.8  // Slightly larger small fish for visibility
   });
 } catch (err) {
   console.error('[main] initOceanFish failed:', err);
