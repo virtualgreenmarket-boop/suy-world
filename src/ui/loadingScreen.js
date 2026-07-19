@@ -326,6 +326,85 @@ function hideLoadingScreen() {
 
     // Remove after fade-out
     setTimeout(() => {
+      if (_loadingContainer && _loadingContainer.parentNode) {
+        _loadingContainer.style.display = 'none'; // Hide but don't remove (for reuse)
+      }
+    }, 500);
+  }
+}
+
+/**
+ * Show loading screen for game world initialization
+ * Call this AFTER character selection, BEFORE startGame
+ */
+export function showGameLoadingScreen(onComplete) {
+  // Reuse the same loading screen structure
+  if (_loadingContainer) {
+    // Reset and show again
+    _loadingContainer.style.display = 'flex';
+    _loadingContainer.style.opacity = '1';
+    updateProgress(0, 'Initializing world...');
+    _onLoadComplete = onComplete;
+    loadGameWorld();
+  } else {
+    // Create new one if doesn't exist (shouldn't happen)
+    console.warn('[loading] Loading screen not initialized, creating new one');
+    initLoadingScreen(onComplete);
+  }
+}
+
+async function loadGameWorld() {
+  try {
+    updateProgress(10, 'Building island terrain...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updateProgress(25, 'Planting trees and vegetation...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updateProgress(40, 'Constructing buildings...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updateProgress(55, 'Spawning ocean life...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updateProgress(70, 'Setting up lighting...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updateProgress(85, 'Preparing multiplayer...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updateProgress(95, 'Final preparations...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    updateProgress(100, 'Welcome to SUY WORLD!');
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    hideLoadingScreen();
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    if (_onLoadComplete) {
+      _onLoadComplete();
+    }
+  } catch (err) {
+    console.error('[loading] Game world loading error:', err);
+    updateProgress(100, 'Starting anyway...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    hideLoadingScreen();
+    await new Promise(resolve => setTimeout(resolve, 600));
+    if (_onLoadComplete) {
+      _onLoadComplete();
+    }
+  }
+}
+
+// Keep reference to container for reuse
+function _oldHideLoadingScreen() {
+  if (_loadingContainer) {
+    _loadingContainer.style.opacity = '0';
+    _loadingContainer.style.transition = 'opacity 0.5s ease';
+
+    // Remove after fade-out
+    setTimeout(() => {
       if (_loadingContainer) {
         _loadingContainer.remove();
         _loadingContainer = null;

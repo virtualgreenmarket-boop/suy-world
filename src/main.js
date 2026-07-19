@@ -31,7 +31,7 @@ import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
 import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod, FISHING_SPOTS } from './systems/fishingLoop.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
-import { initLoadingScreen } from './ui/loadingScreen.js';
+import { initLoadingScreen, showGameLoadingScreen } from './ui/loadingScreen.js';
 import { initInventoryButton } from './ui/inventoryButton.js';
 
 import { initDecor }                      from './world/decor.js';
@@ -122,8 +122,11 @@ function startApp() {
       // After login, show character selection
       initCharacterSelection((characterId) => {
         console.log('[main] Character selected:', characterId);
-        // Start game with selected character
-        startGame(characterId);
+        // Show game loading screen before starting the actual game
+        showGameLoadingScreen(() => {
+          // Start game with selected character AFTER loading screen
+          startGame(characterId);
+        });
       });
     });
   });
