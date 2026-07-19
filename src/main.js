@@ -13,6 +13,7 @@ import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/l
 import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
 import { initIslandLife, updateIslandLife } from './world/islandLife.js';
 import { initDockFish, updateDockFish } from './systems/dockFish.js';
+import { initOceanFish, updateOceanFish } from './world/oceanFish.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
@@ -248,6 +249,18 @@ clearAllBoxes(); // Clear any phantom collision boxes from previous builds
 initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
 initLighthouse(scene);
+
+// Initialize ocean fish (decorative swimming fish)
+try {
+  initOceanFish(scene, {
+    count: 60,
+    area: { x: -380, z: 0, radius: 130 },
+    waterY: 0,
+    depth: 12
+  });
+} catch (err) {
+  console.error('[main] initOceanFish failed:', err);
+}
 
 // Initialize fishing system
 try {
@@ -542,44 +555,67 @@ window.addEventListener('resize', () => {
 // ── Performance optimization: Shadow caster reduction ─────────────────
 function optimizeShadowCasters() {
   try {
-    let totalMeshes = 0;
-    let originalCasters = 0;
     let newCasters = 0;
-    let hiddenUCX = 0;
 
+    // PROBLEM 2: Aggressive shadow caster reduction
+    // Only these large structures cast shadows:
+    // - Hangars (check for hangar-related objects)
+    // - Lighthouse (check name or userData)
+    // - Marina deck platform (check name or position)
+    // - Local player (check userData._charModel or isPlayer)
     scene.traverse((obj) => {
-      if (obj.isMesh) {
-        totalMeshes++;
+      if (!obj.isMesh) return;
 
-        // Hide Unreal collision meshes
-        if (obj.name && obj.name.startsWith('UCX_')) {
-          obj.visible = false;
-          hiddenUCX++;
-          return;
-        }
+      // Start with all shadows OFF
+      obj.castShadow = false;
 
-        // Count original shadow casters
-        if (obj.castShadow) {
-          originalCasters++;
-        }
-
-        // Compute bounding box size
-        const bbox = new THREE.Box3().setFromObject(obj);
-        const size = new THREE.Vector3();
-        bbox.getSize(size);
-
-        // Keep castShadow only for objects >= 8 units in largest horizontal dimension
-        const maxHorizontal = Math.max(size.x, size.z);
-        if (maxHorizontal >= 8) {
-          obj.castShadow = true;
-          newCasters++;
-        } else {
-          obj.castShadow = false;
-        }
+      // Enable shadows ONLY for specific large structures
+      const name = (obj.name || '').toLowerCase();
+      const parentNames = [];
+      let p = obj.parent;
+      while (p) {
+        if (p.name) parentNames.push(p.name.toLowerCase());
+        p = p.parent;
       }
+      const ancestorPath = parentNames.join('/');
+
+      // Hangar structures
+      if (name.includes('hangar') || ancestorPath.includes('hangar') ||
+          name.includes('wall') || name.includes('roof')) {
+        obj.castShadow = true;
+        newCasters++;
+        return;
+      }
+
+      // Lighthouse
+      if (name.includes('lighthouse') || obj.userData.isLighthouse ||
+          ancestorPath.includes('lighthouse')) {
+        obj.castShadow = true;
+        newCasters++;
+        return;
+      }
+
+      // Marina deck platform (large deck at -325, 3.5, 0)
+      if ((name.includes('marina') && name.includes('deck')) ||
+          (name.includes('deck') && obj.position.x < -300 && obj.position.x > -350)) {
+        obj.castShadow = true;
+        newCasters++;
+        return;
+      }
+
+      // Local player character
+      if (obj.userData._charModel || obj.userData.isPlayer ||
+          ancestorPath.includes('player') ||
+          (obj.parent && obj.parent.userData && obj.parent.userData._charModel)) {
+        obj.castShadow = true;
+        newCasters++;
+        return;
+      }
+
+      // Everything else stays false: trees, animals, NPCs, props, etc.
     });
 
-    console.log(`[perf] shadow casters reduced from ${originalCasters} to ${newCasters}, hid ${hiddenUCX} UCX meshes`);
+    console.log(`[perf] shadow casters now: ${newCasters}`);
   } catch (err) {
     console.error('[perf] Shadow optimization failed:', err);
   }
@@ -646,6 +682,14 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateLighthouse(delta);
+
+  // Update ocean fish animation
+  try {
+    updateOceanFish(delta);
+  } catch (err) {
+    console.error('[main] updateOceanFish error:', err);
+  }
+
   updateAnimalSystem(delta);
 
   // Ceiling fans rotation
