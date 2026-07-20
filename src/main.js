@@ -14,6 +14,7 @@ import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
 import { initIslandLife, updateIslandLife } from './world/islandLife.js';
 import { initDockFish, updateDockFish } from './systems/dockFish.js';
 import { initOceanFish, updateOceanFish } from './world/oceanFish.js';
+import { initPalmTrees, spawnPalmAvenue, updatePalmTrees } from './world/palmTrees.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
@@ -26,6 +27,7 @@ import { initEconomy }      from './systems/economy.js';
 import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision, clearAllBoxes } from './systems/collision.js';
+import { getSurfaceY } from './systems/terrain.js';
 import { initFishingSystem, setPlayerInventory, getPlayerInventory } from './systems/fishing.js';
 import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
 import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod, FISHING_SPOTS } from './systems/fishingLoop.js';
@@ -258,6 +260,27 @@ try {
   });
 } catch (err) {
   console.error('[main] initOceanFish failed:', err);
+}
+
+// Initialize palm trees lining the plaza→marina walkway
+try {
+  initPalmTrees(scene);
+  // Plaza→marina path runs from X=-91 to X=-297 at Z=0
+  // Path width is 9 units, so offset = 4.5 (path half-width) + 3 (desired margin) = 7.5
+  spawnPalmAvenue(
+    { x: -91, z: 0 },   // Plaza west edge (path start)
+    { x: -297, z: 0 },  // Marina stairs (path end)
+    {
+      perSide: 10,        // 10 trees each side (20 total)
+      offset: 7.5,        // 7.5m from path center = 3m from path edge
+      spacing: 10,        // 10m between consecutive trees
+      jitter: 0.6,        // Natural position variation
+      getY: (x, z) => getSurfaceY(x, z), // Ground height function
+      castShadow: false   // Performance
+    }
+  );
+} catch (err) {
+  console.error('[main] initPalmTrees failed:', err);
 }
 
 // Initialize fishing system
@@ -686,6 +709,13 @@ function animate() {
     updateOceanFish(delta);
   } catch (err) {
     console.error('[main] updateOceanFish error:', err);
+  }
+
+  // Update palm tree fronds animation
+  try {
+    updatePalmTrees(delta);
+  } catch (err) {
+    console.error('[main] updatePalmTrees error:', err);
   }
 
   updateAnimalSystem(delta);
