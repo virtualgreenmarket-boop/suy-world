@@ -405,14 +405,34 @@ function _onPath(x, z) {
 function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zone
   const rng = seededRng(17);
 
+  // First 10 trees at exact user-marked coordinates
+  const fixedPositions = [
+    { x: 80.14,  y: 0.02, z: 129.96 }, // TREE 1
+    { x: 77.41,  y: 0.02, z: 147.90 }, // TREE 2
+    { x: 75.31,  y: 0.02, z: 179.29 }, // TREE 3
+    { x: 81.93,  y: 0.02, z: 204.47 }, // TREE 4
+    { x: 117.88, y: 0.02, z: 248.05 }, // TREE 5
+    { x: 175.18, y: 0.02, z: 243.57 }, // TREE 6
+    { x: 209.66, y: 0.02, z: 215.14 }, // TREE 7
+    { x: 212.68, y: 0.02, z: 170.54 }, // TREE 8
+    { x: 190.41, y: 0.02, z: 140.47 }, // TREE 9
+    { x: 154.64, y: 0.02, z: 144.78 }, // TREE 10
+  ];
+
+  // Spawn fixed position trees
+  for (const pos of fixedPositions) {
+    const scale = 0.7 + rng() * 0.3; // Seeded variation
+    const rotY = rng() * Math.PI * 2;
+    spawnTree(scene, pos.x, pos.z, pos.y, scale, rotY);
+  }
+
   // ZONE-AWARE DISTRIBUTION: Use randomGrassPosition with seeded RNG
   // This ensures trees spawn in IDENTICAL positions every time (deterministic)
   // respecting the asymmetric ellipse shape, avoiding paths and buildings.
 
-  let treesSpawned = 0;
+  let treesSpawned = fixedPositions.length;
   let attempts = 0;
   const maxAttempts = maxTrees * 10; // Allow multiple attempts per tree
-  const SKIP_FIRST_N = 30; // Skip first 30 trees (TREE1-TREE30)
 
   while (treesSpawned < maxTrees && attempts < maxAttempts) {
     attempts++;
@@ -428,12 +448,9 @@ function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zon
     const rotY = rng() * Math.PI * 2;
     const y = getSurfaceY(x, z);
 
-    // Skip first 30 trees but maintain RNG state
-    if (treesSpawned >= SKIP_FIRST_N) {
-      spawnTree(scene, x, z, y, scale, rotY);
-    }
+    spawnTree(scene, x, z, y, scale, rotY);
     treesSpawned++;
   }
 
-  console.log(`[island] Spawned ${treesSpawned} trees across grass zone (attempted ${attempts} positions)`);
+  console.log(`[island] Spawned ${treesSpawned} trees (${fixedPositions.length} fixed + ${treesSpawned - fixedPositions.length} random)`);
 }

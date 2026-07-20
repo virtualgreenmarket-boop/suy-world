@@ -279,6 +279,7 @@ try {
       castShadow: false   // Performance
     }
   );
+
 } catch (err) {
   console.error('[main] initPalmTrees failed:', err);
 }
