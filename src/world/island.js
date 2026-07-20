@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Water } from 'three/addons/objects/Water.js';
-import { spawnTree } from './trees.js';
+import { spawnTree, resetTreeCount } from './trees.js';
 import { initPlants } from './plants.js';
 import { registerGround, getSurfaceY } from '../systems/terrain.js';
 import { randomGrassPosition } from './mapZones.js';
@@ -96,6 +96,9 @@ function clearExistingTrees(scene) {
     if (obj.parent) obj.parent.remove(obj);
   });
   console.log(`[island] Cleared ${toRemove.length} existing trees`);
+
+  // Reset tree counter so numbering starts from 1
+  resetTreeCount();
 }
 
 function clearExistingPlants(scene) {
@@ -409,6 +412,7 @@ function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zon
   let treesSpawned = 0;
   let attempts = 0;
   const maxAttempts = maxTrees * 10; // Allow multiple attempts per tree
+  const SKIP_FIRST_N = 30; // Skip first 30 trees (TREE1-TREE30)
 
   while (treesSpawned < maxTrees && attempts < maxAttempts) {
     attempts++;
@@ -424,7 +428,10 @@ function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zon
     const rotY = rng() * Math.PI * 2;
     const y = getSurfaceY(x, z);
 
-    spawnTree(scene, x, z, y, scale, rotY);
+    // Skip first 30 trees but maintain RNG state
+    if (treesSpawned >= SKIP_FIRST_N) {
+      spawnTree(scene, x, z, y, scale, rotY);
+    }
     treesSpawned++;
   }
 

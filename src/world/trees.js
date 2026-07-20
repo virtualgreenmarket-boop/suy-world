@@ -15,6 +15,10 @@ let   _template  = null;
 let   _promise   = null;
 let   _treeCount = 0;
 
+export function resetTreeCount() {
+  _treeCount = 0;
+}
+
 export function preloadTrees() {
   if (_promise) return _promise;
 
