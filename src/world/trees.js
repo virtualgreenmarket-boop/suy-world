@@ -402,7 +402,7 @@ export function spawnPlazaTree(scene) {
 
       _treeCount++;
       const plazaLabel = createLabel(`TREE ${_treeCount}`);
-      plazaLabel.position.set(-50, 32.5, 0); // Plaza offset + tree height
+      plazaLabel.position.set(-50, 1.7, 0); // Plaza offset + player eye level
       scene.add(plazaLabel);
 
       // Ground AO shadow decal
@@ -502,7 +502,7 @@ export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
       scene.add(tree);
       if (scale > 0) {
         _treeCount++;
-        attachLabel(tree, `TREE ${_treeCount}`, 17);
+        attachLabel(tree, `TREE ${_treeCount}`, 1.7); // Player eye level
       }
     };
 
