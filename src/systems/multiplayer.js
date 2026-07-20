@@ -29,14 +29,27 @@ export function initMultiplayer(onReady) {
   });
 
   socket.on('init', ({ id, name, players, coins }) => {
-    localId = id;
+    try {
+      localId = id;
 
-    for (const [pid, data] of Object.entries(players)) {
-      if (pid !== id) addRemotePlayer(pid, data);
+      for (const [pid, data] of Object.entries(players)) {
+        // Skip local player
+        if (pid === id) continue;
+
+        // Skip entries with missing/invalid position data
+        if (!data || (!Number.isFinite(data.x) && !Number.isFinite(data.z))) {
+          console.warn('[multiplayer] Skipping remote player with invalid position:', pid, data);
+          continue;
+        }
+
+        addRemotePlayer(pid, data);
+      }
+
+      updateOnlineCount(Object.keys(players).length);
+      if (onReadyCb) onReadyCb({ id, name, coins });
+    } catch (err) {
+      console.error('[multiplayer] init handler error:', err);
     }
-
-    updateOnlineCount(Object.keys(players).length);
-    if (onReadyCb) onReadyCb({ id, name, coins });
   });
 
   socket.on('playerJoined', ({ id, data }) => {

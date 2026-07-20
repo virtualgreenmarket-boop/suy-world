@@ -12,6 +12,9 @@
 //   4. NEW: procedural low-poly rod in the player's hand (color by owned
 //      rod tier) + full fishing animation: cast swing, waiting sway, bite
 //      shake, meter strain. The line follows the rod tip every frame.
+//   5. v8: FOUR west-edge stations (worldZ −18/−6/+6/+18, matching the
+//      new fence openings in marina.js) + cladding and stair railings
+//      repositioned to the real 34 m stair width (|z| ≤ 17).
 // ═══════════════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
@@ -30,9 +33,9 @@ import {
 import { showFishingMeter, hideFishingMeter, showCatchScreen, showEscapeScreen } from '../ui/fishingUI.js';
 import { getSocket } from './multiplayer.js';
 
-// ── Fishing Spots (6 alcoves on marina pier) ──────────────────────────
+// ── Fishing Spots (marina pier alcoves + west edge) ───────────────────
 // Positions match the black square fishing alcoves
-// North side (worldZ≈+24), South side (worldZ≈-24)
+// North side (worldZ≈+24), South side (worldZ≈-24), West edge (worldX≈-403.8)
 
 export const FISHING_SPOTS = [
   { x: -397.9, y: 0.9, z: 24.0,  name: 'North Alcove 1', dir: { x: 0, z: 1 } },
@@ -41,10 +44,12 @@ export const FISHING_SPOTS = [
   { x: -397.9, y: 0.9, z: -24.0, name: 'South Alcove 1', dir: { x: 0, z: -1 } },
   { x: -383.9, y: 0.9, z: -24.0, name: 'South Alcove 2', dir: { x: 0, z: -1 } },
   { x: -369.9, y: 0.9, z: -24.0, name: 'South Alcove 3', dir: { x: 0, z: -1 } },
-  // West edge (pier end, casting into open sea toward -X)
-  { x: -403.8, y: 0.9, z: -12.0, name: 'West Edge 1', dir: { x: -1, z: 0 } },
-  { x: -403.8, y: 0.9, z: 0.0,   name: 'West Edge 2', dir: { x: -1, z: 0 } },
-  { x: -403.8, y: 0.9, z: 12.0,  name: 'West Edge 3', dir: { x: -1, z: 0 } }
+  // West edge (pier end, casting into open sea toward -X) — 4 stations
+  // aligned with the fence openings built in marina.js
+  { x: -403.8, y: 0.9, z: -18.0, name: 'West Edge 1', dir: { x: -1, z: 0 } },
+  { x: -403.8, y: 0.9, z: -6.0,  name: 'West Edge 2', dir: { x: -1, z: 0 } },
+  { x: -403.8, y: 0.9, z: 6.0,   name: 'West Edge 3', dir: { x: -1, z: 0 } },
+  { x: -403.8, y: 0.9, z: 18.0,  name: 'West Edge 4', dir: { x: -1, z: 0 } }
 ];
 
 const SPOT_RADIUS = 4.5;   // metres — horizontal distance for the button to appear
@@ -457,21 +462,22 @@ function _syncInventoryFromServer() {
   } catch (_) { /* socket not ready yet — retried from update */ }
 }
 
-// ── Marina extras (pure additions — marina.js untouched) ─────────────
-// 1. Three fishing pads on the pier's west edge (black squares like the
+// ── Marina extras (pure additions — marina.js handles the structure) ──
+// 1. Four fishing pads on the pier's west edge (black squares like the
 //    side alcoves; casting goes over the end rail into open sea).
+//    Aligned with the 4 fence openings marina.js builds in the end rail.
 // 2. Wood cladding closing the exposed gap between the upper deck and
-//    the fishing pier across the stairs frontage.
-// 3. Sloped railings with posts + ball caps along both sides of the stairs.
-// All coordinates measured live in-game.
+//    the fishing pier — OUTSIDE the (now 34 m wide) stairs: |z| 17–22.5.
+// 3. Sloped railings with posts + ball caps at the real stair edges z≈±16.9.
 
 function _buildMarinaExtras(scene) {
   try {
     const M = (c) => new THREE.MeshLambertMaterial({ color: c });
     const WOOD = 0xC98F14, WOOD_D = 0x8A6210, WOOD_DD = 0x5C3A10, PAD = 0x1A1208;
 
-    // 1. West fishing pads (black squares)
-    for (const z of [-12, 0, 12]) {
+    // 1. West fishing pads (black squares) — 4 stations facing the
+    //    fence openings at worldZ −18 / −6 / +6 / +18
+    for (const z of [-18, -6, 6, 18]) {
       const pad = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.07, 1.7), M(PAD));
       pad.position.set(-403.8, 0.94, z);
       scene.add(pad);
@@ -481,34 +487,36 @@ function _buildMarinaExtras(scene) {
     }
 
     // 2. Cladding between the floors (deck edge X≈-346.4, deck y=3.2 → pier y=0.9)
-    //    Two wall sections leaving the stair opening (|z| < 7.5) framed.
-    for (const zc of [15, -15]) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.3, 15), M(WOOD_D));
+    //    The stairs are 34 m wide (worldZ −17..+17); the pier ends at |z|=22.5,
+    //    so each cladding section covers only |z| 17–22.5 (5.5 m).
+    for (const zc of [19.75, -19.75]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.3, 5.5), M(WOOD_D));
       wall.position.set(-346.4, 2.05, zc);
       scene.add(wall);
       // Plank lines (thin darker strips for a paneled look)
       for (let i = 0; i < 3; i++) {
-        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.05, 15), M(WOOD_DD));
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.05, 5.5), M(WOOD_DD));
         strip.position.set(-346.4, 1.35 + i * 0.7, zc);
         scene.add(strip);
       }
       // Top trim aligned with the deck edge
-      const trim = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 15.2), M(WOOD));
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 5.7), M(WOOD));
       trim.position.set(-346.4, 3.14, zc);
       scene.add(trim);
     }
-    // Frame cheeks around the stair opening
-    for (const zc of [7.5, -7.5]) {
+    // Frame cheeks around the stair opening (at the stair edges)
+    for (const zc of [17, -17]) {
       const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.35, 0.35), M(WOOD));
       cheek.position.set(-346.4, 2.05, zc);
       scene.add(cheek);
     }
 
     // 3. Stair railings — sloped handrail + posts + ball caps, both sides
-    //    Stairs descend X -346.4 (top, y 3.2) → -353.4 (bottom, y 0.9)
+    //    Stairs descend X -346.4 (top, y 3.2) → -353.4 (bottom, y 0.9),
+    //    railings sit at the stair edges (z ≈ ±16.9, just inside ±17).
     const railLen = Math.hypot(7, 2.3);
     const slope = Math.atan2(2.3, 7);
-    for (const zs of [7.4, -7.4]) {
+    for (const zs of [16.9, -16.9]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(railLen, 0.12, 0.12), M(WOOD));
       rail.position.set(-349.9, 3.0, zs);
       rail.rotation.z = slope;
@@ -530,7 +538,7 @@ function _buildMarinaExtras(scene) {
       }
     }
 
-    console.log('[fishingLoop] Marina extras built: 3 west pads, stairs cladding + railings');
+    console.log('[fishingLoop] Marina extras built: 4 west pads, stairs cladding + railings (34m stairs)');
   } catch (err) {
     console.error('[fishingLoop] Marina extras error:', err);
   }

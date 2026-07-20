@@ -14,7 +14,7 @@ import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
 import { initIslandLife, updateIslandLife } from './world/islandLife.js';
 import { initDockFish, updateDockFish } from './systems/dockFish.js';
 import { initOceanFish, updateOceanFish } from './world/oceanFish.js';
-import { initPalmTrees, spawnPalmAvenue, updatePalmTrees } from './world/palmTrees.js';
+import { initPalmTrees, spawnPalm, spawnPalmAvenue, updatePalmTrees } from './world/palmTrees.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
