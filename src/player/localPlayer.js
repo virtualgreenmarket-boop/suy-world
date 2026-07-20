@@ -69,10 +69,10 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   attachLabel(playerGroup, name || 'Player', 3.0, 'player');
 
   // CRITICAL: Snap camera to player position IMMEDIATELY to prevent "jump" on first frame
-  // Without this, camera starts at origin (0,0,0) and snaps to marina after first render
+  // Without this, camera starts at origin (0,0,0) and snaps to spawn after first render
   try {
     _snapCameraToPlayer();
-    console.log('[local-player] Camera pre-positioned at marina (prevents spawn jump)');
+    console.log('[local-player] Camera pre-positioned at spawn (prevents spawn jump)');
   } catch (err) {
     console.error('[local-player] Failed to pre-position camera:', err);
   }
@@ -357,7 +357,7 @@ export function equipLocalPlayerItem() {
 }
 
 export function savePlayerPosition() {
-  // Position saving disabled - always spawn at marina
+  // Position saving disabled - always spawn at plaza
   // Clean up old saved position once
   if (localStorage.getItem('suy_spawn')) {
     localStorage.removeItem('suy_spawn');
@@ -455,10 +455,9 @@ function isWithinPlayableBounds(x, z) {
 }
 
 function _loadSpawn() {
-  // Always spawn at Marina deck - ignoring localStorage
-  // Marina deck: group at (-325.2, 0, 0), rot.y=PI/2
-  // Deck center local (0, DECK_Y, 0) → world (-325.2, 3.2, 0)
-  return { x: -325, y: 3.5, z: 0 };
+  // Always spawn at central plaza (original spawn) - ignoring localStorage
+  // South of central plaza at ground level
+  return { x: 0, y: 0, z: 55 };
 }
 
 export function setLocalPlayerPosition(x, z) {
@@ -469,15 +468,15 @@ export function setLocalPlayerPosition(x, z) {
     const lockActive = !_playerSpawned || Date.now() < _spawnLockUntil;
 
     if (lockActive) {
-      // Marina whitelist: Allow repositions to the marina itself (within 3 units of -325, 0)
-      const MARINA_X = -325;
-      const MARINA_Z = 0;
-      const MARINA_RADIUS = 3;
-      const distToMarina = Math.hypot(x - MARINA_X, z - MARINA_Z);
+      // Plaza whitelist: Allow repositions to the plaza itself (within 10 units of 0, 55)
+      const PLAZA_X = 0;
+      const PLAZA_Z = 55;
+      const PLAZA_RADIUS = 10;
+      const distToPlaza = Math.hypot(x - PLAZA_X, z - PLAZA_Z);
 
-      if (distToMarina > MARINA_RADIUS) {
-        // Not the marina — block this reposition
-        console.log(`[local-player] 🔒 blocked reposition to (${x.toFixed(1)}, ${z.toFixed(1)}) — lock active, not marina`);
+      if (distToPlaza > PLAZA_RADIUS) {
+        // Not the plaza — block this reposition
+        console.log(`[local-player] 🔒 blocked reposition to (${x.toFixed(1)}, ${z.toFixed(1)}) — lock active, not plaza`);
         console.trace('[local-player] setLocalPlayerPosition called from:');
         return;
       }

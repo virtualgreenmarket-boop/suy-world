@@ -14,52 +14,59 @@ export function initRemotePlayers(scene) {
 }
 
 export function addRemotePlayer(id, data) {
-  if (remotePlayers[id]) return;
+  try {
+    if (remotePlayers[id]) return;
 
-  const group = new THREE.Group();
-  group.position.set(data.x || 0, data.y || 0, data.z || 0);
-  group.rotation.y = data.rotY || 0;
+    const group = new THREE.Group();
 
-  const tag = createNameTag(data.name || id.slice(0, 6));
-  group.add(tag);
+    // Default to plaza spawn instead of world origin (0,0,0)
+    const sx = Number.isFinite(data.x) ? data.x : 0;
+    const sy = Number.isFinite(data.y) ? data.y : 0;
+    const sz = Number.isFinite(data.z) ? data.z : 55;
 
-  _scene.add(group);
-  remotePlayers[id] = {
-    group,
-    target: { x: data.x || 0, y: data.y || 0, z: data.z || 0, rotY: data.rotY || 0 },
-  };
+    group.position.set(sx, sy, sz);
+    group.rotation.y = data.rotY || 0;
 
-  // Build actual character instead of placeholder cube
-  const character = buildCharacter('boy');
+    const tag = createNameTag(data.name || id.slice(0, 6));
+    group.add(tag);
 
-  // Scale to 2.5m tall (same as NPC and local player)
-  const bbox = new THREE.Box3().setFromObject(character);
-  const size = bbox.getSize(new THREE.Vector3());
-  const currentHeight = size.y;
+    // Build actual character instead of placeholder cube
+    const character = buildCharacter('boy');
 
-  if (currentHeight > 0) {
-    const scale = 2.5 / currentHeight;
-    character.scale.setScalar(scale);
-    character.updateMatrixWorld(true);
-  }
-
-  // Position at Y=0 (feet on ground)
-  const bbox2 = new THREE.Box3().setFromObject(character);
-  const offset = -bbox2.min.y;
-  character.position.y = offset;
-
-  // Ensure all materials are applied
-  character.traverse(n => {
-    if (n.isMesh) {
-      n.material.needsUpdate = true;
-      n.castShadow = true;
-      n.receiveShadow = true;
+    // Scale to 2.5m tall
+    const bbox = new THREE.Box3().setFromObject(character);
+    const size = bbox.getSize(new THREE.Vector3());
+    const currentHeight = size.y;
+    if (currentHeight > 0) {
+      const scale = 2.5 / currentHeight;
+      character.scale.setScalar(scale);
+      character.updateMatrixWorld(true);
     }
-  });
 
-  group.add(character);
+    // Position at Y=0 (feet on ground)
+    const bbox2 = new THREE.Box3().setFromObject(character);
+    character.position.y = -bbox2.min.y;
+
+    character.traverse(n => {
+      if (n.isMesh) {
+        n.material.needsUpdate = true;
+        n.castShadow = true;
+        n.receiveShadow = true;
+      }
+    });
+
+    group.add(character);
+
+    // Register + add to scene with a valid interpolation target
+    remotePlayers[id] = {
+      group,
+      target: { x: sx, y: sy, z: sz, rotY: data.rotY || 0 }
+    };
+    if (_scene) _scene.add(group);
+  } catch (err) {
+    console.error('[remotePlayer] addRemotePlayer error:', err);
+  }
 }
-
 export function updateRemotePlayerTarget(id, x, y, z, rotY) {
   if (!remotePlayers[id]) return;
   Object.assign(remotePlayers[id].target, { x, y, z, rotY });
