@@ -391,9 +391,9 @@ const animalManager = new AnimalManager({
 // Pass animalManager to localPlayer for collision detection
 setGLBAnimalManager(animalManager);
 
-// 4-ZONE ANIMAL SPAWNING: Relocate all animals to 4 designated zones
-// Dogs and cats excluded - all other animals relocated
-console.log('[main] 🦌 Spawning animals at 4 designated zones...');
+// 2-ZONE ANIMAL SPAWNING: Relocate all wild animals to 2 designated zones
+// Dogs and cats (pets) excluded - all other animals relocated
+console.log('[main] 🦌 Spawning wild animals at 2 designated zones...');
 
 // CRITICAL: Clear all existing animals first
 animalManager.instances.forEach((instance, id) => {
@@ -402,31 +402,29 @@ animalManager.instances.forEach((instance, id) => {
   }
 });
 animalManager.instances.clear();
-console.log('[main] Cleared all existing animals for re-spawn');
+console.log('[main] Cleared all existing wild animals for re-spawn');
 
-// Define 4 spawn zones (center point + 10m wander radius)
+// Define 2 spawn zones (center point + 100m wander radius)
 const SPAWN_ZONES = [
-  { x: 98.82,   z: -147.17, name: 'North-East grass' },
-  { x: 113.75,  z: 150.19,  name: 'South grass' },
-  { x: -198.10, z: 59.15,   name: 'West coast/marina' },
-  { x: -203.28, z: -49.81,  name: 'Northwest plaza' }
+  { x: 175.43, z: 216.15,  name: 'South-East zone' },
+  { x: 187.47, z: -280.82, name: 'North zone' }
 ];
 
 // Animals to spawn (excluding dogs/cats: Husky, ShibaInu)
 const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Stag', 'Wolf'];
 const totalAnimals = 40;
 const spawnPromises = [];
-const zoneAnimalCounts = [0, 0, 0, 0];
+const zoneAnimalCounts = [0, 0];
 
 for (let i = 0; i < totalAnimals; i++) {
-  // Assign to zone (round-robin for even distribution)
+  // Assign to zone (round-robin for even distribution: 20 per zone)
   const zoneIndex = i % SPAWN_ZONES.length;
   const zone = SPAWN_ZONES[zoneIndex];
   zoneAnimalCounts[zoneIndex]++;
 
-  // Random position within 50m radius of zone center (×5 from 10m)
+  // Random position within 100m radius of zone center
   const angle = Math.random() * Math.PI * 2;
-  const distance = Math.random() * 50; // 0-50m from center
+  const distance = Math.random() * 100; // 0-100m from center
   const spawnX = zone.x + Math.cos(angle) * distance;
   const spawnZ = zone.z + Math.sin(angle) * distance;
 
@@ -437,11 +435,12 @@ for (let i = 0; i < totalAnimals; i++) {
   const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk';
 
   spawnPromises.push(
-    animalManager.spawn(species, { x: spawnX, y: 0, z: spawnZ }, {
+    animalManager.spawn(species, { x: spawnX, y: 0.02, z: spawnZ }, {
       scale,
       rotationY,
       startAnimation,
-      wanderRadius: 50 // Stay within 50m of spawn point (×5 from 10m)
+      wanderCenter: { x: zone.x, y: 0.02, z: zone.z }, // Anchor to zone center
+      wanderRadius: 100 // Stay within 100m of zone center
     }).catch(err => {
       console.error(`[main] Failed to spawn ${species} in zone ${zoneIndex}:`, err);
     })
@@ -449,21 +448,21 @@ for (let i = 0; i < totalAnimals; i++) {
 }
 
 Promise.all(spawnPromises).then(() => {
-  console.log(`[main] ✅ Animals spawned at 4 zones:`);
+  console.log(`[main] ✅ Wild animals spawned at 2 zones:`);
   SPAWN_ZONES.forEach((zone, i) => {
     console.log(`  Zone ${i + 1} (${zone.name}): ${zoneAnimalCounts[i]} animals`);
   });
 }).catch(err => {
-  console.error('[main] ❌ Failed to spawn some animals:', err);
+  console.error('[main] ❌ Failed to spawn some wild animals:', err);
 });
 
-// PART 2: Place 5 trees around each zone (20 trees total)
-console.log('[main] 🌳 Placing 5 trees around each of 4 zones (20 total)...');
+// PART 2: Place 5 trees around each zone (10 trees total for 2 zones)
+console.log('[main] 🌳 Placing 5 trees around each of 2 zones (10 total)...');
 preloadTrees().then(() => {
   let totalTreesPlaced = 0;
   SPAWN_ZONES.forEach((zone, zoneIndex) => {
     for (let t = 0; t < 5; t++) {
-      // Random angle and distance: 50-100m from zone center (×5 from 10-20m)
+      // Random angle and distance: 50-100m from zone center
       const angle = Math.random() * Math.PI * 2;
       const distance = 50 + Math.random() * 50; // 50-100m from center
       const treeX = zone.x + Math.cos(angle) * distance;
