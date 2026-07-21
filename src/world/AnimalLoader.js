@@ -301,10 +301,10 @@ const FORBIDDEN_ZONES = [
   { x: 0, z: 0, radius: 65 },
 
   // Hangars (4 cardinal directions)
-  { x: 0, z: -162.6, radius: 95 },    // North hangar
-  { x: 162.6, z: 0, radius: 95 },     // East hangar
-  { x: 0, z: 162.6, radius: 95 },     // South hangar
-  { x: -162.6, z: 0, radius: 95 },    // West hangar (Marina)
+  { x: -50, z: -271.075, radius: 95 },    // North hangar
+  { x: 212.6, z: 0, radius: 95 },         // East hangar
+  { x: -50, z: 262.6, radius: 95 },       // South hangar
+  { x: -162.6, z: 0, radius: 95 },        // West hangar (Marina)
 
   // Paths (expanded to keep animals off roads)
   { x: 0, z: -100, radius: 15 },  // North path

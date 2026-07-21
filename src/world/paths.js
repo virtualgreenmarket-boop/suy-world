@@ -110,14 +110,14 @@ export function initPaths(scene) {
   // Plaza moved to X=-50, paths adjusted accordingly
   // Paths to hangars (hangars repositioned with plaza)
 
-  // North hangar: x=-50, z=-171.075 (entrance at z≈-99)
-  addPath(scene, -50, -41, -50, -123);  // Plaza (X=-50) to north hangar entrance
+  // North hangar: x=-50, z=-271.075 (100m farther south)
+  addPath(scene, -50, -41, -50, -199);  // Plaza (X=-50) to north hangar entrance
 
-  // East/Center hangar: x=162.6, z=0 (unchanged - perpendicular)
-  addPath(scene,  -9,   0, 123,   0);   // Plaza east edge (X=-50+41=-9) to center hangar entrance
+  // East/Center hangar: x=212.6, z=0 (50m farther east)
+  addPath(scene,  -9,   0, 140.7, 0);   // Plaza east edge (X=-50+41=-9) to center hangar entrance
 
-  // South hangar: x=-50, z=162.6
-  addPath(scene, -50,  41, -50, 123);   // Plaza (X=-50) to south hangar entrance
+  // South hangar: x=-50, z=262.6 (100m farther north)
+  addPath(scene, -50,  41, -50, 190.7); // Plaza (X=-50) to south hangar entrance
 
   // Marina path (west): from plaza X=-50 to marina land stairs base at X=-297.2
   // Marina group at X=-325.2, stairs local Z=28 → world X=-325.2+28=-297.2

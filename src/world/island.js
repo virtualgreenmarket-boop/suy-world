@@ -395,9 +395,9 @@ function seededRng(seed) {
 // Returns true if (x,z) falls inside a path corridor between the plaza and hangars/marina.
 function _onPath(x, z) {
   const PW = 8; // half-width of path exclusion corridor
-  if (Math.abs(x) < PW && z < -40 && z > -240)  return true; // N path (extended +30% expansion)
-  if (Math.abs(x) < PW && z >  40 && z <  240)  return true; // S path (extended +30% expansion)
-  if (Math.abs(z) < PW && x >  40 && x <  125)  return true; // E path (unchanged - hangar at 162.6)
+  if (Math.abs(x + 50) < PW && z < -40 && z > -280)  return true; // N path (to hangar at z=-271.075)
+  if (Math.abs(x + 50) < PW && z >  40 && z <  270)  return true; // S path (to hangar at z=262.6)
+  if (Math.abs(z) < PW && x >  40 && x <  220)  return true; // E path (to hangar at x=212.6)
   if (Math.abs(z) < PW && x < -40 && x > -210) return true; // W (marina) path (unchanged)
   return false;
 }

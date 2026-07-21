@@ -10,11 +10,11 @@ function makeRng(seed) {
 }
 
 const AVOID = [
-  { x:   0, z: -162.6, r: 85 },    // North hangar (10m closer to plaza)
-  { x: 162.6, z:    0, r: 85 },    // East/Center hangar (10m closer to plaza)
-  { x:   0, z:  162.6, r: 85 },    // South hangar (10m closer to plaza)
-  { x: -150, z:   0, r: 84 },      // Marina
-  { x:   0, z:    0, r: 52 },      // Plaza
+  { x: -50, z: -271.075, r: 85 },    // North hangar
+  { x: 212.6, z: 0, r: 85 },         // East/Center hangar
+  { x: -50, z: 262.6, r: 85 },       // South hangar
+  { x: -150, z: 0, r: 84 },          // Marina
+  { x: -50, z: 0, r: 52 },           // Plaza (updated to match plaza offset)
 ];
 const BEACH_R = 218;
 const PATH_HW = 8; // path half-width exclusion corridor

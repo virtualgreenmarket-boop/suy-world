@@ -294,9 +294,9 @@ function getBrickMat() {
 // Per-hangar exterior dimensions: [North, East/Center, South].
 // ALL HANGARS: 190m wide × 143.85m deep × 17.5m tall (unified dimensions)
 export const HANGAR_DIMS = [
-  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - centered at X=0
-  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // East/Center - centered at X=162.6, Z=0
-  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // South - centered at X=0, Z=162.6
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // North - centered at X=-50, Z=-271.075
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // East/Center - centered at X=212.6, Z=0
+  { W: 190,   D: 143.85,   H: 17.5,   TH: 1.5  }, // South - centered at X=-50, Z=262.6
 ];
 
 // ── Positions ─────────────────────────────────────────────────────────
@@ -307,9 +307,9 @@ export const HANGAR_DIMS = [
 // South: rotated 180°, entrance faces north (toward plaza at x=-50)
 // Exported so collision.js can build wall colliders that always match the real geometry.
 export const HANGAR_CONFIGS = [
-  { x:  -50,    z: -171.075, rotY: 0,           name: 'North Hangar' }, // moved -50m with plaza
-  { x: 162.6,   z: 0,        rotY: -Math.PI / 2, name: 'East Hangar'  }, // unchanged - perpendicular to plaza movement
-  { x:  -50,    z: 162.6,    rotY: Math.PI,      name: 'South Hangar' }, // moved -50m with plaza
+  { x:  -50,    z: -271.075, rotY: 0,           name: 'North Hangar' }, // 100m farther south from plaza
+  { x: 212.6,   z: 0,        rotY: -Math.PI / 2, name: 'East Hangar'  }, // 50m farther east from plaza
+  { x:  -50,    z: 262.6,    rotY: Math.PI,      name: 'South Hangar' }, // 100m farther north from plaza
 ];
 
 // ── Room constants (15 rooms per side, 30 total — North hangar only) ──
@@ -356,8 +356,8 @@ export function initHangars(scene, camera) {
   const sinNE = Math.sin(-Math.PI/2), cosNE = Math.cos(-Math.PI/2);
   const sinS = Math.sin(Math.PI),   cosS = Math.cos(Math.PI);
 
-  // North: x=0, z=HANGAR_CONFIGS[0].z, rotY=0
-  registerInteraction([0 + halfD[0]*sin0, 0, HANGAR_CONFIGS[0].z + halfD[0]*cos0], 'Talk', 7, () => {
+  // North: x=HANGAR_CONFIGS[0].x, z=HANGAR_CONFIGS[0].z, rotY=0
+  registerInteraction([HANGAR_CONFIGS[0].x + halfD[0]*sin0, 0, HANGAR_CONFIGS[0].z + halfD[0]*cos0], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the North Hangar!',
       'This hangar is home to a variety of stores and creators. Walk along both sides and explore the rooms — each one belongs to a different seller or brand.',
@@ -365,8 +365,8 @@ export function initHangars(scene, camera) {
       'Enjoy your visit to the North Hangar!',
     ], 'North Hangar');
   }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
-  // Center: x=162.6, z=0, rotY=-PI/2 (10m closer to plaza)
-  registerInteraction([162.6 + halfD[1]*sinNE, 0, 0 + halfD[1]*cosNE], 'Talk', 7, () => {
+  // Center: x=HANGAR_CONFIGS[1].x, z=HANGAR_CONFIGS[1].z, rotY=-PI/2
+  registerInteraction([HANGAR_CONFIGS[1].x + halfD[1]*sinNE, 0, HANGAR_CONFIGS[1].z + halfD[1]*cosNE], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the Central Hangar!',
       'You are standing at the heart of Suy-World. This hangar connects all directions and is filled with rooms from all kinds of sellers, creators, and brands.',
@@ -374,8 +374,8 @@ export function initHangars(scene, camera) {
       'Enjoy your visit to the Central Hangar!',
     ], 'Central Hangar');
   }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
-  // South: x=0, z=162.6, rotY=PI (10m closer to plaza)
-  registerInteraction([0 + halfD[2]*sinS, 0, 162.6 + halfD[2]*cosS], 'Talk', 7, () => {
+  // South: x=HANGAR_CONFIGS[2].x, z=HANGAR_CONFIGS[2].z, rotY=PI
+  registerInteraction([HANGAR_CONFIGS[2].x + halfD[2]*sinS, 0, HANGAR_CONFIGS[2].z + halfD[2]*cosS], 'Talk', 7, () => {
     showNpcDialog([
       'Welcome to the South Hangar!',
       'This hangar is packed with unique rooms and products. Each door you open leads to a different world — a different seller with their own style and story.',

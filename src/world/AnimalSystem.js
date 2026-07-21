@@ -382,9 +382,9 @@ const FORBIDDEN_ZONES = [
   { x: 0, z: 0, radius: 60 },
 
   // Hangars
-  { x: 0, z: -162.6, radius: 90 },    // North hangar
-  { x: 162.6, z: 0, radius: 90 },     // East hangar
-  { x: 0, z: 162.6, radius: 90 },     // South hangar
+  { x: -50, z: -271.075, radius: 90 },    // North hangar
+  { x: 212.6, z: 0, radius: 90 },         // East hangar
+  { x: -50, z: 262.6, radius: 90 },       // South hangar
 
   // Marina
   { x: -150, z: 0, radius: 90 },
