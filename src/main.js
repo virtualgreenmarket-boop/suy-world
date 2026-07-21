@@ -664,7 +664,13 @@ const npcs = [];
 scene.traverse(obj => { if (obj.userData.isNPC) npcs.push(obj); });
 npcs.forEach(npc => { npc.userData._baseY = npc.position.y; });
 
+// Performance monitor (FPS counter)
+const stats = new Stats();
+stats.showPanel(0); // 0: fps, 1: ms, 2: mb
+document.body.appendChild(stats.dom);
+
 function animate() {
+  stats.begin();
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), 0.05);
   npcTime += delta;
@@ -820,6 +826,7 @@ function animate() {
   }
 
   composer.render();
+  stats.end();
 }
 
 animate();
