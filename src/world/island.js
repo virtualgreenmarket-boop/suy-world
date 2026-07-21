@@ -405,18 +405,32 @@ function _onPath(x, z) {
 function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zone
   const rng = seededRng(17);
 
-  // First 10 trees at exact user-marked coordinates
+  // First 24 trees at exact user-marked coordinates
   const fixedPositions = [
-    { x: 80.14,  y: 0.02, z: 129.96 }, // TREE 1
-    { x: 77.41,  y: 0.02, z: 147.90 }, // TREE 2
-    { x: 75.31,  y: 0.02, z: 179.29 }, // TREE 3
-    { x: 81.93,  y: 0.02, z: 204.47 }, // TREE 4
-    { x: 117.88, y: 0.02, z: 248.05 }, // TREE 5
-    { x: 175.18, y: 0.02, z: 243.57 }, // TREE 6
-    { x: 209.66, y: 0.02, z: 215.14 }, // TREE 7
-    { x: 212.68, y: 0.02, z: 170.54 }, // TREE 8
-    { x: 190.41, y: 0.02, z: 140.47 }, // TREE 9
-    { x: 154.64, y: 0.02, z: 144.78 }, // TREE 10
+    { x: 80.14,  y: 0.02, z: 129.96 },   // TREE 1
+    { x: 77.41,  y: 0.02, z: 147.90 },   // TREE 2
+    { x: 75.31,  y: 0.02, z: 179.29 },   // TREE 3
+    { x: 81.93,  y: 0.02, z: 204.47 },   // TREE 4
+    { x: 117.88, y: 0.02, z: 248.05 },   // TREE 5
+    { x: 175.18, y: 0.02, z: 243.57 },   // TREE 6
+    { x: 209.66, y: 0.02, z: 215.14 },   // TREE 7
+    { x: 212.68, y: 0.02, z: 170.54 },   // TREE 8
+    { x: 190.41, y: 0.02, z: 140.47 },   // TREE 9
+    { x: 154.64, y: 0.02, z: 144.78 },   // TREE 10
+    { x: 73.58,  y: 0.02, z: -171.15 },  // TREE 11
+    { x: 77.30,  y: 0.02, z: -199.47 },  // TREE 12
+    { x: 79.90,  y: 0.02, z: -272.86 },  // TREE 13
+    { x: 126.06, y: 0.02, z: -323.96 },  // TREE 14
+    { x: 181.76, y: 0.02, z: -309.12 },  // TREE 15
+    { x: 225.99, y: 0.02, z: -268.50 },  // TREE 16
+    { x: 243.71, y: 0.02, z: -228.51 },  // TREE 17
+    { x: 256.75, y: 0.02, z: -188.83 },  // TREE 18
+    { x: 246.70, y: 0.02, z: -150.94 },  // TREE 19
+    { x: 222.26, y: 0.02, z: -165.66 },  // TREE 20
+    { x: 185.57, y: 0.02, z: -194.98 },  // TREE 21
+    { x: 124.73, y: 0.02, z: -202.19 },  // TREE 22
+    { x: 99.08,  y: 0.02, z: -197.18 },  // TREE 23
+    { x: 126.77, y: 0.02, z: -121.52 },  // TREE 24
   ];
 
   // Spawn fixed position trees
