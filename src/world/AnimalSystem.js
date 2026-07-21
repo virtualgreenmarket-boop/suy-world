@@ -443,8 +443,8 @@ export function initAnimalSystem(scene, playerGroup) {
   let dogCount = 0;
   let catCount = 0;
 
-  // Spawn 5 dogs
-  for (let i = 0; i < 5; i++) {
+  // Spawn 3 dogs (reduced from 5 for performance)
+  for (let i = 0; i < 3; i++) {
     const colors = DOG_COLORS[i];
     const dog = buildDog(colors);
 
@@ -490,8 +490,8 @@ export function initAnimalSystem(scene, playerGroup) {
     dogCount++;
   }
 
-  // Spawn 5 cats
-  for (let i = 0; i < 5; i++) {
+  // Spawn 3 cats (reduced from 5 for performance)
+  for (let i = 0; i < 3; i++) {
     const colors = CAT_COLORS[i];
     const cat = buildCat(colors);
 

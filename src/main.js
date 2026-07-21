@@ -237,8 +237,8 @@ composer.addPass(new OutputPass());
 // UNIFIED: Same quality settings for all devices
 initIsland(scene, {
   lowQuality: false, // Unified quality
-  maxTrees: 40,      // Balanced: between 25 (mobile) and 55 (desktop)
-  maxPlants: 120     // Balanced: between 80 (mobile) and 200 (desktop)
+  maxTrees: 40,      // 24 fixed positions + 16 random
+  maxPlants: 60      // Reduced from 120 for better performance
 });
 initPlaza(scene);
 initPaths(scene);
@@ -248,10 +248,10 @@ initMarina(scene);
 initLighthouse(scene);
 
 // Initialize ocean fish (decorative swimming fish)
-// UNIFIED: Same fish count for all devices (balanced for performance)
+// PERFORMANCE: Reduced count for smoother gameplay
 try {
   initOceanFish(scene, {
-    count: 35,  // Balanced: between 20 (mobile) and 60 (desktop)
+    count: 15,  // Reduced from 35 for better performance
     area: { x: -325, z: 0, radius: 120 },
     waterY: 0,
     depth: 12,
@@ -412,7 +412,7 @@ const SPAWN_ZONES = [
 
 // Animals to spawn (excluding dogs/cats: Husky, ShibaInu)
 const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Stag', 'Wolf'];
-const totalAnimals = 40;
+const totalAnimals = 20; // Reduced from 40 for better performance
 const spawnPromises = [];
 const zoneAnimalCounts = [0, 0];
 
@@ -718,7 +718,15 @@ function animate() {
     console.error('[main] updatePalmTrees error:', err);
   }
 
-  updateAnimalSystem(delta);
+  // PERFORMANCE: Update animals less frequently (every other frame)
+  if (!window._animalFrameSkip) window._animalFrameSkip = 0;
+  window._animalFrameSkip++;
+  if (window._animalFrameSkip % 2 === 0) {
+    updateAnimalSystem(delta * 2); // Compensate for skipped frames
+    if (animalManager) {
+      animalManager.update(delta * 2);
+    }
+  }
 
   // Ceiling fans rotation
   scene.traverse(obj => {
@@ -729,9 +737,6 @@ function animate() {
   updateRoamingNPCs(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
-  }
-  if (animalManager) {
-    animalManager.update(delta);
   }
 
   // Update fishing system
