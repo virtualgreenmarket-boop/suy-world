@@ -165,12 +165,15 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
                  || window.innerWidth < 768;
 
 // ── Renderer ───────────────────────────────────────────────────────────
-// UNIFIED: Same antialias and pixel ratio for consistent look
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// PERFORMANCE: Optimized settings for smooth gameplay
+const renderer = new THREE.WebGLRenderer({
+  antialias: false, // Disabled for better performance
+  powerPreference: 'high-performance'
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap at 1.5x for performance
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1)); // Cap at 1x for best performance
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type    = THREE.BasicShadowMap; // Unified: faster shadows everywhere
+renderer.shadowMap.type    = THREE.BasicShadowMap; // Fastest shadow algorithm
 renderer.toneMapping         = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 // LinearSRGBColorSpace → OutputPass handles final sRGB conversion
@@ -185,10 +188,10 @@ document.body.appendChild(renderer.domElement);
 const sun = new THREE.DirectionalLight(0xFFF4D6, 2.8);
 sun.position.set(120, 220, 80);
 sun.castShadow = true;
-// UNIFIED: Medium shadow quality for all devices (balanced perf/quality)
-const shadowSize = 120; // Between 80 (mobile) and 160 (desktop)
-sun.shadow.mapSize.width   = 1536; // Between 1024 and 2048
-sun.shadow.mapSize.height  = 1536;
+// PERFORMANCE: Lower shadow resolution for better FPS
+const shadowSize = 100; // Reduced from 120
+sun.shadow.mapSize.width   = 1024; // Reduced from 1536 for performance
+sun.shadow.mapSize.height  = 1024;
 sun.shadow.camera.near     = 1;
 sun.shadow.camera.far      = 350;
 sun.shadow.camera.left     = -shadowSize;
@@ -238,7 +241,7 @@ composer.addPass(new OutputPass());
 initIsland(scene, {
   lowQuality: false, // Unified quality
   maxTrees: 40,      // 24 fixed positions + 16 random
-  maxPlants: 60      // Reduced from 120 for better performance
+  maxPlants: 30      // Heavily reduced for smooth performance
 });
 initPlaza(scene);
 initPaths(scene);
@@ -248,10 +251,10 @@ initMarina(scene);
 initLighthouse(scene);
 
 // Initialize ocean fish (decorative swimming fish)
-// PERFORMANCE: Reduced count for smoother gameplay
+// PERFORMANCE: Minimal count for smooth gameplay
 try {
   initOceanFish(scene, {
-    count: 15,  // Reduced from 35 for better performance
+    count: 8,  // Reduced from 15 for better performance
     area: { x: -325, z: 0, radius: 120 },
     waterY: 0,
     depth: 12,
@@ -411,8 +414,8 @@ const SPAWN_ZONES = [
 ];
 
 // Animals to spawn (excluding dogs/cats: Husky, ShibaInu)
-const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Stag', 'Wolf'];
-const totalAnimals = 20; // Reduced from 40 for better performance
+const animalSpecies = ['Deer', 'Fox', 'Stag']; // Reduced species variety for performance
+const totalAnimals = 10; // Reduced from 20 for better performance
 const spawnPromises = [];
 const zoneAnimalCounts = [0, 0];
 
@@ -728,12 +731,9 @@ function animate() {
     }
   }
 
-  // Ceiling fans rotation
-  scene.traverse(obj => {
-    if (obj.userData.isCeilingFan) {
-      obj.rotation.y += delta * obj.userData.rotationSpeed;
-    }
-  });
+  // PERFORMANCE: Skip ceiling fan updates - not visible most of the time
+  // Ceiling fans rotation disabled for performance
+  // (Uncomment if needed: scene.traverse with isCeilingFan check)
   updateRoamingNPCs(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
@@ -802,15 +802,19 @@ function animate() {
     const cameraYaw = getCameraYaw();
     updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
 
-    // Island decor & life updates (after playerPos is defined)
-    try {
-      updateIslandDecor(delta, playerPos); // Wind sway on plants
-      updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
-      updateDockFish(delta); // Decorative fish near marina
-    } catch (err) {
-      if (!window._islandUpdateErrorLogged) {
-        console.error('[main] Island update error:', err);
-        window._islandUpdateErrorLogged = true;
+    // PERFORMANCE: Update island life/decor less frequently
+    if (!window._islandLifeFrameSkip) window._islandLifeFrameSkip = 0;
+    window._islandLifeFrameSkip++;
+    if (window._islandLifeFrameSkip % 3 === 0) { // Every 3rd frame
+      try {
+        updateIslandDecor(delta * 3, playerPos); // Wind sway on plants
+        updateIslandLife(delta * 3, playerPos); // Fish schools, crabs, dolphins
+        updateDockFish(delta * 3); // Decorative fish near marina
+      } catch (err) {
+        if (!window._islandUpdateErrorLogged) {
+          console.error('[main] Island update error:', err);
+          window._islandUpdateErrorLogged = true;
+        }
       }
     }
   }
