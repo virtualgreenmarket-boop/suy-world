@@ -677,40 +677,26 @@ const npcs = [];
 scene.traverse(obj => { if (obj.userData.isNPC) npcs.push(obj); });
 npcs.forEach(npc => { npc.userData._baseY = npc.position.y; });
 
-// STEP 4: Distance culling - collect cullable objects AGGRESSIVELY
+// STEP 4: Distance culling - collect cullable objects
 const cullableObjects = [];
-let totalMeshes = 0;
-let totalGroups = 0;
-let hangarGroups = [];
-
 scene.traverse(obj => {
-  if (obj.isMesh) totalMeshes++;
-  if (obj.type === 'Group') totalGroups++;
-
-  // Find hangar root groups (they have many children)
-  if (obj.type === 'Group' && obj.children.length > 50 && obj.parent === scene) {
-    hangarGroups.push(obj);
-    cullableObjects.push({ obj, radius: 150 }); // AGGRESSIVE: 150m for hangars!
+  // Hangars (large - cull at 350m)
+  if (obj.name && obj.name.includes('Hangar') && obj.type === 'Group') {
+    cullableObjects.push({ obj, radius: 350 });
   }
-  // Trees (cull at 120m - closer!)
-  else if (obj.userData && obj.userData._isTree) {
-    cullableObjects.push({ obj, radius: 120 });
+  // Trees (cull at 250m)
+  if (obj.userData && obj.userData._isTree) {
+    cullableObjects.push({ obj, radius: 250 });
   }
-  // Palm trees (cull at 120m)
-  else if (obj.userData && obj.userData.spec && obj.userData.crown) {
-    cullableObjects.push({ obj, radius: 120 });
+  // Palm trees (cull at 250m)
+  if (obj.userData && obj.userData.spec && obj.userData.crown) {
+    cullableObjects.push({ obj, radius: 250 });
   }
-  // Animals (cull at 100m)
-  else if (obj.userData && (obj.userData.type === 'dog' || obj.userData.type === 'cat')) {
-    cullableObjects.push({ obj, radius: 100 });
-  }
-  // GLB animals (cull at 100m)
-  else if (obj.type === 'Group' && obj.children.length > 5 && obj.children.length < 30 && obj.parent === scene) {
-    cullableObjects.push({ obj, radius: 100 });
+  // Animals (cull at 180m)
+  if (obj.userData && (obj.userData.type === 'dog' || obj.userData.type === 'cat')) {
+    cullableObjects.push({ obj, radius: 180 });
   }
 });
-console.log(`[main] Scene stats: ${totalMeshes} meshes, ${totalGroups} groups`);
-console.log(`[main] Found ${hangarGroups.length} hangars`);
 console.log(`[main] Distance culling: tracking ${cullableObjects.length} objects`);
 
 // Performance monitor (FPS counter)
@@ -756,42 +742,70 @@ function animate() {
     updateMultiplayer(pos, rotY);
   }
   updateRemotePlayers(delta);
-  // CRITICAL PERF: Disable non-essential animations
-  // updateWater(delta); // DISABLED
-  // updatePlaza(delta, npcTime); // DISABLED
-  // updateHangars(delta); // DISABLED
-  // updateMarina(delta); // DISABLED
-  // updateLighthouse(delta); // DISABLED
+  updateWater(delta);
+  updatePlaza(delta, npcTime);
+  updateHangars(delta);
+  updateMarina(delta);
+  updateLighthouse(delta);
 
-  // Update ocean fish animation - DISABLED
-  // try {
-  //   updateOceanFish(delta);
-  // } catch (err) {
-  //   console.error('[main] updateOceanFish error:', err);
-  // }
+  // Update ocean fish animation
+  try {
+    updateOceanFish(delta);
+  } catch (err) {
+    console.error('[main] updateOceanFish error:', err);
+  }
 
-  // Update palm tree fronds animation - DISABLED
-  // try {
-  //   updatePalmTrees(delta);
-  // } catch (err) {
-  //   console.error('[main] updatePalmTrees error:', err);
-  // }
+  // Update palm tree fronds animation
+  try {
+    updatePalmTrees(delta);
+  } catch (err) {
+    console.error('[main] updatePalmTrees error:', err);
+  }
 
-  // CRITICAL PERF: Disable animal animations completely
-  // if (!window._animalFrameSkip) window._animalFrameSkip = 0;
-  // window._animalFrameSkip++;
-  // if (window._animalFrameSkip % 2 === 0) {
-  //   updateAnimalSystem(delta * 2);
-  //   if (animalManager) {
-  //     animalManager.update(delta * 2);
-  //   }
-  // }
+  // PERFORMANCE: Update animals less frequently (every other frame)
+  if (!window._animalFrameSkip) window._animalFrameSkip = 0;
+  window._animalFrameSkip++;
+  if (window._animalFrameSkip % 2 === 0) {
+    updateAnimalSystem(delta * 2); // Compensate for skipped frames
 
-  // CRITICAL PERF: Disable all non-player animations
-  // updateRoamingNPCs(delta); // DISABLED
-  // if (window._localPlayerGroup) {
-  //   updatePet(delta, window._localPlayerGroup);
-  // }
+    // STEP 5: Throttle distant animal skeletal animations
+    if (animalManager && pos) {
+      try {
+        for (const [id, instance] of animalManager.instances.entries()) {
+          const dx = instance.root.position.x - pos.x;
+          const dz = instance.root.position.z - pos.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+
+          // Skip animation updates for very distant animals
+          if (dist > 150) {
+            // Beyond 150m: freeze animation
+            continue;
+          } else if (dist > 80) {
+            // 80-150m: update every 4th frame only
+            if (window._animalFrameSkip % 8 === 0) {
+              instance.mixer.update(delta * 8);
+            }
+          } else {
+            // <80m: full update
+            instance.mixer.update(delta * 2);
+          }
+        }
+      } catch (err) {
+        console.error('[main] Distance-based animal update error:', err);
+      }
+    } else if (animalManager) {
+      // Fallback: update all if no player position
+      animalManager.update(delta * 2);
+    }
+  }
+
+  // PERFORMANCE: Skip ceiling fan updates - not visible most of the time
+  // Ceiling fans rotation disabled for performance
+  // (Uncomment if needed: scene.traverse with isCeilingFan check)
+  updateRoamingNPCs(delta);
+  if (window._localPlayerGroup) {
+    updatePet(delta, window._localPlayerGroup);
+  }
 
   // Update fishing system
   try {
@@ -874,19 +888,6 @@ function animate() {
     const onlineCount = 1 + getRemotePlayerCount();
     updateOnlineCount(onlineCount);
     updateLiveMapOnlineCount(onlineCount);
-
-    // DEBUG: Print render stats
-    console.log('[PERF]', {
-      calls: renderer.info.render.calls,
-      triangles: renderer.info.render.triangles,
-      points: renderer.info.render.points,
-      lines: renderer.info.render.lines,
-      frame: renderer.info.render.frame,
-      programs: renderer.info.programs?.length || 0,
-      geometries: renderer.info.memory.geometries,
-      textures: renderer.info.memory.textures
-    });
-
     _tUI = 0;
   }
 
@@ -911,21 +912,21 @@ function animate() {
 
   if (playerPos) {
 
-    // CRITICAL PERF: Disable all decorative animations
-    // if (!window._islandLifeFrameSkip) window._islandLifeFrameSkip = 0;
-    // window._islandLifeFrameSkip++;
-    // if (window._islandLifeFrameSkip % 3 === 0) {
-    //   try {
-    //     updateIslandDecor(delta * 3, playerPos);
-    //     updateIslandLife(delta * 3, playerPos);
-    //     updateDockFish(delta * 3);
-    //   } catch (err) {
-    //     if (!window._islandUpdateErrorLogged) {
-    //       console.error('[main] Island update error:', err);
-    //       window._islandUpdateErrorLogged = true;
-    //     }
-    //   }
-    // }
+    // PERFORMANCE: Update island life/decor less frequently
+    if (!window._islandLifeFrameSkip) window._islandLifeFrameSkip = 0;
+    window._islandLifeFrameSkip++;
+    if (window._islandLifeFrameSkip % 3 === 0) { // Every 3rd frame
+      try {
+        updateIslandDecor(delta * 3, playerPos); // Wind sway on plants
+        updateIslandLife(delta * 3, playerPos); // Fish schools, crabs, dolphins
+        updateDockFish(delta * 3); // Decorative fish near marina
+      } catch (err) {
+        if (!window._islandUpdateErrorLogged) {
+          console.error('[main] Island update error:', err);
+          window._islandUpdateErrorLogged = true;
+        }
+      }
+    }
   }
 
   // STEP 1: Render directly or via composer
