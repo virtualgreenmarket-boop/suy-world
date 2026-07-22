@@ -152,8 +152,8 @@ console.log(`[main] 🎮 Starting game with character ${selectedCharacterId}`);
 const scene = new THREE.Scene();
 // Background is a sky sphere added in initIsland; keep a dark fallback only
 scene.background = null;
-// STEP 4: Denser fog to hide culling boundary
-scene.fog = new THREE.FogExp2(0xB8E0FA, 0.0025); // Increased from 0.0014
+// Realistic fog - less bright, more atmospheric
+scene.fog = new THREE.FogExp2(0x8BA8C8, 0.0025); // Muted blue-grey instead of bright cyan
 
 // ── Camera ─────────────────────────────────────────────────────────────
 // STEP 4: Reduced camera.far for distance culling
@@ -177,17 +177,17 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1)); // Cap at 1x for b
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type    = THREE.BasicShadowMap; // Fastest shadow algorithm
 renderer.toneMapping         = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.85; // Reduced from 1.05 for more realistic lighting
 // LinearSRGBColorSpace → OutputPass handles final sRGB conversion
 renderer.outputColorSpace    = THREE.LinearSRGBColorSpace;
-renderer.setClearColor(0x87CEEB, 1);
+renderer.setClearColor(0x6B95B8, 1); // Muted sky blue instead of bright cyan
 document.body.appendChild(renderer.domElement);
 
 
 // ── Lighting ───────────────────────────────────────────────────────────
 
-// Main sun — warm afternoon angle
-const sun = new THREE.DirectionalLight(0xFFF4D6, 2.8);
+// Main sun — realistic natural daylight
+const sun = new THREE.DirectionalLight(0xFFE8C0, 2.2); // Softer warm light, reduced intensity
 sun.position.set(120, 220, 80);
 sun.castShadow = true;
 // STEP 3: Tighter shadow camera that follows player
@@ -204,26 +204,25 @@ sun.shadow.bias            = -0.0008;
 sun.shadow.normalBias      = 0.04;
 scene.add(sun);
 
-// Sky dome — blue from above, warm earth-glow from below
-scene.add(new THREE.HemisphereLight(0x92C8F5, 0x7A6C50, 0.85));
+// Sky dome — realistic blue from above, muted earth-glow from below
+scene.add(new THREE.HemisphereLight(0x7BA3C8, 0x6B5D48, 0.65)); // Less intense, more natural
 
 // Soft fill from the opposite direction (bounced light simulation)
-const fill = new THREE.DirectionalLight(0xC8E8FF, 0.55);
+const fill = new THREE.DirectionalLight(0xA8C8E0, 0.35); // Softer blue fill
 fill.position.set(-80, 60, -120);
 scene.add(fill);
 
 // Subtle ambient so shadows never go pure black
-scene.add(new THREE.AmbientLight(0xffffff, 0.20));
+scene.add(new THREE.AmbientLight(0xE8E8F0, 0.15)); // Slightly warm ambient, reduced intensity
 
-// Plaza warm point light — makes the mosaic glow invitingly
-const plazaLight = new THREE.PointLight(0xFFD080, 1.8, 60, 1.5);
+// Plaza warm point light — subtle warm glow (realistic)
+const plazaLight = new THREE.PointLight(0xE8C070, 1.2, 60, 1.5); // Less intense, warmer
 plazaLight.position.set(0, 8, 0);
 plazaLight.castShadow = false; // perf: no shadow from area fill
 scene.add(plazaLight);
 
-// UNIFIED: Hangar interior fill lights enabled for all devices
-// Using single light instead of 3 for better performance
-const hangarLight = new THREE.PointLight(0xF0E8D8, 1.5, 100, 2.0);
+// Hangar interior fill lights - subtle and natural
+const hangarLight = new THREE.PointLight(0xD8D0C0, 0.9, 100, 2.0); // Softer, less intense
 hangarLight.position.set(0, 12, 0); // Central position above plaza
 scene.add(hangarLight);
 
