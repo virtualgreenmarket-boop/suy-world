@@ -226,15 +226,23 @@ hangarLight.position.set(0, 12, 0); // Central position above plaza
 scene.add(hangarLight);
 
 // ── Post-processing ────────────────────────────────────────────────────
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
+// STEP 1: Bypass post-processing for performance (saves full-screen render pass)
+const USE_POSTFX = false;
 
-// UNIFIED: Bloom disabled on all devices for consistent performance
-// (Bloom is expensive and not essential for gameplay)
-let bloomPass = null; // Disabled for unified smooth performance
+const composer = USE_POSTFX ? new EffectComposer(renderer) : null;
+if (USE_POSTFX) {
+  composer.addPass(new RenderPass(scene, camera));
+  // UNIFIED: Bloom disabled on all devices for consistent performance
+  // (Bloom is expensive and not essential for gameplay)
+  let bloomPass = null; // Disabled for unified smooth performance
+  // Final colour-space conversion (linear → sRGB) + tone mapping output
+  composer.addPass(new OutputPass());
+}
 
-// Final colour-space conversion (linear → sRGB) + tone mapping output
-composer.addPass(new OutputPass());
+// Ensure proper color space when bypassing composer
+if (!USE_POSTFX) {
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+}
 
 // ── World ──────────────────────────────────────────────────────────────
 // UNIFIED: Same quality settings for all devices
@@ -572,8 +580,10 @@ window.addEventListener('resize', () => {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
-  composer.setSize(w, h);
-  if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
+  if (USE_POSTFX && composer) {
+    composer.setSize(w, h);
+    if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
+  }
 });
 
 // ── Performance optimization: Shadow caster reduction ─────────────────
@@ -837,7 +847,16 @@ function animate() {
     }
   }
 
-  composer.render();
+  // STEP 1: Render directly or via composer
+  try {
+    if (USE_POSTFX && composer) {
+      composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
+  } catch (err) {
+    console.error('[main] Render error:', err);
+  }
   stats.end();
 }
 
