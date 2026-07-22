@@ -152,11 +152,13 @@ console.log(`[main] 🎮 Starting game with character ${selectedCharacterId}`);
 const scene = new THREE.Scene();
 // Background is a sky sphere added in initIsland; keep a dark fallback only
 scene.background = null;
-scene.fog = new THREE.FogExp2(0xB8E0FA, 0.0014);
+// STEP 4: Denser fog to hide culling boundary
+scene.fog = new THREE.FogExp2(0xB8E0FA, 0.0025); // Increased from 0.0014
 
 // ── Camera ─────────────────────────────────────────────────────────────
+// STEP 4: Reduced camera.far for distance culling
 const camera = new THREE.PerspectiveCamera(
-  68, window.innerWidth / window.innerHeight, 0.2, 900
+  68, window.innerWidth / window.innerHeight, 0.2, 400
 );
 
 // ── Quality tier ──────────────────────────────────────────────────────
@@ -675,6 +677,28 @@ const npcs = [];
 scene.traverse(obj => { if (obj.userData.isNPC) npcs.push(obj); });
 npcs.forEach(npc => { npc.userData._baseY = npc.position.y; });
 
+// STEP 4: Distance culling - collect cullable objects
+const cullableObjects = [];
+scene.traverse(obj => {
+  // Hangars (large - cull at 350m)
+  if (obj.name && obj.name.includes('Hangar') && obj.type === 'Group') {
+    cullableObjects.push({ obj, radius: 350 });
+  }
+  // Trees (cull at 250m)
+  if (obj.userData && obj.userData._isTree) {
+    cullableObjects.push({ obj, radius: 250 });
+  }
+  // Palm trees (cull at 250m)
+  if (obj.userData && obj.userData.spec && obj.userData.crown) {
+    cullableObjects.push({ obj, radius: 250 });
+  }
+  // Animals (cull at 180m)
+  if (obj.userData && (obj.userData.type === 'dog' || obj.userData.type === 'cat')) {
+    cullableObjects.push({ obj, radius: 180 });
+  }
+});
+console.log(`[main] Distance culling: tracking ${cullableObjects.length} objects`);
+
 // Performance monitor (FPS counter)
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb
@@ -812,6 +836,20 @@ function animate() {
         sun.target.updateMatrixWorld();
       } catch (err) {
         console.error('[main] Shadow camera update error:', err);
+      }
+    }
+
+    // STEP 4: Distance culling (every 100ms)
+    if (pos) {
+      try {
+        for (const entry of cullableObjects) {
+          const dx = entry.obj.position.x - pos.x;
+          const dz = entry.obj.position.z - pos.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          entry.obj.visible = dist < entry.radius;
+        }
+      } catch (err) {
+        console.error('[main] Distance culling error:', err);
       }
     }
 
