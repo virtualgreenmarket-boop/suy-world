@@ -188,12 +188,12 @@ document.body.appendChild(renderer.domElement);
 const sun = new THREE.DirectionalLight(0xFFF4D6, 2.8);
 sun.position.set(120, 220, 80);
 sun.castShadow = true;
-// PERFORMANCE: Lower shadow resolution for better FPS
-const shadowSize = 100; // Reduced from 120
-sun.shadow.mapSize.width   = 1024; // Reduced from 1536 for performance
+// STEP 3: Tighter shadow camera that follows player
+const shadowSize = 30; // Reduced from 100 - covers ~60 units around player
+sun.shadow.mapSize.width   = 1024;
 sun.shadow.mapSize.height  = 1024;
 sun.shadow.camera.near     = 1;
-sun.shadow.camera.far      = 350;
+sun.shadow.camera.far      = 150; // Reduced from 350
 sun.shadow.camera.left     = -shadowSize;
 sun.shadow.camera.right    =  shadowSize;
 sun.shadow.camera.top      =  shadowSize;
@@ -798,6 +798,23 @@ function animate() {
   if (_tSlow >= 0.1) {
     if (pos) updateStores(pos);
     updateBeach(_tSlow, npcTime);
+
+    // STEP 3: Update shadow camera to follow player
+    if (pos) {
+      try {
+        const sunDirection = new THREE.Vector3(120, 220, 80).normalize();
+        sun.position.set(
+          pos.x + sunDirection.x * 100,
+          pos.y + sunDirection.y * 100,
+          pos.z + sunDirection.z * 100
+        );
+        sun.target.position.set(pos.x, pos.y, pos.z);
+        sun.target.updateMatrixWorld();
+      } catch (err) {
+        console.error('[main] Shadow camera update error:', err);
+      }
+    }
+
     _tSlow = 0;
   }
 
