@@ -658,6 +658,7 @@ let npcTime = 0;
 let _tMed  = 0;   // fires every 50ms  → 20fps  (UI projections, interactions)
 let _tSlow = 0;   // fires every 100ms → 10fps  (proximity checks, ambient anim)
 let _tUI   = 0;   // fires every 3s             (online count DOM)
+let _tMap  = 0;   // fires every 100ms → 10fps  (minimap render)
 
 // Procedural (non-GLB) NPCs — collected once at startup
 const npcs = [];
@@ -801,12 +802,23 @@ function animate() {
   // ── Live map updates every frame ──────────────────────────────────────
   // Only update live map if player exists (avoid race condition during startup)
   const playerPos = getLocalPlayerPosition();
+
+  // STEP 1: Throttle minimap to 10fps (100ms)
+  _tMap += delta;
+  if (playerPos && _tMap >= 0.1) {
+    try {
+      const playerRotY = getLocalPlayerRotY();
+      const remotePlayers = getRemotePlayersData();
+      const npcs = getNPCsData();
+      const cameraYaw = getCameraYaw();
+      updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
+      _tMap = 0;
+    } catch (err) {
+      console.error('[main] updateLiveMap error:', err);
+    }
+  }
+
   if (playerPos) {
-    const playerRotY = getLocalPlayerRotY();
-    const remotePlayers = getRemotePlayersData();
-    const npcs = getNPCsData();
-    const cameraYaw = getCameraYaw();
-    updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
 
     // PERFORMANCE: Update island life/decor less frequently
     if (!window._islandLifeFrameSkip) window._islandLifeFrameSkip = 0;

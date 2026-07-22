@@ -376,6 +376,9 @@ export function initLiveMap(scene, renderer) {
  * @param {number} cameraYaw - Camera yaw angle (radians)
  * @param {Array} npcs - Array of NPC data [{x, z, name}, ...]
  */
+// STEP 1: Internal throttle timer for safety net (100ms)
+let _lastRenderTime = 0;
+
 export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs = []) {
   if (!_isInitialized || !playerPos || !_mapCamera || !_mapRenderTarget) {
     if (!_isInitialized) {
@@ -383,6 +386,10 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, n
     }
     return;
   }
+
+  // Safety net: self-throttle expensive render to 100ms regardless of caller
+  const now = performance.now();
+  const shouldRender = (now - _lastRenderTime) >= 100;
 
   const startTime = performance.now();
 
@@ -423,9 +430,18 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, n
     _mapOverheadLight.position.set(playerPos.x, CAMERA_HEIGHT - 100, playerPos.z);
   }
 
-  _renderer.setRenderTarget(_mapRenderTarget);
-  _renderer.render(_scene, _mapCamera);
-  _renderer.setRenderTarget(originalRenderTarget);
+  // STEP 1: Only render if throttle timer elapsed
+  if (shouldRender) {
+    try {
+      _renderer.setRenderTarget(_mapRenderTarget);
+      _renderer.render(_scene, _mapCamera);
+      _renderer.setRenderTarget(originalRenderTarget);
+      _lastRenderTime = now;
+    } catch (err) {
+      console.error('[liveMap] Render error:', err);
+      _renderer.setRenderTarget(originalRenderTarget);
+    }
+  }
 
   // Restore original state
   _scene.fog = originalFog;
