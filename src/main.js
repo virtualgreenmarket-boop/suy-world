@@ -767,7 +767,34 @@ function animate() {
   window._animalFrameSkip++;
   if (window._animalFrameSkip % 2 === 0) {
     updateAnimalSystem(delta * 2); // Compensate for skipped frames
-    if (animalManager) {
+
+    // STEP 5: Throttle distant animal skeletal animations
+    if (animalManager && pos) {
+      try {
+        for (const [id, instance] of animalManager.instances.entries()) {
+          const dx = instance.root.position.x - pos.x;
+          const dz = instance.root.position.z - pos.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+
+          // Skip animation updates for very distant animals
+          if (dist > 150) {
+            // Beyond 150m: freeze animation
+            continue;
+          } else if (dist > 80) {
+            // 80-150m: update every 4th frame only
+            if (window._animalFrameSkip % 8 === 0) {
+              instance.mixer.update(delta * 8);
+            }
+          } else {
+            // <80m: full update
+            instance.mixer.update(delta * 2);
+          }
+        }
+      } catch (err) {
+        console.error('[main] Distance-based animal update error:', err);
+      }
+    } else if (animalManager) {
+      // Fallback: update all if no player position
       animalManager.update(delta * 2);
     }
   }
