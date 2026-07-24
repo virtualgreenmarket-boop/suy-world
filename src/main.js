@@ -14,6 +14,7 @@ import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/l
 import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
 import { initIslandLife, updateIslandLife } from './world/islandLife.js';
 import { initAutumnTrees } from './world/autumnTrees.js';
+import { initPalmTrees, spawnPalmAvenue, updatePalmTrees } from './world/palmTrees.js';
 import { initDockFish, updateDockFish } from './systems/dockFish.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
@@ -27,6 +28,7 @@ import { initEconomy }      from './systems/economy.js';
 import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision, clearAllBoxes } from './systems/collision.js';
+import { getSurfaceY } from './systems/terrain.js';
 import { initFishingSystem, setPlayerInventory, getPlayerInventory } from './systems/fishing.js';
 import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
 import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod, FISHING_SPOTS } from './systems/fishingLoop.js';
@@ -292,6 +294,29 @@ try {
   initSkateboard(scene);
 } catch (err) {
   console.error('[main] Autumn trees failed:', err);
+}
+
+// STEP 2: Initialize palm trees and spawn avenue along plaza→marina path
+try {
+  initPalmTrees(scene);
+
+  // Path endpoints from paths.js: plaza west edge (-91, 0) to marina stairs (-297, 0)
+  const plazaEnd = { x: -91, y: 0, z: 0 };
+  const marinaEnd = { x: -297, y: 0, z: 0 };
+
+  // Path width = 9m, offset = width/2 + 3 = 4.5 + 3 = 7.5m from path center
+  spawnPalmAvenue(plazaEnd, marinaEnd, {
+    perSide: 10,
+    offset: 7.5,
+    spacing: 10,
+    jitter: 0.6,
+    getY: (x, z) => getSurfaceY(x, z),
+    castShadow: false
+  });
+
+  console.log('[main] Palm avenue spawned: 20 palms along plaza→marina path');
+} catch (err) {
+  console.error('[main] Palm trees failed:', err);
 }
 
 // Display lighthouse configuration
@@ -698,6 +723,7 @@ function animate() {
       updateIslandDecor(delta, playerPos); // Wind sway on plants
       updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
       updateDockFish(delta); // Decorative fish near marina
+      updatePalmTrees(delta); // Palm frond sway
     } catch (err) {
       if (!window._islandUpdateErrorLogged) {
         console.error('[main] Island update error:', err);

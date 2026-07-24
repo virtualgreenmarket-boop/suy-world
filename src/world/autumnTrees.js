@@ -5,25 +5,21 @@
 
 import * as THREE from 'three';
 
-// ── Avenue layout ────────────────────────────────────────────────────────────
-// West path (runs along -X, walkway spans Z in [-5, +5]).
-// Trees at X -296..-256, both sides at Z = +/-12.
-//
-// NOTE: this stretch lies inside mapZones' "Marina" avoid-zone (centre -230, radius 140),
-// so isValidGrassPosition() would reject it. That zone exists to keep RANDOM scatter
-// (plants, animals) away from the marina — but these positions are chosen deliberately
-// and sit on open grass beside the path, so we use a simple guard instead.
-const AVENUE_SEGMENTS = [
-  { from: -296, to: -256, step: 8 },
+// ── Plaza corner trees ───────────────────────────────────────────────────────
+// STEP 1: 4 red/autumn trees at plaza corners (82×82m square centered at -50, 0)
+// Each positioned 3m diagonally outward from the corner.
+// Plaza corners: NW(-91,-41), NE(-9,-41), SW(-91,+41), SE(-9,+41)
+// Diagonal outward = direction from center(-50,0) to corner, normalized, × 3m
+const PLAZA_CORNER_TREES = [
+  { x: -93.12, z: -43.12, desc: 'NW corner' }, // (-91,-41) + (-0.707,-0.707)*3 = (-93.12,-43.12)
+  { x: -6.88,  z: -43.12, desc: 'NE corner' }, // (-9,-41)  + (+0.707,-0.707)*3 = (-6.88,-43.12)
+  { x: -93.12, z: +43.12, desc: 'SW corner' }, // (-91,+41) + (-0.707,+0.707)*3 = (-93.12,+43.12)
+  { x: -6.88,  z: +43.12, desc: 'SE corner' }, // (-9,+41)  + (+0.707,+0.707)*3 = (-6.88,+43.12)
 ];
-const SIDE_OFFSET = 12;
 
-// Keeps trees off the walkway and out of the sea.
+// STEP 1: Simple guard for corner trees (always plantable)
 function _isPlantable(x, z) {
-  if (Math.abs(z) < 8) return false;
-  const r = Math.hypot(x, z);
-  if (r > 340) return false;
-  return true;
+  return true; // Corner positions are pre-validated
 }
 
 // ── Look ─────────────────────────────────────────────────────────────────────
@@ -164,31 +160,29 @@ export function buildAutumnTree(seed = 1, scale = 1) {
 }
 
 export function initAutumnTrees(scene) {
-  _autumnGroup = new THREE.Group();
-  let planted = 0;
-  const rejected = [];
-  let seed = 1001;
+  try {
+    _autumnGroup = new THREE.Group();
+    let planted = 0;
+    let seed = 1001;
 
-  AVENUE_SEGMENTS.forEach(seg => {
-    for (let x = seg.from; x <= seg.to; x += seg.step) {
-      [SIDE_OFFSET, -SIDE_OFFSET].forEach(z => {
-        if (!_isPlantable(x, z)) { rejected.push(`(${x}, ${z})`); return; }
-        const rng = seededRng(seed);
-        const scale = 0.85 + rng() * 0.3;
-        const tree = buildAutumnTree(seed, scale);
-        tree.position.set(x, 0, z);
-        tree.rotation.y = rng() * Math.PI * 2;
-        _autumnGroup.add(tree);
-        planted++;
-        seed += 137;
-      });
-    }
-  });
+    // STEP 1: Plant exactly 4 trees at plaza corners, 3m diagonally outward
+    PLAZA_CORNER_TREES.forEach(corner => {
+      const rng = seededRng(seed);
+      const scale = 0.85 + rng() * 0.3;
+      const tree = buildAutumnTree(seed, scale);
+      tree.position.set(corner.x, 0, corner.z);
+      tree.rotation.y = rng() * Math.PI * 2;
+      _autumnGroup.add(tree);
+      planted++;
+      seed += 137;
+    });
 
-  scene.add(_autumnGroup);
-  console.log(`[autumnTrees] Planted ${planted} red autumn trees along the west path`);
-  if (rejected.length) console.log(`[autumnTrees] ${rejected.length} spots rejected:`, rejected.join(' '));
-  if (planted === 0) console.warn('[autumnTrees] NO trees planted — check AVENUE_SEGMENTS.');
+    scene.add(_autumnGroup);
+    console.log(`[autumnTrees] Planted ${planted} red autumn trees at plaza corners`);
+    if (planted !== 4) console.warn(`[autumnTrees] Expected 4 trees, got ${planted}`);
+  } catch (err) {
+    console.error('[autumnTrees] Init error:', err);
+  }
 }
 
 export function getAutumnTreeGroup() {
