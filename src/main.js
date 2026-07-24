@@ -61,9 +61,11 @@ import { initInventoryPanel, onEquipChange }             from './ui/inventoryPan
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
 import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
-import { initLiveMap, updateLiveMap, disposeLiveMap, getMapPin, setMapPin } from './ui/liveMap.js';
-import { createLiveMapUI, updateOnlineCount as updateLiveMapOnlineCount, removeLiveMapUI } from './ui/liveMapUI.js';
-import { openFullscreenMap } from './ui/liveMapFullscreen.js';
+// STEP 1: Minimap disabled (was rendering full scene every frame, ~148ms)
+const SHOW_MINIMAP = false;
+// import { initLiveMap, updateLiveMap, disposeLiveMap, getMapPin, setMapPin } from './ui/liveMap.js';
+// import { createLiveMapUI, updateOnlineCount as updateLiveMapOnlineCount, removeLiveMapUI } from './ui/liveMapUI.js';
+// import { openFullscreenMap } from './ui/liveMapFullscreen.js';
 
 // ── Helper: Extract remote player data for live map ──────────────────
 function getRemotePlayersData() {
@@ -341,21 +343,21 @@ initHud();
 initLeveling();
 initLevelDisplay();
 
-// Initialize live map system
-const liveMapCanvas = initLiveMap(scene, renderer);
-if (liveMapCanvas) {
-  createLiveMapUI(liveMapCanvas);
-
-  // M key to open fullscreen
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'm' || e.key === 'M') {
-      const playerPos = getLocalPlayerPosition();
-      const remotePlayers = getRemotePlayersData();
-      const npcs = getNPCsData();
-      openFullscreenMap(scene, renderer, playerPos, remotePlayers, getMapPin, setMapPin, npcs);
-    }
-  });
-} else {
+// STEP 1: Minimap disabled - don't initialize or create UI
+// const liveMapCanvas = initLiveMap(scene, renderer);
+// if (liveMapCanvas) {
+//   createLiveMapUI(liveMapCanvas);
+//
+//   // M key to open fullscreen
+//   window.addEventListener('keydown', (e) => {
+//     if (e.key === 'm' || e.key === 'M') {
+//       const playerPos = getLocalPlayerPosition();
+//       const remotePlayers = getRemotePlayersData();
+//       const npcs = getNPCsData();
+//       openFullscreenMap(scene, renderer, playerPos, remotePlayers, getMapPin, setMapPin, npcs);
+//     }
+//   });
+// } else {
   console.error('[main] Failed to initialize live map');
 }
 
@@ -704,19 +706,25 @@ function animate() {
   if (_tUI >= 3) {
     const onlineCount = 1 + getRemotePlayerCount();
     updateOnlineCount(onlineCount);
-    updateLiveMapOnlineCount(onlineCount);
+    // STEP 1: Minimap disabled - don't update online count
+    // updateLiveMapOnlineCount(onlineCount);
     _tUI = 0;
   }
 
   // ── Live map updates every frame ──────────────────────────────────────
-  // Only update live map if player exists (avoid race condition during startup)
+  // STEP 1: Minimap disabled - don't render or update
+  // const playerPos = getLocalPlayerPosition();
+  // if (playerPos) {
+  //   const playerRotY = getLocalPlayerRotY();
+  //   const remotePlayers = getRemotePlayersData();
+  //   const npcs = getNPCsData();
+  //   const cameraYaw = getCameraYaw();
+  //   updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
+  // }
+
+  // Island decor & life updates (moved outside if block since playerPos check not needed)
   const playerPos = getLocalPlayerPosition();
   if (playerPos) {
-    const playerRotY = getLocalPlayerRotY();
-    const remotePlayers = getRemotePlayersData();
-    const npcs = getNPCsData();
-    const cameraYaw = getCameraYaw();
-    updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
 
     // Island decor & life updates (after playerPos is defined)
     try {

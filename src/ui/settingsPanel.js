@@ -1,5 +1,8 @@
 import { isChatOpen } from './chatUI.js';
-import { setMapRotationMode, getMapRotationMode } from './liveMap.js';
+// STEP 2: Minimap disabled - stub out map rotation functions
+// import { setMapRotationMode, getMapRotationMode } from './liveMap.js';
+const setMapRotationMode = () => {}; // no-op stub
+const getMapRotationMode = () => 'camera'; // stub default
 
 const STORAGE_KEY = 'suy_settings';
 
