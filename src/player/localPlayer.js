@@ -141,8 +141,8 @@ export function initLocalPlayer(scene, camera, name, characterId) {
     _camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, _camDist + e.deltaY * 0.01));
   }, { passive: false });
 
-  // Initialize action buttons (dance only)
-  initActionButtons(null, _triggerDance);
+  // Initialize action buttons (dance + skateboard)
+  initActionButtons(null, _triggerDance, () => toggleRide(playerGroup));
 
   syncCamera();
 }

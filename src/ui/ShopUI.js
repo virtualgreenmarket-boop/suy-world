@@ -1,6 +1,8 @@
 import { attachHat, attachHandItem, HATS, HAND_ITEMS } from '../player/CharacterBuilder.js';
 import { spawnPet, removePet } from '../world/PetSystem.js';
 import { awardPurchaseEXP } from '../systems/leveling.js';
+import { setSkateboardStyle } from '../world/skateboard.js';
+import { setSkateboardButtonVisible } from './actionButtons.js';
 
 // Shop items data - all 5 categories with 20 items each, sorted by price
 const SHOP_ITEMS = {
@@ -118,6 +120,13 @@ const SHOP_ITEMS = {
     { id:'pet_dragon_grn', name:'דרקון ירוק 🐉',   price:5000, type:'dragon', colorIndex:0, emoji:'🐉' },
     { id:'pet_dragon_red', name:'דרקון אדום 🐉',   price:8000, type:'dragon', colorIndex:1, emoji:'🐉' },
   ],
+
+  vehicles: [
+    { id:'vehicle_skateboard_classic', name:'סקייטבורד קלאסי',  price:500,  style:'קלאסי',  emoji:'🛹' },
+    { id:'vehicle_skateboard_graffiti',name:'סקייטבורד גרפיטי', price:750,  style:'גרפיטי', emoji:'🛹' },
+    { id:'vehicle_skateboard_wood',    name:'סקייטבורד עץ',     price:600,  style:'עץ',     emoji:'🛹' },
+    { id:'vehicle_skateboard_neon',    name:'סקייטבורד ניאון',  price:1000, style:'ניאון',  emoji:'🛹' },
+  ],
 };
 
 // State
@@ -140,6 +149,12 @@ export function initShopUI() {
   window.closeMainShop = _closeShop;
   window.isItemOwned = (itemId) => _ownedItems.has(itemId);
   window.getOwnedItems = () => [..._ownedItems];
+
+  // Check if player owns any skateboard and show button if they do
+  const hasAnySkateboard = [..._ownedItems].some(id => id.startsWith('vehicle_skateboard'));
+  if (hasAnySkateboard) {
+    setSkateboardButtonVisible(true);
+  }
 
   console.log('[ShopUI] Initialized with', window.playerCoins, 'coins and', _ownedItems.size, 'owned items');
 }
@@ -418,6 +433,7 @@ function _createShopOverlay() {
           <div class="shop-category" data-category="shoes">👟 נעליים</div>
           <div class="shop-category" data-category="handItems">🛠 ציוד יד</div>
           <div class="shop-category" data-category="cloaks">👗 גלימות</div>
+          <div class="shop-category" data-category="vehicles">🛹 כלי רכב</div>
           <div class="shop-category" data-category="pets">🐾 חיות</div>
         </div>
 
@@ -590,6 +606,14 @@ function _applyItem(item, category) {
     case 'shoes':
       // Shoes would need a new function window.applyPlayerShoes()
       console.log('[ShopUI] Shoes not implemented yet:', item.name);
+      break;
+
+    case 'vehicles':
+      if (item.style) {
+        setSkateboardStyle(item.style);
+        setSkateboardButtonVisible(true); // Show skateboard button
+        console.log('[ShopUI] Applied skateboard style:', item.style);
+      }
       break;
   }
 }
