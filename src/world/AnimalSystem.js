@@ -1,142 +1,195 @@
 import * as THREE from 'three';
 
 // Helper functions (matching CharacterBuilder.js pattern)
-const M = (c, r=0.7, m=0.05) => new THREE.MeshStandardMaterial({color:c, roughness:r, metalness:m});
+const M = (c, r=0.85, m=0.0) => new THREE.MeshStandardMaterial({color:c, roughness:r, metalness:m});
 
 function B(w,h,d,mat) { const x=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); x.castShadow=true; return x; }
-function S(r,mat) { const x=new THREE.Mesh(new THREE.SphereGeometry(r,10,10),mat); x.castShadow=true; return x; }
-function CY(rt,rb,h,mat) { const x=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,10),mat); x.castShadow=true; return x; }
+function S(r,mat) { const x=new THREE.Mesh(new THREE.SphereGeometry(r,20,16),mat); x.castShadow=true; return x; }
+function CY(rt,rb,h,mat) { const x=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,14),mat); x.castShadow=true; return x; }
 function CO(r,h,seg,mat) { const x=new THREE.Mesh(new THREE.ConeGeometry(r,h,seg),mat); x.castShadow=true; return x; }
 
-// Animal color schemes
+// Animal color schemes (round-cute set: body / dark shade / light belly-muzzle / iris color)
 const DOG_COLORS = [
-  { body:'#C8A050', dark:'#8B6914', nose:'#222', inner:'#FFB6C1' },
-  { body:'#F5F5F5', dark:'#DDDDDD', nose:'#333', inner:'#FFB6C1' },
-  { body:'#222222', dark:'#111111', nose:'#111', inner:'#cc4444' },
-  { body:'#8B4513', dark:'#5C2E00', nose:'#222', inner:'#FFB6C1' },
-  { body:'#E8C49A', dark:'#8B4513', nose:'#222', inner:'#FFB6C1' },
+  { body:'#DCAE63', dark:'#A67C3B', lite:'#F3E2C0', eye:'#5B3A1E', nose:'#26211C', tongue:true  },
+  { body:'#7A4F2E', dark:'#56371F', lite:'#C9A784', eye:'#5B3A1E', nose:'#26211C', tongue:false },
+  { body:'#9AA5B1', dark:'#6C7580', lite:'#D3DAE1', eye:'#3A6FA8', nose:'#26211C', tongue:false },
+  { body:'#2F3338', dark:'#202327', lite:'#6A7078', eye:'#C9932F', nose:'#111111', tongue:true  },
+  { body:'#EFE3C8', dark:'#C9B896', lite:'#FBF5E8', eye:'#5B3A1E', nose:'#26211C', tongue:false },
 ];
 
 const CAT_COLORS = [
-  { body:'#E8842A', dark:'#C0601A', nose:'#ff9999', inner:'#FFB6C1', stripe:true  },
-  { body:'#111111', dark:'#000000', nose:'#333',    inner:'#cc4444', stripe:false },
-  { body:'#F8F8F8', dark:'#E0E0E0', nose:'#FFB6C1', inner:'#FFB6C1', stripe:false },
-  { body:'#888888', dark:'#555555', nose:'#cc8888', inner:'#FFB6C1', stripe:true  },
-  { body:'#D4AA70', dark:'#8B6914', nose:'#FFB6C1', inner:'#FFB6C1', stripe:true  },
+  { body:'#E08A3F', dark:'#B0641F', lite:'#F5D9B8', eye:'#2F9E63', nose:'#D8798F' },
+  { body:'#99A0AB', dark:'#6F7681', lite:'#D6DAE0', eye:'#2F9E63', nose:'#D8798F' },
+  { body:'#2C2F36', dark:'#1E2126', lite:'#62666E', eye:'#D6B52F', nose:'#B06070' },
+  { body:'#F3F0E9', dark:'#CFC9BD', lite:'#FFFFFF', eye:'#3A7FC4', nose:'#D8798F' },
+  { body:'#B5854F', dark:'#8A6234', lite:'#E3C79F', eye:'#2F9E63', nose:'#D8798F' },
 ];
 
-// Build a dog using primitives
+// Comic-style speech bubble sprite ("Waff Waff!" / "Meow Meow!")
+function makeSpeechBubble(text) {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 128;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#ffffff';
+  x.strokeStyle = '#3a3a3a';
+  x.lineWidth = 5;
+  const r = 24, L = 10, T = 10, R = 246, Bm = 86;
+  x.beginPath();
+  x.moveTo(L + r, T);
+  x.lineTo(R - r, T); x.quadraticCurveTo(R, T, R, T + r);
+  x.lineTo(R, Bm - r); x.quadraticCurveTo(R, Bm, R - r, Bm);
+  x.lineTo(150, Bm); x.lineTo(126, 116); x.lineTo(112, Bm);
+  x.lineTo(L + r, Bm); x.quadraticCurveTo(L, Bm, L, Bm - r);
+  x.lineTo(L, T + r); x.quadraticCurveTo(L, T, L + r, T);
+  x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = '#3a3a3a';
+  x.font = 'bold 34px sans-serif';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.fillText(text, 128, 48);
+
+  const tex = new THREE.CanvasTexture(cv);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  sprite.renderOrder = 999;
+  sprite.visible = false;
+  return sprite;
+}
+
+// Round expressive eyes: white backing + colored iris + pupil + shine (visible on dark fur too)
+function addRoundEyes(headG, eyeColor, x, y, z, s, slitPupil) {
+  [-x, x].forEach(xx => {
+    const white = S(0.085 * s, M('#F6F3EC'));
+    white.scale.set(1, 1, 0.72);
+    white.position.set(xx, y, z);
+    headG.add(white);
+
+    const iris = S(0.052 * s, M(eyeColor));
+    iris.position.set(xx, y, z + 0.045 * s);
+    headG.add(iris);
+
+    if (slitPupil) {
+      const pupil = B(0.026 * s, 0.085 * s, 0.02, M('#111'));
+      pupil.position.set(xx, y, z + 0.082 * s);
+      headG.add(pupil);
+    } else {
+      const pupil = S(0.021 * s, M('#111'));
+      pupil.position.set(xx, y, z + 0.085 * s);
+      headG.add(pupil);
+    }
+
+    const shine = S(0.018 * s, M('#fff'));
+    shine.position.set(xx + 0.028 * s, y + 0.03 * s, z + 0.09 * s);
+    headG.add(shine);
+  });
+}
+
+// Build a dog using primitives (round-cute version, faces +Z, hip pivots at y=0.4)
 export function buildDog(colors) {
   const group = new THREE.Group();
-  const parts = { legs: [] };
+  const parts = { legs: [], ears: [] };
 
   const bodyM = M(colors.body);
   const darkM = M(colors.dark);
-  const noseM = M(colors.nose);
-  const innerM = M(colors.inner);
-  const white = M('#fff');
+  const liteM = M(colors.lite);
 
-  // Body - elongated sphere
-  const body = S(0.4, bodyM);
-  body.scale.set(1.5, 0.85, 1.0);
-  body.position.y = 0.55;
+  // Body - round elongated sphere
+  const body = S(0.42, bodyM);
+  body.scale.set(1.0, 0.95, 1.4);
+  body.position.y = 0.62;
   group.add(body);
 
   // Chest patch (lighter)
-  const chest = S(0.25, innerM);
-  chest.position.set(0, 0.45, 0.45);
+  const chest = S(0.26, liteM);
+  chest.scale.set(0.95, 0.9, 1.0);
+  chest.position.set(0, 0.5, 0.42);
   group.add(chest);
 
   // Head group
   parts.headG = new THREE.Group();
-  parts.headG.position.set(0, 0.88, 0.55);
+  parts.headG.position.set(0, 0.98, 0.55);
 
-  // Head sphere
-  const head = S(0.3, bodyM);
+  // Head sphere (big and round = cute)
+  const head = S(0.34, bodyM);
   parts.headG.add(head);
 
   // Muzzle (lighter color)
-  const muzzle = S(0.2, innerM);
-  muzzle.position.set(0, -0.08, 0.28);
+  const muzzle = S(0.18, liteM);
+  muzzle.scale.set(1.25, 0.85, 1.2);
+  muzzle.position.set(0, -0.1, 0.26);
   parts.headG.add(muzzle);
 
-  // Nose (dark, flattened)
-  const nose = S(0.08, noseM);
-  nose.scale.set(1, 0.6, 1);
-  nose.position.set(0, -0.08, 0.42);
+  // Nose
+  const nose = S(0.07, M(colors.nose));
+  nose.position.set(0, -0.05, 0.44);
   parts.headG.add(nose);
 
-  // Eyes
-  [-0.12, 0.12].forEach(x => {
-    const eyeWhite = S(0.08, white);
-    eyeWhite.position.set(x, 0.08, 0.26);
-    parts.headG.add(eyeWhite);
+  // Eyes (white-backed, colored iris, shine)
+  addRoundEyes(parts.headG, colors.eye, 0.155, 0.09, 0.26, 1.1, false);
 
-    const pupil = S(0.05, M('#111'));
-    pupil.position.set(x, 0.08, 0.32);
-    parts.headG.add(pupil);
-
-    const shine = S(0.02, white);
-    shine.position.set(x + 0.015, 0.1, 0.35);
-    parts.headG.add(shine);
+  // Big floppy ears (pivoted so they can bounce while walking)
+  [-0.26, 0.26].forEach((x, i) => {
+    const earG = new THREE.Group();
+    earG.position.set(x, 0.26, -0.02);
+    const ear = S(0.17, darkM);
+    ear.scale.set(0.55, 1.7, 0.9);
+    ear.position.set(0, -0.24, 0.02);
+    earG.add(ear);
+    earG.rotation.z = i === 0 ? 0.55 : -0.55;
+    earG.userData.baseZ = earG.rotation.z;
+    parts.ears.push(earG);
+    parts.headG.add(earG);
   });
 
-  // Floppy ears
-  [-0.22, 0.22].forEach((x, i) => {
-    const ear = S(0.12, darkM);
-    ear.scale.set(0.7, 1.5, 0.6);
-    ear.position.set(x, 0.05, 0);
-    ear.rotation.z = i === 0 ? 0.5 : -0.5;
-    parts.headG.add(ear);
-  });
-
-  // Tongue
-  const tongue = S(0.08, M('#FF69B4'));
-  tongue.scale.set(1, 1.2, 0.6);
-  tongue.position.set(0, -0.2, 0.35);
-  parts.headG.add(tongue);
+  // Tongue (only some dogs — pants while walking)
+  if (colors.tongue) {
+    const tongue = S(0.07, M('#E86A8A'));
+    tongue.scale.set(0.9, 0.5, 1.3);
+    tongue.position.set(0, -0.2, 0.34);
+    tongue.rotation.x = 0.2;
+    parts.tongue = tongue;
+    parts.headG.add(tongue);
+  }
 
   group.add(parts.headG);
 
-  // 4 Legs
+  // 4 Legs (hip pivots at y=0.4 — matches behavior code expectations)
   const legPositions = [
-    { x: -0.28, z: 0.22 },
-    { x: 0.28, z: 0.22 },
-    { x: -0.28, z: -0.22 },
-    { x: 0.28, z: -0.22 },
+    { x: -0.26, z: 0.24 },
+    { x: 0.26, z: 0.24 },
+    { x: -0.26, z: -0.24 },
+    { x: 0.26, z: -0.24 },
   ];
 
   legPositions.forEach(({ x, z }) => {
     const legG = new THREE.Group();
     legG.position.set(x, 0.4, z);
 
-    // Upper leg
-    const upper = CY(0.08, 0.08, 0.28, bodyM);
-    upper.position.y = -0.14;
-    legG.add(upper);
+    const leg = CY(0.1, 0.092, 0.34, bodyM);
+    leg.position.y = -0.17;
+    legG.add(leg);
 
-    // Lower leg
-    const lower = CY(0.07, 0.06, 0.26, darkM);
-    lower.position.y = -0.41;
-    legG.add(lower);
-
-    // Paw
-    const paw = S(0.08, M('#333'));
-    paw.position.y = -0.54;
+    const paw = S(0.11, darkM);
+    paw.position.y = -0.36;
     legG.add(paw);
 
     parts.legs.push(legG);
     group.add(legG);
   });
 
-  // Tail
+  // Tail (points back-up, wags on rotation.y)
   parts.tailG = new THREE.Group();
-  parts.tailG.position.set(0, 0.7, -0.5);
-  const tail = S(0.12, darkM);
-  tail.scale.set(0.7, 0.6, 1.8);
-  tail.rotation.x = 0.6;
+  parts.tailG.position.set(0, 0.78, -0.5);
+  const tail = CY(0.055, 0.04, 0.42, darkM);
+  tail.rotation.x = -0.85;
+  tail.position.set(0, 0.12, -0.12);
   parts.tailG.add(tail);
+  const tip = S(0.075, darkM);
+  tip.position.set(0, 0.27, -0.28);
+  parts.tailG.add(tip);
   group.add(parts.tailG);
+
+  // Dogs are significantly bigger than cats
+  group.scale.setScalar(1.5);
 
   // Ensure all meshes are solid
   group.traverse(child => {
@@ -147,105 +200,85 @@ export function buildDog(colors) {
     }
   });
 
+  // Speech bubble (added after the solid-material pass — must stay transparent)
+  parts.bubble = makeSpeechBubble('Waff Waff!');
+  parts.bubble.position.set(0, 1.9, 0.2);
+  parts.bubble.scale.set(1.5, 0.75, 1);
+  group.add(parts.bubble);
+
   group.userData.parts = parts;
   return group;
 }
 
-// Build a cat using primitives
+// Build a cat using primitives (round-cute version, faces +Z, hip pivots at y=0.35)
 export function buildCat(colors) {
   const group = new THREE.Group();
-  const parts = { legs: [] };
+  const parts = { legs: [], ears: [] };
 
   const bodyM = M(colors.body);
   const darkM = M(colors.dark);
-  const noseM = M(colors.nose);
-  const innerM = M(colors.inner);
-  const white = M('#fff');
+  const liteM = M(colors.lite);
 
-  // Body - elongated sphere
-  const body = S(0.35, bodyM);
-  body.scale.set(1.4, 0.9, 0.95);
+  // Body - round elongated sphere
+  const body = S(0.32, bodyM);
+  body.scale.set(1.0, 0.95, 1.4);
   body.position.y = 0.5;
   group.add(body);
 
   // Belly patch
-  const belly = S(0.2, innerM);
-  belly.position.set(0, 0.35, 0.3);
+  const belly = S(0.18, liteM);
+  belly.position.set(0, 0.4, 0.32);
   group.add(belly);
-
-  // Stripes (if applicable)
-  if (colors.stripe) {
-    [-0.12, 0, 0.12].forEach(z => {
-      const stripe = B(0.5, 0.08, 0.05, darkM);
-      stripe.position.set(0, 0.68, z);
-      stripe.rotation.y = Math.PI / 2;
-      group.add(stripe);
-    });
-  }
 
   // Head group
   parts.headG = new THREE.Group();
-  parts.headG.position.set(0, 0.9, 0.44);
+  parts.headG.position.set(0, 0.82, 0.42);
 
   // Head sphere
-  const head = S(0.24, bodyM);
+  const head = S(0.27, bodyM);
+  head.scale.set(1, 0.95, 1);
   parts.headG.add(head);
 
-  // Two small muzzle spheres
-  [-0.08, 0.08].forEach(x => {
-    const muzzle = S(0.09, innerM);
-    muzzle.position.set(x, -0.08, 0.2);
-    parts.headG.add(muzzle);
-  });
+  // Muzzle (lighter)
+  const muzzle = S(0.13, liteM);
+  muzzle.scale.set(1.25, 0.8, 1.1);
+  muzzle.position.set(0, -0.09, 0.2);
+  parts.headG.add(muzzle);
 
-  // Triangle nose
-  const nose = CO(0.05, 0.08, 3, noseM);
-  nose.rotation.x = Math.PI;
-  nose.position.set(0, -0.08, 0.26);
+  // Pink nose
+  const nose = S(0.045, M(colors.nose));
+  nose.position.set(0, -0.04, 0.315);
   parts.headG.add(nose);
 
-  // Eyes - almond-shaped (teal with vertical pupil)
-  [-0.11, 0.11].forEach(x => {
-    const eye = S(0.09, M('#40E0D0'));
-    eye.scale.set(1.2, 0.75, 0.5);
-    eye.position.set(x, 0.05, 0.2);
-    parts.headG.add(eye);
+  // Eyes (white-backed, colored iris, vertical slit pupil)
+  addRoundEyes(parts.headG, colors.eye, 0.12, 0.06, 0.21, 0.95, true);
 
-    // Vertical pupil slit
-    const pupil = B(0.03, 0.12, 0.02, M('#111'));
-    pupil.position.set(x, 0.05, 0.24);
-    parts.headG.add(pupil);
-
-    // Shine
-    const shine = S(0.02, white);
-    shine.position.set(x + 0.02, 0.08, 0.26);
-    parts.headG.add(shine);
-  });
-
-  // Pointy ears
+  // Pointy ears with pink inner (pivoted for subtle bounce)
   [-0.15, 0.15].forEach((x, i) => {
-    const ear = CO(0.1, 0.2, 4, bodyM);
-    ear.position.set(x, 0.24, -0.05);
-    ear.rotation.z = i === 0 ? -0.3 : 0.3;
-    parts.headG.add(ear);
-
-    // Inner ear (smaller cone)
-    const inner = CO(0.06, 0.12, 4, innerM);
-    inner.position.set(x, 0.22, -0.05);
-    inner.rotation.z = i === 0 ? -0.3 : 0.3;
-    parts.headG.add(inner);
+    const earG = new THREE.Group();
+    earG.position.set(x, 0.24, -0.02);
+    const ear = CO(0.11, 0.24, 14, bodyM);
+    ear.position.y = 0.1;
+    earG.add(ear);
+    const inner = CO(0.055, 0.13, 12, M('#E8A4B4'));
+    inner.position.set(0, 0.09, 0.03);
+    earG.add(inner);
+    earG.rotation.z = i === 0 ? -0.12 : 0.12;
+    earG.userData.baseZ = earG.rotation.z;
+    parts.ears.push(earG);
+    parts.headG.add(earG);
   });
 
   // Whiskers (6 thin boxes)
   [
-    { x: -0.18, y: -0.05, z: 0.2, rot: 0.4 },
-    { x: -0.18, y: -0.08, z: 0.2, rot: 0 },
-    { x: -0.18, y: -0.11, z: 0.2, rot: -0.4 },
-    { x: 0.18, y: -0.05, z: 0.2, rot: -0.4 },
-    { x: 0.18, y: -0.08, z: 0.2, rot: 0 },
-    { x: 0.18, y: -0.11, z: 0.2, rot: 0.4 },
+    { x: -0.16, y: -0.04, z: 0.22, rot: 0.4 },
+    { x: -0.16, y: -0.07, z: 0.22, rot: 0 },
+    { x: -0.16, y: -0.1, z: 0.22, rot: -0.4 },
+    { x: 0.16, y: -0.04, z: 0.22, rot: -0.4 },
+    { x: 0.16, y: -0.07, z: 0.22, rot: 0 },
+    { x: 0.16, y: -0.1, z: 0.22, rot: 0.4 },
   ].forEach(({ x, y, z, rot }) => {
-    const whisker = B(0.25, 0.01, 0.01, M('#333'));
+    const whisker = B(0.22, 0.008, 0.008, M('#333'));
     whisker.position.set(x, y, z);
     whisker.rotation.y = rot;
     parts.headG.add(whisker);
@@ -253,57 +286,52 @@ export function buildCat(colors) {
 
   group.add(parts.headG);
 
-  // 4 Slender legs
+  // 4 Slender legs (hip pivots at y=0.35 — matches behavior code expectations)
   const legPositions = [
-    { x: -0.22, z: 0.18 },
-    { x: 0.22, z: 0.18 },
-    { x: -0.22, z: -0.18 },
-    { x: 0.22, z: -0.18 },
+    { x: -0.2, z: 0.19 },
+    { x: 0.2, z: 0.19 },
+    { x: -0.2, z: -0.19 },
+    { x: 0.2, z: -0.19 },
   ];
 
   legPositions.forEach(({ x, z }) => {
     const legG = new THREE.Group();
     legG.position.set(x, 0.35, z);
 
-    // Upper leg (slimmer than dog)
-    const upper = CY(0.075, 0.075, 0.24, bodyM);
-    upper.position.y = -0.12;
-    legG.add(upper);
+    const leg = CY(0.075, 0.068, 0.3, bodyM);
+    leg.position.y = -0.15;
+    legG.add(leg);
 
-    // Lower leg
-    const lower = CY(0.065, 0.055, 0.22, darkM);
-    lower.position.y = -0.36;
-    legG.add(lower);
-
-    // Paw
-    const paw = S(0.07, M('#333'));
-    paw.position.y = -0.47;
+    const paw = S(0.085, darkM);
+    paw.position.y = -0.31;
     legG.add(paw);
 
     parts.legs.push(legG);
     group.add(legG);
   });
 
-  // Long curved tail (two cylinders at angles)
+  // Curved upright tail (wags on rotation.y)
   parts.tailG = new THREE.Group();
-  parts.tailG.position.set(0, 0.6, -0.45);
+  parts.tailG.position.set(0, 0.55, -0.42);
 
-  const tail1 = CY(0.06, 0.05, 0.5, bodyM);
-  tail1.rotation.x = 0.8;
-  tail1.position.set(0, 0.15, -0.15);
+  const tail1 = CY(0.05, 0.042, 0.34, darkM);
+  tail1.rotation.x = -0.9;
+  tail1.position.set(0, 0.1, -0.12);
   parts.tailG.add(tail1);
 
-  const tail2 = CY(0.05, 0.04, 0.4, bodyM);
-  tail2.rotation.x = 1.2;
-  tail2.position.set(0, 0.35, -0.35);
+  const tail2 = CY(0.04, 0.034, 0.3, darkM);
+  tail2.rotation.x = -0.35;
+  tail2.position.set(0, 0.32, -0.24);
   parts.tailG.add(tail2);
 
-  // Dark tip
-  const tip = S(0.06, darkM);
-  tip.position.set(0, 0.5, -0.55);
+  const tip = S(0.055, darkM);
+  tip.position.set(0, 0.46, -0.27);
   parts.tailG.add(tip);
 
   group.add(parts.tailG);
+
+  // Cats are noticeably smaller than dogs
+  group.scale.setScalar(0.8);
 
   // Ensure all meshes are solid
   group.traverse(child => {
@@ -313,6 +341,12 @@ export function buildCat(colors) {
       child.renderOrder = 0;
     }
   });
+
+  // Speech bubble (added after the solid-material pass — must stay transparent)
+  parts.bubble = makeSpeechBubble('Meow Meow!');
+  parts.bubble.position.set(0, 1.7, 0.15);
+  parts.bubble.scale.set(1.8, 0.9, 1);
+  group.add(parts.bubble);
 
   group.userData.parts = parts;
   return group;
@@ -323,38 +357,62 @@ export function animateAnimal(animal, type, time) {
   const parts = animal.userData.parts;
   if (!parts) return;
 
-  const { headG, tailG, legs } = parts;
+  const { headG, tailG, legs, ears, tongue } = parts;
+  const isCat = animal.userData.type === 'cat';
+
+  // Tongue pants gently in every state (dogs that have one)
+  if (tongue) {
+    tongue.scale.y = 0.5 + Math.sin(time * 9) * 0.09;
+    tongue.position.y = -0.2 + Math.sin(time * 9) * 0.012;
+  }
 
   if (type === 'idle') {
     // Tail wag
-    tailG.rotation.y = Math.sin(time * 2.5) * 0.6;
+    tailG.rotation.y = Math.sin(time * 2.5) * 0.5;
     // Head bob
     headG.position.y = headG.userData.baseY + Math.sin(time * 1.5) * 0.02;
+    headG.rotation.x = 0;
+    headG.rotation.y = 0;
     // Body slight up/down
     animal.position.y = animal.userData.baseY + Math.sin(time * 1.2) * 0.03;
+    // Ears settle
+    if (ears) ears.forEach(e => { e.rotation.x = 0; e.rotation.z = e.userData.baseZ; });
   }
   else if (type === 'walk') {
     // 4 legs swing alternating pairs
     legs.forEach((leg, i) => {
       const phase = (i % 2 === 0) ? 0 : Math.PI;
-      leg.rotation.x = Math.sin(time * 3.5 + phase) * 0.5;
+      leg.rotation.x = Math.sin(time * 4.5 + phase) * 0.55;
     });
     // Tail wag
     tailG.rotation.y = Math.sin(time * 3.0) * 0.5;
     // Head bob
-    headG.position.y = headG.userData.baseY + Math.abs(Math.sin(time * 3.5)) * 0.05;
+    headG.position.y = headG.userData.baseY + Math.abs(Math.sin(time * 4.5)) * 0.05;
+    headG.rotation.x = 0;
+    headG.rotation.y = 0;
+    // Ears bounce with the stride
+    if (ears) ears.forEach(e => {
+      e.rotation.x = Math.sin(time * 4.5 + 0.5) * (isCat ? 0.06 : 0.14);
+      e.rotation.z = e.userData.baseZ;
+    });
   }
   else if (type === 'run') {
     // Faster leg swing
     legs.forEach((leg, i) => {
       const phase = (i % 2 === 0) ? 0 : Math.PI;
-      leg.rotation.x = Math.sin(time * 5.5 + phase) * 0.8;
+      leg.rotation.x = Math.sin(time * 7 + phase) * 0.85;
     });
     // Tail wag faster
     tailG.rotation.y = Math.sin(time * 4.5) * 0.7;
     // Head tilts forward
-    headG.rotation.x = -0.2;
-    headG.position.y = headG.userData.baseY + Math.abs(Math.sin(time * 5.5)) * 0.08;
+    headG.rotation.x = -0.15;
+    headG.rotation.y = 0;
+    headG.position.y = headG.userData.baseY + Math.abs(Math.sin(time * 7)) * 0.08;
+    // Ears flap back while running
+    if (ears) ears.forEach(e => {
+      e.rotation.x = -0.2 + Math.sin(time * 7) * (isCat ? 0.08 : 0.18);
+      e.rotation.z = e.userData.baseZ;
+    });
   }
   else if (type === 'sit') {
     // Back legs fold
@@ -369,11 +427,42 @@ export function animateAnimal(animal, type, time) {
     // Front legs upright
     if (legs[0]) legs[0].rotation.x = 0;
     if (legs[1]) legs[1].rotation.x = 0;
-    // Head tilt with curiosity
-    headG.rotation.z = Math.sin(time * 1.8) * 0.15;
     // Tail wag
     tailG.rotation.y = Math.sin(time * 2.2) * 0.4;
+
+    if (isCat) {
+      // Cats groom while sitting: half scratch (hind leg), half fur-licking (head dips)
+      const scratcher = (animal.id % 2) === 0;
+      if (scratcher && legs[3]) {
+        // Hind leg scratches quickly near the head, head turns toward it
+        legs[3].rotation.x = -0.4 + Math.sin(time * 14) * 0.35;
+        headG.rotation.y = -0.7;
+        headG.rotation.x = 0.12 + Math.sin(time * 14) * 0.04;
+        headG.rotation.z = 0;
+      } else {
+        // Licking fur: head dips toward the chest in a steady rhythm, front paw raised
+        headG.rotation.x = 0.28 + Math.sin(time * 5) * 0.13;
+        headG.rotation.y = 0.25 + Math.sin(time * 5) * 0.06;
+        headG.rotation.z = 0;
+        if (legs[0]) legs[0].rotation.x = -0.5 + Math.sin(time * 5) * 0.1;
+      }
+    } else {
+      // Dogs: curious head tilt (and the tongue keeps panting above)
+      headG.rotation.x = 0;
+      headG.rotation.y = 0;
+      headG.rotation.z = Math.sin(time * 1.8) * 0.15;
+      if (ears) ears.forEach(e => {
+        e.rotation.x = Math.sin(time * 2.2) * 0.08;
+        e.rotation.z = e.userData.baseZ;
+      });
+    }
   }
+}
+
+// Show/hide the animal's speech bubble ("Waff Waff!" / "Meow Meow!")
+function setBubbleVisible(animal, visible) {
+  const parts = animal.userData.parts;
+  if (parts && parts.bubble) parts.bubble.visible = visible;
 }
 
 // Forbidden zones — animals avoid these areas (buildings, trees, obstacles)
@@ -481,7 +570,7 @@ export function initAnimalSystem(scene, playerGroup) {
     dog.userData.baseY = 0;
     dog.userData.stateTimer = Math.random() * 4 + 4; // Random wander direction change (4-8s)
     dog.userData.sitTimer = 0;
-    dog.userData.radius = 0.6;
+    dog.userData.radius = 0.9; // dogs are bigger now
     dog.userData.collider = true;
     dog.userData.parts.headG.userData.baseY = dog.userData.parts.headG.position.y;
 
@@ -528,7 +617,7 @@ export function initAnimalSystem(scene, playerGroup) {
     cat.userData.baseY = 0;
     cat.userData.stateTimer = Math.random() * 4 + 4; // Random wander direction change (4-8s)
     cat.userData.sitTimer = 0;
-    cat.userData.radius = 0.6;
+    cat.userData.radius = 0.5;
     cat.userData.collider = true;
     cat.userData.parts.headG.userData.baseY = cat.userData.parts.headG.position.y;
 
@@ -606,6 +695,7 @@ function updateBehaviorState(animal, delta) {
           x: _playerGroup.position.x,
           z: _playerGroup.position.z,
         };
+        setBubbleVisible(animal, true); // "Waff Waff!" / "Meow Meow!"
         return;
       }
     }
@@ -648,8 +738,8 @@ function updateBehaviorState(animal, delta) {
       animal.userData.animState = 'sit';
       animal.userData.speed = 0;
       animal.userData.target = null;
-      // Sit for random time - shorter if player is moving
-      const sitTime = isPlayerRunning() ? (2 + Math.random() * 3) : (5 + Math.random() * 5);
+      // Sit next to the player for 20 seconds (shorter if player is running)
+      const sitTime = isPlayerRunning() ? (2 + Math.random() * 3) : 20;
       animal.userData.sitTimer = sitTime;
       return;
     }
@@ -660,6 +750,7 @@ function updateBehaviorState(animal, delta) {
       animal.userData.animState = 'run';
       animal.userData.speed = animal.userData.runSpeed;
       animal.userData.stateTimer = 2;
+      setBubbleVisible(animal, false);
       const dx = animal.position.x - _playerGroup.position.x;
       const dz = animal.position.z - _playerGroup.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz) || 1;
@@ -678,6 +769,7 @@ function updateBehaviorState(animal, delta) {
       animal.userData.animState = 'walk';
       animal.userData.speed = animal.userData.walkSpeed;
       animal.userData.stateTimer = 5;
+      setBubbleVisible(animal, false); // done talking, moving on
       // Reset leg positions
       if (animal.userData.parts.legs[2]) {
         animal.userData.parts.legs[2].position.y = isDog ? 0.4 : 0.35;

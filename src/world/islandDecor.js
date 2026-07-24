@@ -332,7 +332,7 @@ function createBeachChair() {
 
   // Real-world target sizes (metres), independent of the umbrella's big spot scale.
   const SEAT_W = 1.6;          // wide enough to fit the ~3 m character
-  const SEAT_D = 1.8;
+  const SEAT_D = 1.3;          // seat depth — shortened so it doesn't jut out past the legs
   const SEAT_TOP_WORLD = BEACH_SEAT_TOP_WORLD;
   const SEAT_THICK = 0.15;
 
@@ -475,7 +475,11 @@ function createBeachFurniture(scene) {
   // SIT_Y = 1.3 the character floated far above the seat; at SIT_Y = BEACH_SEAT_TOP_WORLD
   // - 1.11 the hips rest right on the seat plank. Don't set SIT_Y to match the seat height
   // directly — always derive it from BEACH_SEAT_TOP_WORLD via this offset.
-  const SIT_HIP_RAISE = 1.11; // measured: sit pose lifts the hip pivot this far above SIT_Y
+  //
+  // TUNING: if the character sits slightly INTO the seat, or slightly ABOVE it, adjust
+  // this one number by +/- 0.05 and reload. Increasing it LOWERS the character relative
+  // to the seat; decreasing it RAISES the character. (SIT_Y = SEAT_TOP - SIT_HIP_RAISE.)
+  const SIT_HIP_RAISE = 0.85; // tune by eye: LOWER value raises the character off the seat
   const SIT_Y = BEACH_SEAT_TOP_WORLD - SIT_HIP_RAISE;
 
   // Helper: rotate a local (x,z) by the spot's Y rotation
@@ -531,7 +535,7 @@ function createBeachFurniture(scene) {
           if (isPlayerSitting()) {
             standUp();
           } else {
-            // Sit at ground level (like the bench) so the sit animation poses correctly.
+            // SIT_Y is derived from the seat height via the measured hip offset above.
             sitOnBench(worldX, SIT_Y, worldZ, sitYaw);
           }
         }

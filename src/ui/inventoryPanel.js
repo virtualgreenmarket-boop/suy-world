@@ -30,7 +30,7 @@ const CAT_HE = {
   Face: 'פנים', Jewelry: 'תכשיטים', Bags: 'תיקים',
   Pets: 'חיות מחמד', 'Pet Accessories': 'אביזרי חיות', 'Pet Skins': 'מראה חיות',
   Emotions: 'הבעות', Body: 'גוף', Badges: 'תגים', Nameplate: 'שלט שם', 'Chat Skin': 'סקין צ׳אט',
-  Hoverboard: 'הוברבורד', Bike: 'אופניים',
+  Hoverboard: 'הוברבורד', Bike: 'אופניים', Skateboard: 'סקייטבורד',
   Rods: 'חכות', Baits: 'פיתיונות', Caught: 'דגים',
 };
 
@@ -71,8 +71,9 @@ const SECTIONS = {
   Vehicles: {
     label: 'רכבים', icon: '🛹', accent: '#BA68C8',
     categories: {
-      'Hoverboard': { icon: '🛹', items: [], placeholders: ['קלאסי', 'ניאון', 'להבות', 'קרח'] },
+     'Hoverboard': { icon: _hoverboardSVG(30), items: [], placeholders: ['קלאסי', 'ניאון', 'להבות', 'קרח'] },
       'Bike':       { icon: '🚲', items: [], placeholders: ['עירוניים', 'הרים', 'חשמליים'] },
+      'Skateboard': { icon: '🛹', items: [], placeholders: ['קלאסי', 'גרפיטי', 'עץ', 'ניאון'] },
     },
   },
   Fishing: {
@@ -259,7 +260,21 @@ function _fishSVG(color) {
     '<polygon points="32,8 41,3 41,23 32,18" fill="' + color + '" opacity="0.75"/>' +
     '<circle cx="12" cy="11" r="1.6" fill="#0D2428"/></svg>';
 }
-
+function _hoverboardSVG(size = 30) {
+  const h = Math.round(size * 0.5);
+  return '<svg viewBox="0 0 120 60" width="' + size + '" height="' + h + '" aria-hidden="true">' +
+    '<rect x="8" y="16" width="18" height="28" rx="8" fill="#2E333B"/>' +
+    '<rect x="10" y="19" width="6" height="22" rx="3" fill="#4A525C"/>' +
+    '<rect x="94" y="16" width="18" height="28" rx="8" fill="#2E333B"/>' +
+    '<rect x="96" y="19" width="6" height="22" rx="3" fill="#4A525C"/>' +
+    '<path d="M26 24 Q44 26 58 30 Q44 34 26 36 Z" fill="#BA68C8"/>' +
+    '<path d="M94 24 Q76 26 62 30 Q76 34 94 36 Z" fill="#9C4FAB"/>' +
+    '<rect x="57" y="23" width="6" height="14" rx="2" fill="#2E333B"/>' +
+    '<g stroke="#F4E7C3" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.95">' +
+    '<path d="M34 27 l4 3 -4 3"/><path d="M40 27 l4 3 -4 3"/><path d="M46 27 l4 3 -4 3"/>' +
+    '<path d="M86 27 l-4 3 4 3"/><path d="M80 27 l-4 3 4 3"/><path d="M74 27 l-4 3 4 3"/>' +
+    '</g></svg>';
+}
 // ── Build DOM ─────────────────────────────────────────────────────────
 
 function _buildPanel() {
@@ -947,7 +962,11 @@ function _renderList() {
 
     const iconBox = document.createElement('div');
     iconBox.className = 'inv-cat-row-iconbox';
-    iconBox.textContent = icon;
+    if (typeof icon === 'string' && icon.trim().startsWith('<svg')) {
+      iconBox.innerHTML = icon;
+    } else {
+      iconBox.textContent = icon;
+    }
 
     const info = document.createElement('div');
     info.className = 'inv-cat-row-info';
@@ -1063,7 +1082,11 @@ function _makeSlot(cat, file, icon) {
 
   const iconEl = document.createElement('span');
   iconEl.className = 'inv-slot-icon';
-  iconEl.textContent = icon;
+    if (typeof icon === 'string' && icon.trim().startsWith('<svg')) {
+    iconEl.innerHTML = icon;
+  } else {
+    iconEl.textContent = icon;
+  }
 
   const nameEl = document.createElement('span');
   nameEl.className = 'inv-slot-name';

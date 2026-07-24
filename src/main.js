@@ -3,6 +3,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+import { initSkateboard } from './world/skateboard.js';
 
 import { initIsland, updateWater }   from './world/island.js';
 import { initPlaza,  updatePlaza }   from './world/plaza.js';
@@ -12,9 +13,8 @@ import { initMarina, updateMarina }  from './world/marina.js';
 import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/lighthouse.js';
 import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
 import { initIslandLife, updateIslandLife } from './world/islandLife.js';
+import { initAutumnTrees } from './world/autumnTrees.js';
 import { initDockFish, updateDockFish } from './systems/dockFish.js';
-import { initOceanFish, updateOceanFish } from './world/oceanFish.js';
-import { initPalmTrees, spawnPalm, spawnPalmAvenue, updatePalmTrees } from './world/palmTrees.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
   from './player/localPlayer.js';
@@ -27,13 +27,12 @@ import { initEconomy }      from './systems/economy.js';
 import { preloadPlayerCharacter } from './player/playerCharacterLoader.js';
 import { updateStores }     from './systems/stores.js';
 import { initCollision, clearAllBoxes } from './systems/collision.js';
-import { getSurfaceY } from './systems/terrain.js';
 import { initFishingSystem, setPlayerInventory, getPlayerInventory } from './systems/fishing.js';
 import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
 import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod, FISHING_SPOTS } from './systems/fishingLoop.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
-import { initLoadingScreen, showGameLoadingScreen } from './ui/loadingScreen.js';
+import { initLoadingScreen } from './ui/loadingScreen.js';
 import { initInventoryButton } from './ui/inventoryButton.js';
 
 import { initDecor }                      from './world/decor.js';
@@ -59,7 +58,7 @@ import { initInteractionUI, updateInteractions, registerInteraction }         fr
 import { initInventoryPanel, onEquipChange }             from './ui/inventoryPanel.js';
 import { initSettingsPanel, applyQualitySettings, setSavePositionCallback, setMusicVolumeCallback, setMuteAllCallback, getSettings } from './ui/settingsPanel.js';
 import { initMusic, setMusicVolume, setMuteAll } from './systems/music.js';
-import { initCoordinatesDisplay, updateCoordinates, updateFPS } from './ui/coordinatesDisplay.js';
+import { initCoordinatesDisplay, updateCoordinates } from './ui/coordinatesDisplay.js';
 import { initLiveMap, updateLiveMap, disposeLiveMap, getMapPin, setMapPin } from './ui/liveMap.js';
 import { createLiveMapUI, updateOnlineCount as updateLiveMapOnlineCount, removeLiveMapUI } from './ui/liveMapUI.js';
 import { openFullscreenMap } from './ui/liveMapFullscreen.js';
@@ -124,11 +123,8 @@ function startApp() {
       // After login, show character selection
       initCharacterSelection((characterId) => {
         console.log('[main] Character selected:', characterId);
-        // Show game loading screen before starting the actual game
-        showGameLoadingScreen(() => {
-          // Start game with selected character AFTER loading screen
-          startGame(characterId);
-        });
+        // Start game with selected character
+        startGame(characterId);
       });
     });
   });
@@ -152,50 +148,42 @@ console.log(`[main] 🎮 Starting game with character ${selectedCharacterId}`);
 const scene = new THREE.Scene();
 // Background is a sky sphere added in initIsland; keep a dark fallback only
 scene.background = null;
-// Realistic fog - less bright, more atmospheric
-scene.fog = new THREE.FogExp2(0x8BA8C8, 0.0025); // Muted blue-grey instead of bright cyan
+scene.fog = new THREE.FogExp2(0xB8E0FA, 0.0014);
 
 // ── Camera ─────────────────────────────────────────────────────────────
-// STEP 4: Reduced camera.far for distance culling
 const camera = new THREE.PerspectiveCamera(
-  68, window.innerWidth / window.innerHeight, 0.2, 400
+  68, window.innerWidth / window.innerHeight, 0.2, 900
 );
 
 // ── Quality tier ──────────────────────────────────────────────────────
-// Unified quality settings for smooth performance on all devices
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-                 || window.innerWidth < 768;
+const isMobile = true; // force mobile quality tier for testing
 
 // ── Renderer ───────────────────────────────────────────────────────────
-// PERFORMANCE: Optimized settings for smooth gameplay
-const renderer = new THREE.WebGLRenderer({
-  antialias: false, // Disabled for better performance
-  powerPreference: 'high-performance'
-});
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1)); // Cap at 1x for best performance
+renderer.setPixelRatio(isMobile ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type    = THREE.BasicShadowMap; // Fastest shadow algorithm
+renderer.shadowMap.type    = isMobile ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
 renderer.toneMapping         = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.85; // Reduced from 1.05 for more realistic lighting
+renderer.toneMappingExposure = 1.05;
 // LinearSRGBColorSpace → OutputPass handles final sRGB conversion
 renderer.outputColorSpace    = THREE.LinearSRGBColorSpace;
-renderer.setClearColor(0x6B95B8, 1); // Muted sky blue instead of bright cyan
+renderer.setClearColor(0x87CEEB, 1);
 document.body.appendChild(renderer.domElement);
 
 
 // ── Lighting ───────────────────────────────────────────────────────────
 
-// Main sun — realistic natural daylight
-const sun = new THREE.DirectionalLight(0xFFE8C0, 2.2); // Softer warm light, reduced intensity
+// Main sun — warm afternoon angle
+const sun = new THREE.DirectionalLight(0xFFF4D6, 2.8);
 sun.position.set(120, 220, 80);
 sun.castShadow = true;
-// STEP 3: Tighter shadow camera that follows player
-const shadowSize = 30; // Reduced from 100 - covers ~60 units around player
-sun.shadow.mapSize.width   = 1024;
-sun.shadow.mapSize.height  = 1024;
+// Tight shadow frustum — covers the playable area, not the whole island
+const shadowSize = isMobile ? 80 : 160;
+sun.shadow.mapSize.width   = isMobile ? 1024 : 2048;
+sun.shadow.mapSize.height  = isMobile ? 1024 : 2048;
 sun.shadow.camera.near     = 1;
-sun.shadow.camera.far      = 150; // Reduced from 350
+sun.shadow.camera.far      = 350;
 sun.shadow.camera.left     = -shadowSize;
 sun.shadow.camera.right    =  shadowSize;
 sun.shadow.camera.top      =  shadowSize;
@@ -204,97 +192,64 @@ sun.shadow.bias            = -0.0008;
 sun.shadow.normalBias      = 0.04;
 scene.add(sun);
 
-// Sky dome — realistic blue from above, muted earth-glow from below
-scene.add(new THREE.HemisphereLight(0x7BA3C8, 0x6B5D48, 0.65)); // Less intense, more natural
+// Sky dome — blue from above, warm earth-glow from below
+scene.add(new THREE.HemisphereLight(0x92C8F5, 0x7A6C50, 0.85));
 
 // Soft fill from the opposite direction (bounced light simulation)
-const fill = new THREE.DirectionalLight(0xA8C8E0, 0.35); // Softer blue fill
+const fill = new THREE.DirectionalLight(0xC8E8FF, 0.55);
 fill.position.set(-80, 60, -120);
 scene.add(fill);
 
 // Subtle ambient so shadows never go pure black
-scene.add(new THREE.AmbientLight(0xE8E8F0, 0.15)); // Slightly warm ambient, reduced intensity
+scene.add(new THREE.AmbientLight(0xffffff, 0.20));
 
-// Plaza warm point light — subtle warm glow (realistic)
-const plazaLight = new THREE.PointLight(0xE8C070, 1.2, 60, 1.5); // Less intense, warmer
+// Plaza warm point light — makes the mosaic glow invitingly
+const plazaLight = new THREE.PointLight(0xFFD080, 1.8, 60, 1.5);
 plazaLight.position.set(0, 8, 0);
 plazaLight.castShadow = false; // perf: no shadow from area fill
 scene.add(plazaLight);
 
-// Hangar interior fill lights - subtle and natural
-const hangarLight = new THREE.PointLight(0xD8D0C0, 0.9, 100, 2.0); // Softer, less intense
-hangarLight.position.set(0, 12, 0); // Central position above plaza
-scene.add(hangarLight);
+// Hangar interior fill lights — skip on mobile (saves 3 light calculations)
+if (!isMobile) {
+  [
+    {x:   0, y: 8, z: -130},
+    {x: 130, y: 8, z:   0 },
+    {x:   0, y: 8, z:  130},
+  ].forEach(({ x, y, z }) => {
+    const l = new THREE.PointLight(0xF0E8D8, 1.2, 70, 1.5);
+    l.position.set(x, y, z);
+    scene.add(l);
+  });
+}
 
 // ── Post-processing ────────────────────────────────────────────────────
-// STEP 1: Bypass post-processing for performance (saves full-screen render pass)
-const USE_POSTFX = false;
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
 
-const composer = USE_POSTFX ? new EffectComposer(renderer) : null;
-if (USE_POSTFX) {
-  composer.addPass(new RenderPass(scene, camera));
-  // UNIFIED: Bloom disabled on all devices for consistent performance
-  // (Bloom is expensive and not essential for gameplay)
-  let bloomPass = null; // Disabled for unified smooth performance
-  // Final colour-space conversion (linear → sRGB) + tone mapping output
-  composer.addPass(new OutputPass());
+// Bloom — disabled on mobile and low-VRAM devices (too expensive); half-res on desktop
+let bloomPass = null;
+const hasHighVRAM = !isMobile && (renderer.capabilities.maxTextures >= 16);
+if (hasHighVRAM) {
+  bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2)),
+    0.40,   // strength
+    0.50,   // radius
+    0.84    // threshold
+  );
+  composer.addPass(bloomPass);
 }
 
-// Ensure proper color space when bypassing composer
-if (!USE_POSTFX) {
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-}
+// Final colour-space conversion (linear → sRGB) + tone mapping output
+composer.addPass(new OutputPass());
 
 // ── World ──────────────────────────────────────────────────────────────
-// UNIFIED: Same quality settings for all devices
-initIsland(scene, {
-  lowQuality: false, // Unified quality
-  maxTrees: 40,      // 24 fixed positions + 16 random
-  maxPlants: 30      // Heavily reduced for smooth performance
-});
+initIsland(scene, { lowQuality: isMobile, maxTrees: isMobile ? 28 : 55 });
 initPlaza(scene);
 initPaths(scene);
 clearAllBoxes(); // Clear any phantom collision boxes from previous builds
 initHangars(scene, camera); // Registers kiosk collision boxes
 initMarina(scene);
 initLighthouse(scene);
-
-// Initialize ocean fish (decorative swimming fish)
-// PERFORMANCE: Minimal count for smooth gameplay
-try {
-  initOceanFish(scene, {
-    count: 8,  // Reduced from 15 for better performance
-    area: { x: -325, z: 0, radius: 120 },
-    waterY: 0,
-    depth: 12,
-    scaleBig: 0.6,
-    scaleSmall: 0.7
-  });
-} catch (err) {
-  console.error('[main] initOceanFish failed:', err);
-}
-
-// Initialize palm trees lining the plaza→marina walkway
-try {
-  initPalmTrees(scene);
-  // Plaza→marina path runs from X=-91 to X=-297 at Z=0
-  // Path width is 9 units, so offset = 4.5 (path half-width) + 3 (desired margin) = 7.5
-  spawnPalmAvenue(
-    { x: -91, z: 0 },   // Plaza west edge (path start)
-    { x: -297, z: 0 },  // Marina stairs (path end)
-    {
-      perSide: 10,        // 10 trees each side (20 total)
-      offset: 7.5,        // 7.5m from path center = 3m from path edge
-      spacing: 10,        // 10m between consecutive trees
-      jitter: 0.6,        // Natural position variation
-      getY: (x, z) => getSurfaceY(x, z), // Ground height function
-      castShadow: false   // Performance
-    }
-  );
-
-} catch (err) {
-  console.error('[main] initPalmTrees failed:', err);
-}
 
 // Initialize fishing system
 try {
@@ -330,6 +285,13 @@ try {
   initDockFish(scene); // Decorative fish near marina fishing spots
 } catch (err) {
   console.error('[main] Island init error (non-critical):', err);
+}
+
+try {
+  initAutumnTrees(scene);
+  initSkateboard(scene);
+} catch (err) {
+  console.error('[main] Autumn trees failed:', err);
 }
 
 // Display lighthouse configuration
@@ -403,9 +365,9 @@ const animalManager = new AnimalManager({
 // Pass animalManager to localPlayer for collision detection
 setGLBAnimalManager(animalManager);
 
-// 2-ZONE ANIMAL SPAWNING: Relocate all wild animals to 2 designated zones
-// Dogs and cats (pets) excluded - all other animals relocated
-console.log('[main] 🦌 Spawning wild animals at 2 designated zones...');
+// 4-ZONE ANIMAL SPAWNING: Relocate all animals to 4 designated zones
+// Dogs and cats excluded - all other animals relocated
+console.log('[main] 🦌 Spawning animals at 4 designated zones...');
 
 // CRITICAL: Clear all existing animals first
 animalManager.instances.forEach((instance, id) => {
@@ -414,29 +376,31 @@ animalManager.instances.forEach((instance, id) => {
   }
 });
 animalManager.instances.clear();
-console.log('[main] Cleared all existing wild animals for re-spawn');
+console.log('[main] Cleared all existing animals for re-spawn');
 
-// Define 2 spawn zones (center point + 100m wander radius)
+// Define 4 spawn zones (center point + 10m wander radius)
 const SPAWN_ZONES = [
-  { x: 175.43, z: 216.15,  name: 'South-East zone' },
-  { x: 187.47, z: -280.82, name: 'North zone' }
+  { x: 98.82,   z: -147.17, name: 'North-East grass' },
+  { x: 113.75,  z: 150.19,  name: 'South grass' },
+  { x: -198.10, z: 59.15,   name: 'West coast/marina' },
+  { x: -203.28, z: -49.81,  name: 'Northwest plaza' }
 ];
 
 // Animals to spawn (excluding dogs/cats: Husky, ShibaInu)
-const animalSpecies = ['Deer', 'Fox', 'Stag']; // Reduced species variety for performance
-const totalAnimals = 10; // Reduced from 20 for better performance
+const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Stag', 'Wolf'];
+const totalAnimals = 40;
 const spawnPromises = [];
-const zoneAnimalCounts = [0, 0];
+const zoneAnimalCounts = [0, 0, 0, 0];
 
 for (let i = 0; i < totalAnimals; i++) {
-  // Assign to zone (round-robin for even distribution: 20 per zone)
+  // Assign to zone (round-robin for even distribution)
   const zoneIndex = i % SPAWN_ZONES.length;
   const zone = SPAWN_ZONES[zoneIndex];
   zoneAnimalCounts[zoneIndex]++;
 
-  // Random position within 100m radius of zone center
+  // Random position within 50m radius of zone center (×5 from 10m)
   const angle = Math.random() * Math.PI * 2;
-  const distance = Math.random() * 100; // 0-100m from center
+  const distance = Math.random() * 50; // 0-50m from center
   const spawnX = zone.x + Math.cos(angle) * distance;
   const spawnZ = zone.z + Math.sin(angle) * distance;
 
@@ -447,12 +411,11 @@ for (let i = 0; i < totalAnimals; i++) {
   const startAnimation = Math.random() < 0.33 ? 'idle' : 'walk';
 
   spawnPromises.push(
-    animalManager.spawn(species, { x: spawnX, y: 0.02, z: spawnZ }, {
+    animalManager.spawn(species, { x: spawnX, y: 0, z: spawnZ }, {
       scale,
       rotationY,
       startAnimation,
-      wanderCenter: { x: zone.x, y: 0.02, z: zone.z }, // Anchor to zone center
-      wanderRadius: 100 // Stay within 100m of zone center
+      wanderRadius: 50 // Stay within 50m of spawn point (×5 from 10m)
     }).catch(err => {
       console.error(`[main] Failed to spawn ${species} in zone ${zoneIndex}:`, err);
     })
@@ -460,30 +423,41 @@ for (let i = 0; i < totalAnimals; i++) {
 }
 
 Promise.all(spawnPromises).then(() => {
-  console.log(`[main] ✅ Wild animals spawned at 2 zones:`);
+  console.log(`[main] ✅ Animals spawned at 4 zones:`);
   SPAWN_ZONES.forEach((zone, i) => {
     console.log(`  Zone ${i + 1} (${zone.name}): ${zoneAnimalCounts[i]} animals`);
   });
 }).catch(err => {
-  console.error('[main] ❌ Failed to spawn some wild animals:', err);
+  console.error('[main] ❌ Failed to spawn some animals:', err);
 });
 
-// PART 2: Place 5 trees around each zone (10 trees total for 2 zones)
-console.log('[main] 🌳 Placing 5 trees around each of 2 zones (10 total)...');
+// PART 2: Place 5 trees around each zone (20 trees total)
+console.log('[main] 🌳 Placing 5 trees around each of 4 zones (20 total)...');
 preloadTrees().then(() => {
   let totalTreesPlaced = 0;
   SPAWN_ZONES.forEach((zone, zoneIndex) => {
-    for (let t = 0; t < 5; t++) {
-      // Random angle and distance: 50-100m from zone center
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 50 + Math.random() * 50; // 50-100m from center
-      const treeX = zone.x + Math.cos(angle) * distance;
-      const treeZ = zone.z + Math.sin(angle) * distance;
-
-      // Spawn tree at position
-      spawnTree(scene, treeX, treeZ, 0, 1.0);
-      totalTreesPlaced++;
-    }
+    // Organized green trees flanking the west path — 5 chosen positions plus their
+// mirrors across the road (Z=0). Replaces the old Math.random() scatter that
+// dropped trees on the road/sand and moved them on every refresh.
+const ORGANIZED_TREE_POSITIONS = [
+  { x: -218.5, z: -33 },
+  { x: -181.5, z: -67 },
+  { x: -150,   z: -62.85 },
+  { x: -119.8, z: -42.5 },
+  { x: -81.5,  z: -65.23 },
+  // Mirrored to the other side of the road
+  { x: -218.5, z: 33 },
+  { x: -181.5, z: 67 },
+  { x: -150,   z: 62.85 },
+  { x: -119.8, z: 42.5 },
+  { x: -81.5,  z: 65.23 },
+];
+ORGANIZED_TREE_POSITIONS.forEach((p, i) => {
+  const scale = 0.9 + ((i * 37) % 10) / 40;    // gentle size variety, deterministic
+  const rotY  = (i * 2.399) % (Math.PI * 2);   // varied facing, fixed across reloads
+  spawnTree(scene, p.x, p.z, 0, scale, rotY);
+});
+console.log('[main] Planted 10 organized green trees along the west road');
     console.log(`[main]   Zone ${zoneIndex + 1} (${zone.name}): 5 trees placed at 50-100m radius`);
   });
   console.log(`[main] ✅ Total trees placed: ${totalTreesPlaced}`);
@@ -581,85 +555,9 @@ window.addEventListener('resize', () => {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
-  if (USE_POSTFX && composer) {
-    composer.setSize(w, h);
-    if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
-  }
+  composer.setSize(w, h);
+  if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
 });
-
-// ── Performance optimization: Shadow caster reduction ─────────────────
-function optimizeShadowCasters() {
-  try {
-    let newCasters = 0;
-
-    // PROBLEM 2: Aggressive shadow caster reduction
-    // Only these large structures cast shadows:
-    // - Hangars (check for hangar-related objects)
-    // - Lighthouse (check name or userData)
-    // - Marina deck platform (check name or position)
-    // - Local player (check userData._charModel or isPlayer)
-    scene.traverse((obj) => {
-      if (!obj.isMesh) return;
-
-      // Start with all shadows OFF
-      obj.castShadow = false;
-
-      // Enable shadows ONLY for specific large structures
-      const name = (obj.name || '').toLowerCase();
-      const parentNames = [];
-      let p = obj.parent;
-      while (p) {
-        if (p.name) parentNames.push(p.name.toLowerCase());
-        p = p.parent;
-      }
-      const ancestorPath = parentNames.join('/');
-
-      // Hangar structures
-      if (name.includes('hangar') || ancestorPath.includes('hangar') ||
-          name.includes('wall') || name.includes('roof')) {
-        obj.castShadow = true;
-        newCasters++;
-        return;
-      }
-
-      // Lighthouse
-      if (name.includes('lighthouse') || obj.userData.isLighthouse ||
-          ancestorPath.includes('lighthouse')) {
-        obj.castShadow = true;
-        newCasters++;
-        return;
-      }
-
-      // Marina deck platform (large deck at -325, 3.5, 0)
-      if ((name.includes('marina') && name.includes('deck')) ||
-          (name.includes('deck') && obj.position.x < -300 && obj.position.x > -350)) {
-        obj.castShadow = true;
-        newCasters++;
-        return;
-      }
-
-      // Local player character
-      if (obj.userData._charModel || obj.userData.isPlayer ||
-          ancestorPath.includes('player') ||
-          (obj.parent && obj.parent.userData && obj.parent.userData._charModel)) {
-        obj.castShadow = true;
-        newCasters++;
-        return;
-      }
-
-      // Everything else stays false: trees, animals, NPCs, props, etc.
-    });
-
-    console.log(`[perf] shadow casters now: ${newCasters}`);
-  } catch (err) {
-    console.error('[perf] Shadow optimization failed:', err);
-  }
-}
-
-// Schedule optimization after world loads (3s delay)
-setTimeout(() => {
-  optimizeShadowCasters();
-}, 3000);
 
 // ── Game loop ──────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
@@ -669,42 +567,13 @@ let npcTime = 0;
 let _tMed  = 0;   // fires every 50ms  → 20fps  (UI projections, interactions)
 let _tSlow = 0;   // fires every 100ms → 10fps  (proximity checks, ambient anim)
 let _tUI   = 0;   // fires every 3s             (online count DOM)
-let _tMap  = 0;   // fires every 100ms → 10fps  (minimap render)
 
 // Procedural (non-GLB) NPCs — collected once at startup
 const npcs = [];
 scene.traverse(obj => { if (obj.userData.isNPC) npcs.push(obj); });
 npcs.forEach(npc => { npc.userData._baseY = npc.position.y; });
 
-// STEP 4: Distance culling - collect cullable objects
-const cullableObjects = [];
-scene.traverse(obj => {
-  // Hangars (large - cull at 350m)
-  if (obj.name && obj.name.includes('Hangar') && obj.type === 'Group') {
-    cullableObjects.push({ obj, radius: 350 });
-  }
-  // Trees (cull at 250m)
-  if (obj.userData && obj.userData._isTree) {
-    cullableObjects.push({ obj, radius: 250 });
-  }
-  // Palm trees (cull at 250m)
-  if (obj.userData && obj.userData.spec && obj.userData.crown) {
-    cullableObjects.push({ obj, radius: 250 });
-  }
-  // Animals (cull at 180m)
-  if (obj.userData && (obj.userData.type === 'dog' || obj.userData.type === 'cat')) {
-    cullableObjects.push({ obj, radius: 180 });
-  }
-});
-console.log(`[main] Distance culling: tracking ${cullableObjects.length} objects`);
-
-// Performance monitor (FPS counter)
-const stats = new Stats();
-stats.showPanel(0); // 0: fps, 1: ms, 2: mb
-document.body.appendChild(stats.dom);
-
 function animate() {
-  stats.begin();
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), 0.05);
   npcTime += delta;
@@ -718,7 +587,6 @@ function animate() {
   // Update coordinates display
   if (pos) {
     updateCoordinates(pos);
-    updateFPS(); // Update FPS meter every frame
 
     // Track steps for EXP (award every meter moved)
     if (_lastPlayerPosition) {
@@ -746,64 +614,20 @@ function animate() {
   updateHangars(delta);
   updateMarina(delta);
   updateLighthouse(delta);
+  updateAnimalSystem(delta);
 
-  // Update ocean fish animation
-  try {
-    updateOceanFish(delta);
-  } catch (err) {
-    console.error('[main] updateOceanFish error:', err);
-  }
-
-  // Update palm tree fronds animation
-  try {
-    updatePalmTrees(delta);
-  } catch (err) {
-    console.error('[main] updatePalmTrees error:', err);
-  }
-
-  // PERFORMANCE: Update animals less frequently (every other frame)
-  if (!window._animalFrameSkip) window._animalFrameSkip = 0;
-  window._animalFrameSkip++;
-  if (window._animalFrameSkip % 2 === 0) {
-    updateAnimalSystem(delta * 2); // Compensate for skipped frames
-
-    // STEP 5: Throttle distant animal skeletal animations
-    if (animalManager && pos) {
-      try {
-        for (const [id, instance] of animalManager.instances.entries()) {
-          const dx = instance.root.position.x - pos.x;
-          const dz = instance.root.position.z - pos.z;
-          const dist = Math.sqrt(dx * dx + dz * dz);
-
-          // Skip animation updates for very distant animals
-          if (dist > 150) {
-            // Beyond 150m: freeze animation
-            continue;
-          } else if (dist > 80) {
-            // 80-150m: update every 4th frame only
-            if (window._animalFrameSkip % 8 === 0) {
-              instance.mixer.update(delta * 8);
-            }
-          } else {
-            // <80m: full update
-            instance.mixer.update(delta * 2);
-          }
-        }
-      } catch (err) {
-        console.error('[main] Distance-based animal update error:', err);
-      }
-    } else if (animalManager) {
-      // Fallback: update all if no player position
-      animalManager.update(delta * 2);
+  // Ceiling fans rotation
+  scene.traverse(obj => {
+    if (obj.userData.isCeilingFan) {
+      obj.rotation.y += delta * obj.userData.rotationSpeed;
     }
-  }
-
-  // PERFORMANCE: Skip ceiling fan updates - not visible most of the time
-  // Ceiling fans rotation disabled for performance
-  // (Uncomment if needed: scene.traverse with isCeilingFan check)
+  });
   updateRoamingNPCs(delta);
   if (window._localPlayerGroup) {
     updatePet(delta, window._localPlayerGroup);
+  }
+  if (animalManager) {
+    animalManager.update(delta);
   }
 
   // Update fishing system
@@ -848,37 +672,6 @@ function animate() {
   if (_tSlow >= 0.1) {
     if (pos) updateStores(pos);
     updateBeach(_tSlow, npcTime);
-
-    // STEP 3: Update shadow camera to follow player
-    if (pos) {
-      try {
-        const sunDirection = new THREE.Vector3(120, 220, 80).normalize();
-        sun.position.set(
-          pos.x + sunDirection.x * 100,
-          pos.y + sunDirection.y * 100,
-          pos.z + sunDirection.z * 100
-        );
-        sun.target.position.set(pos.x, pos.y, pos.z);
-        sun.target.updateMatrixWorld();
-      } catch (err) {
-        console.error('[main] Shadow camera update error:', err);
-      }
-    }
-
-    // STEP 4: Distance culling (every 100ms)
-    if (pos) {
-      try {
-        for (const entry of cullableObjects) {
-          const dx = entry.obj.position.x - pos.x;
-          const dz = entry.obj.position.z - pos.z;
-          const dist = Math.sqrt(dx * dx + dz * dz);
-          entry.obj.visible = dist < entry.radius;
-        }
-      } catch (err) {
-        console.error('[main] Distance culling error:', err);
-      }
-    }
-
     _tSlow = 0;
   }
 
@@ -893,52 +686,27 @@ function animate() {
   // ── Live map updates every frame ──────────────────────────────────────
   // Only update live map if player exists (avoid race condition during startup)
   const playerPos = getLocalPlayerPosition();
-
-  // STEP 1: Throttle minimap to 10fps (100ms)
-  _tMap += delta;
-  if (playerPos && _tMap >= 0.1) {
-    try {
-      const playerRotY = getLocalPlayerRotY();
-      const remotePlayers = getRemotePlayersData();
-      const npcs = getNPCsData();
-      const cameraYaw = getCameraYaw();
-      updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
-      _tMap = 0;
-    } catch (err) {
-      console.error('[main] updateLiveMap error:', err);
-    }
-  }
-
   if (playerPos) {
+    const playerRotY = getLocalPlayerRotY();
+    const remotePlayers = getRemotePlayersData();
+    const npcs = getNPCsData();
+    const cameraYaw = getCameraYaw();
+    updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, npcs);
 
-    // PERFORMANCE: Update island life/decor less frequently
-    if (!window._islandLifeFrameSkip) window._islandLifeFrameSkip = 0;
-    window._islandLifeFrameSkip++;
-    if (window._islandLifeFrameSkip % 3 === 0) { // Every 3rd frame
-      try {
-        updateIslandDecor(delta * 3, playerPos); // Wind sway on plants
-        updateIslandLife(delta * 3, playerPos); // Fish schools, crabs, dolphins
-        updateDockFish(delta * 3); // Decorative fish near marina
-      } catch (err) {
-        if (!window._islandUpdateErrorLogged) {
-          console.error('[main] Island update error:', err);
-          window._islandUpdateErrorLogged = true;
-        }
+    // Island decor & life updates (after playerPos is defined)
+    try {
+      updateIslandDecor(delta, playerPos); // Wind sway on plants
+      updateIslandLife(delta, playerPos); // Fish schools, crabs, dolphins
+      updateDockFish(delta); // Decorative fish near marina
+    } catch (err) {
+      if (!window._islandUpdateErrorLogged) {
+        console.error('[main] Island update error:', err);
+        window._islandUpdateErrorLogged = true;
       }
     }
   }
 
-  // STEP 1: Render directly or via composer
-  try {
-    if (USE_POSTFX && composer) {
-      composer.render();
-    } else {
-      renderer.render(scene, camera);
-    }
-  } catch (err) {
-    console.error('[main] Render error:', err);
-  }
-  stats.end();
+  composer.render();
 }
 
 animate();

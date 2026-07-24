@@ -10,6 +10,7 @@ import { attachLabel } from '../ui/labels.js';
 import { initActionButtons } from '../ui/actionButtons.js';
 import { getAnimals } from '../world/AnimalSystem.js';
 import { HANGAR_DIMS, HANGAR_CONFIGS } from '../world/hangars.js';
+import { toggleRide, isRiding, updateSkateboard, RIDE_SPEED, RIDE_LIFT } from '../world/skateboard.js';
 
 let _glbAnimalManager = null;
 export function setGLBAnimalManager(manager) {
@@ -110,6 +111,7 @@ export function initLocalPlayer(scene, camera, name, characterId) {
     }
     if (e.code === 'KeyI') toggleInventoryPanel();
     if (e.code === 'KeyR') _triggerDance();
+    if (e.code === 'KeyV' && !_isSitting) toggleRide(playerGroup);
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -233,9 +235,10 @@ export function updateLocalPlayer(delta) {
   const isMoving = move.lengthSq() > 0;
   _isMoving = isMoving; // Update global movement state
 
-  if (isMoving) {
+ if (isMoving) {
     let speed;
-    if (sprint) speed = RUN_SPEED;
+    if (isRiding()) speed = RIDE_SPEED;
+    else if (sprint) speed = RUN_SPEED;
     else if (kbMoving) speed = KB_SPEED;
     else speed = WALK_SPEED + (RUN_SPEED - WALK_SPEED) * Math.min(joystick.magnitude / 0.78, 1);
 
@@ -285,12 +288,14 @@ export function updateLocalPlayer(delta) {
   }
 
   if (consumeJump()) {
-    const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y);
+    const rideOffsetJ = isRiding() ? RIDE_LIFT : 0;
+    const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y) + rideOffsetJ;
     if (playerGroup.position.y <= groundY + 0.05) _triggerJump();
   }
 
-  // Gravity
-  const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y);
+  // Gravity — while riding, the floor is the deck surface (RIDE_LIFT above ground)
+  const rideOffset = isRiding() ? RIDE_LIFT : 0;
+  const groundY = getSurfaceY(playerGroup.position.x, playerGroup.position.z, playerGroup.position.y) + rideOffset;
   velocityY += GRAVITY * delta;
   playerGroup.position.y = Math.max(groundY, playerGroup.position.y + velocityY * delta);
   if (playerGroup.position.y <= groundY) {
@@ -307,13 +312,15 @@ export function updateLocalPlayer(delta) {
 
     // Set animation only if not playing special animation
     if (!_isPlayingSpecialAnim) {
-      const targetState = !isMoving ? 'idle' : sprint ? 'run' : 'walk';
+      const targetState = isRiding() ? 'idle' : (!isMoving ? 'idle' : sprint ? 'run' : 'walk');
       setPlayerAnimState(playerGroup, targetState);
-    }
+   }
   }
 
   // Update character animations
   updatePlayerCharacterMixer(playerGroup, delta);
+
+  updateSkateboard(delta, playerGroup, isMoving);
 
   syncCamera();
 }
