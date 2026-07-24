@@ -31,6 +31,7 @@ import { initCollision, clearAllBoxes } from './systems/collision.js';
 import { getSurfaceY } from './systems/terrain.js';
 import { initFishingSystem, setPlayerInventory, getPlayerInventory } from './systems/fishing.js';
 import { initFishermanShop, openFishermanShop } from './ui/fishermanShop.js';
+import { initStallShop } from './ui/stallShop.js';
 import { initFishingSpots, updateFishingSpots, tryStartFishing, canStartFishing, pullRod, FISHING_SPOTS } from './systems/fishingLoop.js';
 import { initCharacterSelection, getSavedCharacter } from './ui/characterSelection.js';
 import { initLoginScreen, isAuthenticated, getUsername } from './ui/loginScreen.js';
@@ -516,6 +517,7 @@ function onMultiplayerReady({ name, coins }) {
   try {
     initFishingSystem();
     initFishermanShop(getSocket(), updateCoinDisplay);
+    initStallShop(getSocket(), updateCoinDisplay);
     window.openFishermanShop = openFishermanShop;
 
     // Global function to update fishing inventory

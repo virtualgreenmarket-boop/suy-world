@@ -7,6 +7,7 @@ import { state } from './gameState.js';
 import { MAX_PLAYERS, SPAWN } from './constants.js';
 import { getOrCreatePlayer, adjustCoins, getCoins, db } from './db.js';
 import { initFishing } from './fishing.js';
+import { initStalls } from './stalls.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT   = process.env.PORT || 3001;
@@ -96,6 +97,9 @@ io.on('connection', socket => {
 
 // Initialize fishing system
 initFishing(io, db, getCoins, adjustCoins);
+
+// Initialize stall rental system
+initStalls(io, db, getCoins, adjustCoins);
 
 httpServer.listen(PORT, () =>
   console.log(`SUY WORLD server :${PORT}  [${isProd ? 'production' : 'development'}]`)

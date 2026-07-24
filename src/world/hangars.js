@@ -6,6 +6,7 @@ import { registerInteraction, showNpcDialog } from '../ui/interactionUI.js';
 import { attachLabel } from '../ui/labels.js';
 import { registerGround } from '../systems/terrain.js';
 import { registerBox, clearCollisionsByTag } from '../systems/collision.js';
+import { openStallShop } from '../ui/stallShop.js';
 
 // ── Enhance model quality helper ─────────────────────────────────────
 
@@ -358,30 +359,17 @@ export function initHangars(scene, camera) {
 
   // North: x=HANGAR_CONFIGS[0].x, z=HANGAR_CONFIGS[0].z, rotY=0
   registerInteraction([HANGAR_CONFIGS[0].x + halfD[0]*sin0, 0, HANGAR_CONFIGS[0].z + halfD[0]*cos0], 'Talk', 7, () => {
-    showNpcDialog([
-      'Welcome to the North Hangar!',
-      'This hangar is home to a variety of stores and creators. Walk along both sides and explore the rooms — each one belongs to a different seller or brand.',
-      'Take your time, look around, and click on anything that interests you to learn more.',
-      'Enjoy your visit to the North Hangar!',
-    ], 'North Hangar');
+    openStallShop('north');
   }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
-  // Center: x=HANGAR_CONFIGS[1].x, z=HANGAR_CONFIGS[1].z, rotY=-PI/2
+
+  // East/Center: x=HANGAR_CONFIGS[1].x, z=HANGAR_CONFIGS[1].z, rotY=-PI/2
   registerInteraction([HANGAR_CONFIGS[1].x + halfD[1]*sinNE, 0, HANGAR_CONFIGS[1].z + halfD[1]*cosNE], 'Talk', 7, () => {
-    showNpcDialog([
-      'Welcome to the Central Hangar!',
-      'You are standing at the heart of Suy-World. This hangar connects all directions and is filled with rooms from all kinds of sellers, creators, and brands.',
-      'Browse both sides and the far wall — there is always something new to discover here.',
-      'Enjoy your visit to the Central Hangar!',
-    ], 'Central Hangar');
+    openStallShop('east');
   }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
+
   // South: x=HANGAR_CONFIGS[2].x, z=HANGAR_CONFIGS[2].z, rotY=PI
   registerInteraction([HANGAR_CONFIGS[2].x + halfD[2]*sinS, 0, HANGAR_CONFIGS[2].z + halfD[2]*cosS], 'Talk', 7, () => {
-    showNpcDialog([
-      'Welcome to the South Hangar!',
-      'This hangar is packed with unique rooms and products. Each door you open leads to a different world — a different seller with their own style and story.',
-      'Walk in, explore, and click on anything that catches your eye.',
-      'Enjoy your visit to the South Hangar!',
-    ], 'South Hangar');
+    openStallShop('south');
   }, null, 3.5); // NPC is 3.3m tall, button at 3.5m
 }
 
