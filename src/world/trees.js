@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createGLTFLoader } from '../loaders/sharedLoaders.js';
 import { FBXLoader }  from 'three/addons/loaders/FBXLoader.js';
 import { attachLabel, createLabel } from '../ui/labels.js';
+import { isValidGrassPosition, randomGrassPosition } from './mapZones.js';
 
 const TARGET_HEIGHT = 15.4; // 7 × 2.2 (+120 %)
 const GLB_URL  = '/models/nature/trees/sm_hp_tree.glb';
@@ -314,6 +315,23 @@ function _addPlazaLeafCanopy(scene, leafTex) {
 }
 
 export function spawnTree(scene, x, z, y = 0, scale = 1.0, rotY) {
+  // ── Position validation ──────────────────────────────────────────
+  // Trees must be on grass — never on paths (roads), sand/beach,
+  // water, or inside building footprints. If the requested position
+  // is invalid, relocate to a random valid grass position instead.
+  if (!isValidGrassPosition(x, z)) {
+    const alt = randomGrassPosition(50);
+    if (!alt) {
+      console.warn('[trees] invalid position', x.toFixed(1), z.toFixed(1),
+                   '— no grass alternative found, skipping tree');
+      return;
+    }
+    console.log('[trees] relocated tree from', x.toFixed(1), z.toFixed(1),
+                '→', alt.x.toFixed(1), alt.z.toFixed(1));
+    x = alt.x;
+    z = alt.z;
+  }
+
   const place = () => {
     const tree = _template.clone(true);
     tree.position.set(x, y, z);

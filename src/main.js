@@ -3,6 +3,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+import { initSkateboard } from './world/skateboard.js';
 
 import { initIsland, updateWater }   from './world/island.js';
 import { initPlaza,  updatePlaza }   from './world/plaza.js';
@@ -12,6 +13,7 @@ import { initMarina, updateMarina }  from './world/marina.js';
 import { initLighthouse, updateLighthouse, getLighthouseConfig } from './world/lighthouse.js';
 import { initIslandDecor, updateIslandDecor } from './world/islandDecor.js';
 import { initIslandLife, updateIslandLife } from './world/islandLife.js';
+import { initAutumnTrees } from './world/autumnTrees.js';
 import { initDockFish, updateDockFish } from './systems/dockFish.js';
 
 import { initLocalPlayer, updateLocalPlayer, getLocalPlayerPosition, getLocalPlayerRotY, getCameraYaw, equipLocalPlayerItem, savePlayerPosition, setGLBAnimalManager }
@@ -285,6 +287,13 @@ try {
   console.error('[main] Island init error (non-critical):', err);
 }
 
+try {
+  initAutumnTrees(scene);
+  initSkateboard(scene);
+} catch (err) {
+  console.error('[main] Autumn trees failed:', err);
+}
+
 // Display lighthouse configuration
 const lighthouseConfig = getLighthouseConfig();
 console.log('[main] ═══════════════════════════════════════════════════════');
@@ -427,17 +436,28 @@ console.log('[main] 🌳 Placing 5 trees around each of 4 zones (20 total)...');
 preloadTrees().then(() => {
   let totalTreesPlaced = 0;
   SPAWN_ZONES.forEach((zone, zoneIndex) => {
-    for (let t = 0; t < 5; t++) {
-      // Random angle and distance: 50-100m from zone center (×5 from 10-20m)
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 50 + Math.random() * 50; // 50-100m from center
-      const treeX = zone.x + Math.cos(angle) * distance;
-      const treeZ = zone.z + Math.sin(angle) * distance;
-
-      // Spawn tree at position
-      spawnTree(scene, treeX, treeZ, 0, 1.0);
-      totalTreesPlaced++;
-    }
+    // Organized green trees flanking the west path — 5 chosen positions plus their
+// mirrors across the road (Z=0). Replaces the old Math.random() scatter that
+// dropped trees on the road/sand and moved them on every refresh.
+const ORGANIZED_TREE_POSITIONS = [
+  { x: -218.5, z: -33 },
+  { x: -181.5, z: -67 },
+  { x: -150,   z: -62.85 },
+  { x: -119.8, z: -42.5 },
+  { x: -81.5,  z: -65.23 },
+  // Mirrored to the other side of the road
+  { x: -218.5, z: 33 },
+  { x: -181.5, z: 67 },
+  { x: -150,   z: 62.85 },
+  { x: -119.8, z: 42.5 },
+  { x: -81.5,  z: 65.23 },
+];
+ORGANIZED_TREE_POSITIONS.forEach((p, i) => {
+  const scale = 0.9 + ((i * 37) % 10) / 40;    // gentle size variety, deterministic
+  const rotY  = (i * 2.399) % (Math.PI * 2);   // varied facing, fixed across reloads
+  spawnTree(scene, p.x, p.z, 0, scale, rotY);
+});
+console.log('[main] Planted 10 organized green trees along the west road');
     console.log(`[main]   Zone ${zoneIndex + 1} (${zone.name}): 5 trees placed at 50-100m radius`);
   });
   console.log(`[main] ✅ Total trees placed: ${totalTreesPlaced}`);
