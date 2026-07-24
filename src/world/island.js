@@ -76,11 +76,12 @@ export function initIsland(scene, opts = {}) {
   clearExistingTrees(scene);
   clearExistingPlants(scene);
 
-  // Random scattered trees REMOVED - only precise positioned trees remain:
+  // Spawn ONLY precise positioned trees (no random scatter)
+  // - 24 fixed position trees (fixedPositions in addTrees)
   // - Plaza hero tree (spawnPlazaTree in main.js)
   // - 4 autumn corner trees (autumnTrees.js)
   // - 20 palm avenue trees (palmTrees.js)
-  // addTrees(scene, opts.maxTrees ?? 145); // DELETED - no random trees
+  addFixedTrees(scene); // Only the 24 exact positions, no random
 
   initPlants(scene, opts.maxPlants ?? 50); // Reduced from 200 for performance
 }
@@ -407,10 +408,11 @@ function _onPath(x, z) {
   return false;
 }
 
-function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zone
+// Spawn ONLY the 24 fixed position trees (no random scatter)
+function addFixedTrees(scene) {
   const rng = seededRng(17);
 
-  // First 24 trees at exact user-marked coordinates
+  // 24 trees at exact user-marked coordinates
   const fixedPositions = [
     { x: 80.14,  y: 0.02, z: 129.96 },   // TREE 1
     { x: 77.41,  y: 0.02, z: 147.90 },   // TREE 2
@@ -438,38 +440,12 @@ function addTrees(scene, maxTrees = 150) { // Increased to fill entire grass zon
     { x: 126.77, y: 0.02, z: -121.52 },  // TREE 24
   ];
 
-  // Spawn fixed position trees
+  // Spawn ONLY the 24 fixed position trees
   for (const pos of fixedPositions) {
     const scale = 0.7 + rng() * 0.3; // Seeded variation
     const rotY = rng() * Math.PI * 2;
     spawnTree(scene, pos.x, pos.z, pos.y, scale, rotY);
   }
 
-  // ZONE-AWARE DISTRIBUTION: Use randomGrassPosition with seeded RNG
-  // This ensures trees spawn in IDENTICAL positions every time (deterministic)
-  // respecting the asymmetric ellipse shape, avoiding paths and buildings.
-
-  let treesSpawned = fixedPositions.length;
-  let attempts = 0;
-  const maxAttempts = maxTrees * 10; // Allow multiple attempts per tree
-
-  while (treesSpawned < maxTrees && attempts < maxAttempts) {
-    attempts++;
-
-    // Get random valid position in grass zone (using seeded RNG for deterministic placement)
-    const pos = randomGrassPosition(50, rng);
-    if (!pos) continue; // No valid position found
-
-    const { x, z } = pos;
-
-    // Random scale and rotation for natural variation (also seeded)
-    const scale = 0.55 + rng() * 0.45;
-    const rotY = rng() * Math.PI * 2;
-    const y = getSurfaceY(x, z);
-
-    spawnTree(scene, x, z, y, scale, rotY);
-    treesSpawned++;
-  }
-
-  console.log(`[island] Spawned ${treesSpawned} trees (${fixedPositions.length} fixed + ${treesSpawned - fixedPositions.length} random)`);
+  console.log('[island] Spawned', fixedPositions.length, 'fixed position trees');
 }
