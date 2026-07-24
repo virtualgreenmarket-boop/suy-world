@@ -637,7 +637,8 @@ function _buildRoomNumberSign(number) {
   // Assign texture to material AFTER it's created
   mat.map = tex;
   mat.needsUpdate = true; // Mark material for update
-  tex.needsUpdate = true; // Mark texture for upload
+  // NOTE: CanvasTexture automatically handles needsUpdate internally - do NOT set it manually
+  // Setting tex.needsUpdate = true here causes "no image data" spam every frame
 
   // Cache the material
   _signMaterialCache.set(number, mat);
