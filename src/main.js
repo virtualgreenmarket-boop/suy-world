@@ -358,8 +358,8 @@ initLevelDisplay();
 //     }
 //   });
 // } else {
-  console.error('[main] Failed to initialize live map');
-}
+//   console.error('[main] Failed to initialize live map');
+// }
 
 initShopUI();
 initChatUI();
