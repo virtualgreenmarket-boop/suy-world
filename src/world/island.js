@@ -76,7 +76,12 @@ export function initIsland(scene, opts = {}) {
   clearExistingTrees(scene);
   clearExistingPlants(scene);
 
-  addTrees(scene, opts.maxTrees ?? 145); // Reduced from 150 (deleted 5 trees)
+  // Random scattered trees REMOVED - only precise positioned trees remain:
+  // - Plaza hero tree (spawnPlazaTree in main.js)
+  // - 4 autumn corner trees (autumnTrees.js)
+  // - 20 palm avenue trees (palmTrees.js)
+  // addTrees(scene, opts.maxTrees ?? 145); // DELETED - no random trees
+
   initPlants(scene, opts.maxPlants ?? 200); // Add flowers, bushes, rocks
 }
 
