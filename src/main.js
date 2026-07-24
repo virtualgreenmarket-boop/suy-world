@@ -230,18 +230,19 @@ if (!isMobile) {
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
-// Bloom — disabled on mobile and low-VRAM devices (too expensive); half-res on desktop
+// Bloom — DISABLED for performance (was heavy on GPU)
+// Colors remain realistic via proper lighting + tone mapping
 let bloomPass = null;
-const hasHighVRAM = !isMobile && (renderer.capabilities.maxTextures >= 16);
-if (hasHighVRAM) {
-  bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2)),
-    0.40,   // strength
-    0.50,   // radius
-    0.84    // threshold
-  );
-  composer.addPass(bloomPass);
-}
+// const hasHighVRAM = !isMobile && (renderer.capabilities.maxTextures >= 16);
+// if (hasHighVRAM) {
+//   bloomPass = new UnrealBloomPass(
+//     new THREE.Vector2(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2)),
+//     0.40,   // strength
+//     0.50,   // radius
+//     0.84    // threshold
+//   );
+//   composer.addPass(bloomPass);
+// }
 
 // Final colour-space conversion (linear → sRGB) + tone mapping output
 composer.addPass(new OutputPass());
@@ -415,7 +416,7 @@ const SPAWN_ZONES = [
 
 // Animals to spawn (excluding dogs/cats: Husky, ShibaInu)
 const animalSpecies = ['Alpaca', 'Bull', 'Deer', 'Donkey', 'Fox', 'Stag', 'Wolf'];
-const totalAnimals = 40;
+const totalAnimals = 20; // Reduced from 40 for performance
 const spawnPromises = [];
 const zoneAnimalCounts = [0, 0, 0, 0];
 
@@ -583,7 +584,8 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
-  if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
+  // Bloom disabled - no resize needed
+  // if (bloomPass) bloomPass.resolution.set(Math.round(w / 2), Math.round(h / 2));
 });
 
 // ── Game loop ──────────────────────────────────────────────────────────

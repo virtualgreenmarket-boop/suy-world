@@ -82,7 +82,7 @@ export function initIsland(scene, opts = {}) {
   // - 20 palm avenue trees (palmTrees.js)
   // addTrees(scene, opts.maxTrees ?? 145); // DELETED - no random trees
 
-  initPlants(scene, opts.maxPlants ?? 200); // Add flowers, bushes, rocks
+  initPlants(scene, opts.maxPlants ?? 50); // Reduced from 200 for performance
 }
 
 function clearExistingTrees(scene) {

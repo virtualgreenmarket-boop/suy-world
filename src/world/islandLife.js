@@ -10,13 +10,18 @@ import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js'
 import { isValidShallowWaterPosition } from './mapZones.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LAYER 3: SHALLOW WATER LIFE
+// LAYER 3: SHALLOW WATER LIFE - MARINA AREA ONLY (within 100m radius)
 // ══════════════════════════════════════════════════════════════════════════════
 
-const FISH_SCHOOLS = 7; // Increased from 5 to add patrols near marina and lighthouse
-const FISH_PER_SCHOOL = 25; // 22-28
+const FISH_SCHOOLS = 5; // Reduced from 7 for performance, marina area only
+const FISH_PER_SCHOOL = 10; // Reduced from 25, total ~50 fish
 const FISH_SWIM_SPEED = 0.7; // m/s
 const FISH_DEPTH_RANGE = [0.2, 0.6]; // meters below water surface
+
+// Marina location for fish spawning (from marina.js)
+const MARINA_X = -325.2;
+const MARINA_Z = 0;
+const MARINA_FISH_RADIUS = 100; // Only spawn fish within 100m of marina
 
 const CRAB_COUNT = 10;
 const CRAB_SCUTTLE_SPEED = 0.3; // m/s
@@ -90,7 +95,7 @@ function createFishSchools(scene) {
   const fishGeometry = createFishGeometry();
 
   for (let s = 0; s < FISH_SCHOOLS; s++) {
-    const schoolSize = FISH_PER_SCHOOL + Math.floor(Math.random() * 7) - 3; // 22-28
+    const schoolSize = FISH_PER_SCHOOL + Math.floor(Math.random() * 3) - 1; // 9-12 fish per school
     const schoolColor = SCHOOL_COLORS[s % SCHOOL_COLORS.length];
 
     const material = new THREE.MeshLambertMaterial({
@@ -102,19 +107,14 @@ function createFishSchools(scene) {
     instancedMesh.castShadow = false;
     instancedMesh.receiveShadow = false;
 
-    // Generate waypoints in shallow water near play areas
-    // Bias toward spawn/marina/lighthouse/east beach
-    // CRITICAL: Positions must be in shallow water zone (beyond 350m inner radius)
-    // Account for asymmetric ellipse: east side expanded 1.4x, north/south 2.38x
-    // Place patrols just beyond beach (360-420 normalized distance)
+    // MARINA AREA ONLY: Generate waypoints within 100m radius of marina (-325.2, 0)
+    // All fish schools patrol around the marina/fishing area for realism
     const playAreaCenters = [
-      { x: 520, z: 0, name: 'East beach' },           // East: 520/1.4 = 371 normalized
-      { x: -380, z: 20, name: 'Marina pier' },        // Marina: ~380 normalized
-      { x: -380, z: -20, name: 'Marina south' },      // Marina south
-      { x: 30, z: -900, name: 'Lighthouse cove' },    // North: -900/2.38 = -378 normalized
-      { x: 0, z: 900, name: 'North beach' },          // North: 900/2.38 = 378 normalized
-      { x: 380, z: 620, name: 'Southeast lagoon' },   // Southeast: dist ~407 normalized
-      { x: -380, z: -620, name: 'Southwest cove' }    // Southwest: dist ~407 normalized
+      { x: -325, z: 0, name: 'Marina center' },
+      { x: -300, z: 30, name: 'Marina north' },
+      { x: -300, z: -30, name: 'Marina south' },
+      { x: -350, z: 20, name: 'Marina west' },
+      { x: -280, z: 0, name: 'Marina east' }
     ];
     const playArea = playAreaCenters[s % playAreaCenters.length];
 
@@ -469,10 +469,15 @@ function triggerDolphinJump(playerPos) {
 export function updateIslandLife(delta, playerPos) {
   const time = performance.now() * 0.001;
 
-  // Fish schools
-  _fishSchools.forEach(school => {
-    const dist = Math.hypot(school.centerPos.x - playerPos.x, school.centerPos.z - playerPos.z);
-    if (dist > 90) return; // Freeze if too far
+  // OPTIMIZATION: Only update fish if player is within 150m of marina
+  const distToMarina = Math.hypot(playerPos.x - MARINA_X, playerPos.z - MARINA_Z);
+  const updateFish = distToMarina < 150;
+
+  // Fish schools - only update if near marina
+  if (updateFish) {
+    _fishSchools.forEach(school => {
+      const dist = Math.hypot(school.centerPos.x - playerPos.x, school.centerPos.z - playerPos.z);
+      if (dist > 90) return; // Freeze if too far from player within marina area
 
     // Move toward next waypoint
     const target = school.waypoints[school.currentWaypoint];
@@ -508,7 +513,8 @@ export function updateIslandLife(delta, playerPos) {
     });
 
     school.instancedMesh.instanceMatrix.needsUpdate = true;
-  });
+    });
+  }
 
   // Crabs
   _crabInstances.forEach(crabMesh => {
