@@ -32,6 +32,29 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
 const MAX_VISIBLE_PLAYERS = 50;
 
+// STEP 1: Feature flag to switch between 3D render and 2D schematic
+const USE_3D_MAP = false;
+
+// STEP 2: Landmark world coordinates (gathered from codebase)
+const LANDMARKS = {
+  hangars: [
+    { name: 'N', x: -50, z: -271.075, color: '#B8860B' },    // North - dark goldenrod
+    { name: 'E', x: 212.6, z: 0, color: '#CD853F' },         // East - peru
+    { name: 'S', x: -50, z: 262.6, color: '#DAA520' }        // South - goldenrod
+  ],
+  marina: { x: -325.2, z: 0, color: '#8B4513' },             // saddle brown
+  plaza: { x: -50, z: 0, color: '#DEB887' },                 // burlywood
+  lighthouse: { x: -272.19, z: 107.62, color: '#FFFFFF' }    // white
+};
+
+// World bounds for coordinate mapping
+const WORLD_BOUNDS = {
+  minX: -330,
+  maxX: 220,
+  minZ: -280,
+  maxZ: 270
+};
+
 // ── Helper Functions ──────────────────────────────────────────────────
 
 /**
@@ -126,6 +149,153 @@ function _copyRenderTargetToCanvas() {
   _ctx.scale(1, -1);
   _ctx.drawImage(_tempCanvas, 0, 0);
   _ctx.restore();
+}
+
+/**
+ * STEP 2: Draw 2D schematic map (cheap alternative to 3D render)
+ * @param {Object} playerPos - Player position {x, z}
+ */
+function _draw2DSchematicMap(playerPos) {
+  try {
+    const centerX = _canvas.width / 2;
+    const centerY = _canvas.height / 2;
+    const radius = _canvas.width / 2;
+    const worldRadius = BASE_WORLD_RADIUS * _zoomLevel;
+
+    // Helper: world → canvas pixel (player-centered with rotation)
+    const worldToCanvas = (wx, wz) => {
+      let relX = wx - playerPos.x;
+      let relZ = wz - playerPos.z;
+
+      // Apply rotation if in camera mode
+      if (_rotationMode === 'camera') {
+        const rotated = _rotatePoint(relX, relZ, _cameraYaw);
+        relX = rotated.x;
+        relZ = rotated.z;
+      }
+
+      const scale = radius / worldRadius;
+      return {
+        x: centerX + relX * scale,
+        y: centerY + relZ * scale
+      };
+    };
+
+    // Background: deep lagoon water
+    const waterGradient = _ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+    waterGradient.addColorStop(0, '#1e5f74');
+    waterGradient.addColorStop(1, '#0d3d4f');
+    _ctx.fillStyle = waterGradient;
+    _ctx.beginPath();
+    _ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    _ctx.fill();
+
+    // Island land area (approximate circle centered on plaza, ~300m radius)
+    const plazaScreen = worldToCanvas(LANDMARKS.plaza.x, LANDMARKS.plaza.z);
+    const landRadius = (300 / worldRadius) * radius;
+    const landGradient = _ctx.createRadialGradient(
+      plazaScreen.x, plazaScreen.y, 0,
+      plazaScreen.x, plazaScreen.y, landRadius
+    );
+    landGradient.addColorStop(0, '#d4c5a0');
+    landGradient.addColorStop(0.7, '#c4b590');
+    landGradient.addColorStop(1, '#a4957070');
+    _ctx.fillStyle = landGradient;
+    _ctx.beginPath();
+    _ctx.arc(plazaScreen.x, plazaScreen.y, landRadius, 0, Math.PI * 2);
+    _ctx.fill();
+
+    // Draw landmarks with labels
+    const scale = 2; // retina scale
+
+    // Hangars (rectangles)
+    LANDMARKS.hangars.forEach(hangar => {
+      const pos = worldToCanvas(hangar.x, hangar.z);
+      const dist = Math.hypot(pos.x - centerX, pos.y - centerY);
+      if (dist > radius + 20) return; // Skip if far outside
+
+      _ctx.fillStyle = hangar.color;
+      _ctx.strokeStyle = '#ffffff';
+      _ctx.lineWidth = 1.5 * scale;
+      const w = 15 * scale;
+      const h = 10 * scale;
+      _ctx.fillRect(pos.x - w / 2, pos.y - h / 2, w, h);
+      _ctx.strokeRect(pos.x - w / 2, pos.y - h / 2, w, h);
+
+      // Label
+      _ctx.fillStyle = '#ffffff';
+      _ctx.font = `bold ${10 * scale}px system-ui`;
+      _ctx.textAlign = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText(hangar.name, pos.x, pos.y);
+    });
+
+    // Marina (pier shape)
+    const marinaPos = worldToCanvas(LANDMARKS.marina.x, LANDMARKS.marina.z);
+    const marinaDist = Math.hypot(marinaPos.x - centerX, marinaPos.y - centerY);
+    if (marinaDist < radius + 20) {
+      _ctx.fillStyle = LANDMARKS.marina.color;
+      _ctx.strokeStyle = '#ffffff';
+      _ctx.lineWidth = 1.5 * scale;
+      const w = 12 * scale;
+      const h = 8 * scale;
+      _ctx.fillRect(marinaPos.x - w / 2, marinaPos.y - h / 2, w, h);
+      _ctx.strokeRect(marinaPos.x - w / 2, marinaPos.y - h / 2, w, h);
+
+      // Label M
+      _ctx.fillStyle = '#ffffff';
+      _ctx.font = `bold ${9 * scale}px system-ui`;
+      _ctx.textAlign = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText('M', marinaPos.x, marinaPos.y);
+    }
+
+    // Plaza (square)
+    const plazaPos = worldToCanvas(LANDMARKS.plaza.x, LANDMARKS.plaza.z);
+    const plazaDist = Math.hypot(plazaPos.x - centerX, plazaPos.y - centerY);
+    if (plazaDist < radius + 20) {
+      _ctx.fillStyle = LANDMARKS.plaza.color;
+      _ctx.strokeStyle = '#8B4513';
+      _ctx.lineWidth = 1.5 * scale;
+      const s = 10 * scale;
+      _ctx.fillRect(plazaPos.x - s / 2, plazaPos.y - s / 2, s, s);
+      _ctx.strokeRect(plazaPos.x - s / 2, plazaPos.y - s / 2, s, s);
+
+      // Label P
+      _ctx.fillStyle = '#8B4513';
+      _ctx.font = `bold ${8 * scale}px system-ui`;
+      _ctx.textAlign = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText('P', plazaPos.x, plazaPos.y);
+    }
+
+    // Lighthouse (triangle)
+    const lighthousePos = worldToCanvas(LANDMARKS.lighthouse.x, LANDMARKS.lighthouse.z);
+    const lighthouseDist = Math.hypot(lighthousePos.x - centerX, lighthousePos.y - centerY);
+    if (lighthouseDist < radius + 20) {
+      _ctx.fillStyle = LANDMARKS.lighthouse.color;
+      _ctx.strokeStyle = '#000000';
+      _ctx.lineWidth = 1.5 * scale;
+      const h = 12 * scale;
+      _ctx.beginPath();
+      _ctx.moveTo(lighthousePos.x, lighthousePos.y - h / 2);
+      _ctx.lineTo(lighthousePos.x + h * 0.43, lighthousePos.y + h / 2);
+      _ctx.lineTo(lighthousePos.x - h * 0.43, lighthousePos.y + h / 2);
+      _ctx.closePath();
+      _ctx.fill();
+      _ctx.stroke();
+
+      // Label L
+      _ctx.fillStyle = '#000000';
+      _ctx.font = `bold ${7 * scale}px system-ui`;
+      _ctx.textAlign = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText('L', lighthousePos.x, lighthousePos.y);
+    }
+
+  } catch (err) {
+    console.error('[liveMap] 2D schematic draw error:', err);
+  }
 }
 
 /**
@@ -430,8 +600,8 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, n
     _mapOverheadLight.position.set(playerPos.x, CAMERA_HEIGHT - 100, playerPos.z);
   }
 
-  // STEP 1: Only render if throttle timer elapsed
-  if (shouldRender) {
+  // STEP 1: Only render 3D if USE_3D_MAP flag is enabled
+  if (USE_3D_MAP && shouldRender) {
     try {
       _renderer.setRenderTarget(_mapRenderTarget);
       _renderer.render(_scene, _mapCamera);
@@ -458,8 +628,12 @@ export function updateLiveMap(playerPos, playerRotY, remotePlayers, cameraYaw, n
   _ctx.arc(_canvas.width / 2, _canvas.height / 2, _canvas.width / 2, 0, Math.PI * 2);
   _ctx.clip();
 
-  // Copy render target to canvas
-  _copyRenderTargetToCanvas();
+  // STEP 2: Draw 2D schematic OR copy 3D render based on flag
+  if (USE_3D_MAP) {
+    _copyRenderTargetToCanvas();
+  } else {
+    _draw2DSchematicMap(playerPos);
+  }
 
   // Draw player markers and NPCs
   _drawPlayerMarkers(playerPos, playerRotY, remotePlayers || [], npcs);
