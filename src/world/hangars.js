@@ -957,6 +957,113 @@ function buildFarSlots(group, hangarIndex, signMat, counterMat) {
   group.add(pillar);
 }
 
+// ── Stall Sign Builder ────────────────────────────────────────────────
+
+const HANGAR_LETTERS = ['N', 'C', 'S'];  // North, Center, South
+const _stallSignCache = new Map(); // key: "hangar-number", value: {mesh, material, canvas, ctx}
+
+function _buildStallSign(hangarIndex, number) {
+  try {
+    const hangarLetter = HANGAR_LETTERS[hangarIndex] || '?';
+    const stallId = `${hangarLetter}${number}`;
+    const cacheKey = `${hangarIndex}-${number}`;
+
+    // Check cache
+    if (_stallSignCache.has(cacheKey)) {
+      return _stallSignCache.get(cacheKey).mesh.clone();
+    }
+
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx || !canvas.width || !canvas.height) {
+      console.warn('[hangars] Invalid canvas for stall sign', stallId);
+      return new THREE.Mesh(new THREE.PlaneGeometry(2, 1));
+    }
+
+    // Draw initial state (FREE / green)
+    _drawStallSign(ctx, stallId, true, null);
+
+    // Create material and texture
+    const mat = new THREE.MeshBasicMaterial({
+      map: null,
+      side: THREE.DoubleSide,
+      transparent: false
+    });
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+
+    mat.map = tex;
+    mat.needsUpdate = true;
+
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), mat);
+
+    // Cache it
+    _stallSignCache.set(cacheKey, { mesh, material: mat, canvas, ctx, texture: tex });
+
+    return mesh;
+  } catch (err) {
+    console.error('[hangars] Error building stall sign:', err);
+    return new THREE.Mesh(new THREE.PlaneGeometry(2, 1));
+  }
+}
+
+function _drawStallSign(ctx, text, isFree, shopName) {
+  try {
+    // Clear canvas
+    ctx.clearRect(0, 0, 256, 128);
+
+    // Background color
+    const bgColor = isFree ? '#4CAF50' : '#5D4E37';  // Green if free, brown if taken
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, 256, 128);
+
+    // Border
+    ctx.strokeStyle = isFree ? '#2E7D32' : '#3E2F1F';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(3, 3, 250, 122);
+
+    // Text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = isFree ? 'bold 60px Arial, sans-serif' : 'bold 40px Heebo, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const displayText = isFree ? text : (shopName || text);
+    ctx.fillText(displayText, 128, 64);
+  } catch (err) {
+    console.error('[hangars] Error drawing stall sign:', err);
+  }
+}
+
+// Update all stall signs based on server data
+function updateStallSigns(stallsData) {
+  try {
+    _stallSignCache.forEach((cache, key) => {
+      const [hangarIdx, number] = key.split('-').map(Number);
+      const hangarLetter = HANGAR_LETTERS[hangarIdx] || '?';
+      const stallId = `${hangarLetter}${number}`;
+      const internalHangar = ['north', 'east', 'south'][hangarIdx];
+      const dataKey = `${internalHangar}-${number}`;
+
+      const stallData = stallsData[dataKey];
+      const isFree = !stallData || !stallData.taken;
+      const shopName = stallData?.name || null;
+
+      // Redraw sign
+      _drawStallSign(cache.ctx, stallId, isFree, shopName);
+      cache.texture.needsUpdate = true;
+    });
+  } catch (err) {
+    console.error('[hangars] Error updating stall signs:', err);
+  }
+}
+
 // ── Market Kiosks (North Hangar only) — 50 open-front stalls ─────────
 
 function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRotY) {
@@ -1075,13 +1182,12 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
     counter.receiveShadow = true;
     kiosk.add(counter);
 
-    // Simple placeholder sign — no canvas texture (prevents EffectComposer crash)
-    // TODO: Re-enable _buildRoomNumberSign() after fixing canvas texture timing
-    const signGeo = new THREE.BoxGeometry(2, 1.2, 0.05);
-    const signMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
-    const numSign = new THREE.Mesh(signGeo, signMat);
+    // Stall sign with number/name
+    const numSign = _buildStallSign(hangarIndex, kioskNumber);
     numSign.position.set(0, KIOSK_HEIGHT - 0.5, -KIOSK_DEPTH/2 - 0.1);
     numSign.castShadow = true;
+    numSign.userData.stallNumber = kioskNumber;
+    numSign.userData.hangarIndex = hangarIndex;
     kiosk.add(numSign);
 
     group.add(kiosk);
@@ -1367,3 +1473,7 @@ export function updateHangars(delta) {
     }
   });
 }
+
+// ── Export stall sign updater ─────────────────────────────────────────
+
+export { updateStallSigns };

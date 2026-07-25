@@ -2,20 +2,29 @@
 // SUY WORLD — Market Stall Shop UI
 // ═══════════════════════════════════════════════════════════════════════
 
+import { updateStallSigns } from '../world/hangars.js';
+
 let _socket = null;
 let _shopPanel = null;
 let _isOpen = false;
 let _currentHangar = 'north';
-let _myStall = null;  // { hangar, number, expiresAt } or null
+let _myStall = null;  // { hangar, number, name, expiresAt } or null
 let _onCoinUpdate = null;
 let _currentStallCheck = { number: null, available: false, ownedByMe: false };
+let _pendingRent = null; // { hangar, number } waiting for name
 
 const STALL_PRICE = 1000;
 const HANGARS = {
-  north: 'צפון',
-  east: 'מזרח',
-  south: 'דרום'
+  north: { name: 'צפון', letter: 'N', internal: 'north' },
+  east: { name: 'מרכז', letter: 'C', internal: 'east' },  // Center hangar
+  south: { name: 'דרום', letter: 'S', internal: 'south' }
 };
+
+// Helper: get stall ID (e.g. "N15", "C3")
+function getStallId(hangar, number) {
+  const letter = HANGARS[hangar]?.letter || '?';
+  return `${letter}${number}`;
+}
 
 // ── Initialization ────────────────────────────────────────────────────
 
@@ -29,12 +38,16 @@ export function initStallShop(socket, onCoinUpdate) {
     _socket.on('stallStatus', _handleStallStatus);
     _socket.on('rentResult', _handleRentResult);
     _socket.on('stallDataLoaded', _handleStallDataLoaded);
+    _socket.on('allStallsLoaded', _handleAllStallsLoaded);
+    _socket.on('stallUpdated', _handleStallUpdated);
     _socket.on('coinsUpdated', (data) => {
       if (_onCoinUpdate) _onCoinUpdate(data.coins);
     });
 
     // Load player's stall data on init
     _socket.emit('loadStallData');
+    // Load all stalls for signs
+    _socket.emit('loadAllStalls');
 
     console.log('[stallShop] Socket listeners registered');
   } catch (err) {
@@ -94,16 +107,20 @@ function _handleRentResult(data) {
       _myStall = {
         hangar: data.hangar,
         number: data.number,
+        name: data.name,
         expiresAt: data.expiresAt
       };
-      alert(`השכרת בהצלחה את דוכן מספר ${data.number} ב${HANGARS[data.hangar]}!`);
+      const stallId = getStallId(data.hangar, data.number);
+      const hangarName = HANGARS[data.hangar]?.name || data.hangar;
+      alert(`🎉 השכרת בהצלחה את דוכן ${stallId} באנגר ${hangarName}!\n\nשם הדוכן: ${data.name}`);
       _renderOwnerScreen();
     } else {
       const reasons = {
         invalid_number: 'מספר דוכן לא תקין (1-40)',
+        invalid_name: 'יש לבחור שם לדוכן',
         already_owns: 'אתה כבר משכיר דוכן',
         taken: 'דוכן זה כבר תפוס',
-        not_enough_coins: 'אין לך מספיק מטבעות',
+        not_enough_coins: 'אין לך מספיק מטבעות (דרושים 1000)',
         server_error: 'שגיאת שרת, נסה שוב'
       };
       alert(reasons[data.reason] || 'שגיאה לא ידועה');
@@ -128,6 +145,25 @@ function _handleStallDataLoaded(data) {
     }
   } catch (err) {
     console.error('[stallShop] Handle stall data error:', err);
+  }
+}
+
+function _handleAllStallsLoaded(data) {
+  try {
+    console.log('[stallShop] All stalls loaded:', Object.keys(data.stalls).length, 'stalls');
+    updateStallSigns(data.stalls);
+  } catch (err) {
+    console.error('[stallShop] Handle all stalls error:', err);
+  }
+}
+
+function _handleStallUpdated(data) {
+  try {
+    console.log('[stallShop] Stall updated:', data);
+    // Reload all stalls to update signs
+    _socket.emit('loadAllStalls');
+  } catch (err) {
+    console.error('[stallShop] Handle stall updated error:', err);
   }
 }
 
@@ -226,9 +262,10 @@ function _renderRentalScreen() {
     `;
     content.appendChild(title);
 
-    // Hangar name
+    // Hangar name with letter prefix
+    const hangarInfo = HANGARS[_currentHangar];
     const hangarName = document.createElement('div');
-    hangarName.textContent = `האנגר: ${HANGARS[_currentHangar]}`;
+    hangarName.textContent = `האנגר: ${hangarInfo.name} (${hangarInfo.letter})`;
     hangarName.style.cssText = `
       text-align: center;
       font-size: 18px;
@@ -332,8 +369,8 @@ function _renderRentalScreen() {
     `;
     if (canRent) {
       confirmBtn.onclick = () => {
-        console.log('[stallShop] Renting stall:', _currentHangar, _currentStallCheck.number);
-        _socket.emit('rentStall', { hangar: _currentHangar, number: _currentStallCheck.number });
+        _pendingRent = { hangar: _currentHangar, number: _currentStallCheck.number };
+        _renderConfirmationScreen();
       };
     }
     content.appendChild(confirmBtn);
@@ -349,6 +386,250 @@ function _renderRentalScreen() {
     content.appendChild(infoText);
   } catch (err) {
     console.error('[stallShop] Render rental screen error:', err);
+  }
+}
+
+function _renderConfirmationScreen() {
+  try {
+    if (!_pendingRent) return;
+
+    const content = document.getElementById('stall-shop-content');
+    if (!content) return;
+
+    // Clear except close button
+    const closeBtn = content.querySelector('button');
+    content.innerHTML = '';
+    if (closeBtn) content.appendChild(closeBtn);
+
+    const stallId = getStallId(_pendingRent.hangar, _pendingRent.number);
+    const hangarName = HANGARS[_pendingRent.hangar]?.name || _pendingRent.hangar;
+
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = 'אישור השכרה';
+    title.style.cssText = `
+      margin: 40px 0 30px 0;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      color: #FFD700;
+    `;
+    content.appendChild(title);
+
+    // Confirmation message
+    const message = document.createElement('div');
+    message.textContent = `האם אתה בטוח שברצונך להשכיר את דוכן ${stallId} מהאנגר ${hangarName}?`;
+    message.style.cssText = `
+      text-align: center;
+      font-size: 20px;
+      color: #F4E7C3;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    `;
+    content.appendChild(message);
+
+    // Price reminder
+    const price = document.createElement('div');
+    price.textContent = `מחיר: ${STALL_PRICE} מטבעות`;
+    price.style.cssText = `
+      text-align: center;
+      font-size: 18px;
+      color: #FFD700;
+      margin-bottom: 30px;
+    `;
+    content.appendChild(price);
+
+    // Buttons container
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.style.cssText = `
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    `;
+
+    // Cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'ביטול';
+    cancelBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(255, 107, 74, 0.2);
+      border: 2px solid rgba(255, 107, 74, 0.5);
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    cancelBtn.onclick = () => {
+      _pendingRent = null;
+      _renderRentalScreen();
+    };
+    buttonsDiv.appendChild(cancelBtn);
+
+    // Confirm button
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = 'אישור';
+    confirmBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(122, 203, 94, 0.3);
+      border: 2px solid #7ACB5E;
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    confirmBtn.onclick = () => {
+      _renderNameScreen();
+    };
+    buttonsDiv.appendChild(confirmBtn);
+
+    content.appendChild(buttonsDiv);
+  } catch (err) {
+    console.error('[stallShop] Render confirmation screen error:', err);
+  }
+}
+
+function _renderNameScreen() {
+  try {
+    if (!_pendingRent) return;
+
+    const content = document.getElementById('stall-shop-content');
+    if (!content) return;
+
+    // Clear except close button
+    const closeBtn = content.querySelector('button');
+    content.innerHTML = '';
+    if (closeBtn) content.appendChild(closeBtn);
+
+    const stallId = getStallId(_pendingRent.hangar, _pendingRent.number);
+
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = 'בחר שם לדוכן';
+    title.style.cssText = `
+      margin: 40px 0 20px 0;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      color: #FFD700;
+    `;
+    content.appendChild(title);
+
+    // Stall ID reminder
+    const stallInfo = document.createElement('div');
+    stallInfo.textContent = `דוכן ${stallId}`;
+    stallInfo.style.cssText = `
+      text-align: center;
+      font-size: 18px;
+      color: #F4E7C3;
+      margin-bottom: 30px;
+    `;
+    content.appendChild(stallInfo);
+
+    // Name input label
+    const inputLabel = document.createElement('div');
+    inputLabel.textContent = 'שם החנות (עד 30 תווים):';
+    inputLabel.style.cssText = `
+      font-size: 16px;
+      margin-bottom: 8px;
+      color: #F4E7C3;
+    `;
+    content.appendChild(inputLabel);
+
+    // Name input
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.maxLength = '30';
+    nameInput.placeholder = 'למשל: חנות הפירות של יוסי';
+    nameInput.style.cssText = `
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      font-family: Heebo, sans-serif;
+      background: rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(244, 231, 195, 0.3);
+      border-radius: 8px;
+      color: #F4E7C3;
+      margin-bottom: 20px;
+      text-align: right;
+      direction: rtl;
+    `;
+    content.appendChild(nameInput);
+
+    // Buttons container
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.style.cssText = `
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    `;
+
+    // Back button
+    const backBtn = document.createElement('button');
+    backBtn.textContent = 'חזור';
+    backBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(100, 100, 100, 0.2);
+      border: 2px solid rgba(244, 231, 195, 0.3);
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    backBtn.onclick = () => {
+      _renderConfirmationScreen();
+    };
+    buttonsDiv.appendChild(backBtn);
+
+    // Confirm button
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = 'אשר והשכר';
+    confirmBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(122, 203, 94, 0.3);
+      border: 2px solid #7ACB5E;
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    confirmBtn.onclick = () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert('יש להזין שם לדוכן');
+        return;
+      }
+      console.log('[stallShop] Renting stall:', _pendingRent.hangar, _pendingRent.number, 'name:', name);
+      _socket.emit('rentStall', {
+        hangar: _pendingRent.hangar,
+        number: _pendingRent.number,
+        name: name
+      });
+      _pendingRent = null;
+    };
+    buttonsDiv.appendChild(confirmBtn);
+
+    content.appendChild(buttonsDiv);
+
+    // Focus the input
+    setTimeout(() => nameInput.focus(), 100);
+  } catch (err) {
+    console.error('[stallShop] Render name screen error:', err);
   }
 }
 
@@ -385,8 +666,9 @@ function _renderOwnerScreen() {
       text-align: center;
     `;
 
+    const stallId = getStallId(_myStall.hangar, _myStall.number);
     const stallText = document.createElement('div');
-    stallText.textContent = `הדוכן שלך: מספר ${_myStall.number}`;
+    stallText.textContent = `הדוכן שלך: ${stallId}`;
     stallText.style.cssText = `
       font-size: 22px;
       font-weight: 700;
@@ -395,8 +677,20 @@ function _renderOwnerScreen() {
     `;
     stallInfo.appendChild(stallText);
 
+    if (_myStall.name) {
+      const nameText = document.createElement('div');
+      nameText.textContent = `${_myStall.name}`;
+      nameText.style.cssText = `
+        font-size: 24px;
+        font-weight: 700;
+        color: #FFD700;
+        margin-bottom: 12px;
+      `;
+      stallInfo.appendChild(nameText);
+    }
+
     const hangarText = document.createElement('div');
-    hangarText.textContent = `האנגר: ${HANGARS[_myStall.hangar]}`;
+    hangarText.textContent = `האנגר: ${HANGARS[_myStall.hangar]?.name || _myStall.hangar}`;
     hangarText.style.cssText = `
       font-size: 18px;
       color: #F4E7C3;

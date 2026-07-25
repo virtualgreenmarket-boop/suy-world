@@ -13,27 +13,37 @@ const RENTAL_DURATION_DAYS = 365;
 // ── Initialization ────────────────────────────────────────────────────
 
 export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
-  console.log('[stalls-server] Initializing stall rental system');
+  try {
+    console.log('[stalls-server] Initializing stall rental system');
 
-  // Create stalls table if not exists
-  // PRIMARY KEY (hangar, number) enforces one owner per stall
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS player_stalls (
-      uuid TEXT NOT NULL,
-      hangar TEXT NOT NULL,
-      number INTEGER NOT NULL,
-      rented_at INTEGER NOT NULL,
-      expires_at INTEGER NOT NULL,
-      PRIMARY KEY (hangar, number)
-    )
-  `);
+    // Create stalls table if not exists
+    // PRIMARY KEY (hangar, number) enforces one owner per stall
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS player_stalls (
+        uuid TEXT NOT NULL,
+        hangar TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        name TEXT,
+        rented_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        PRIMARY KEY (hangar, number)
+      )
+    `);
 
-  const stmtGetMyStall = db.prepare('SELECT * FROM player_stalls WHERE uuid = ?');
-  const stmtGetStall = db.prepare('SELECT * FROM player_stalls WHERE hangar = ? AND number = ?');
-  const stmtInsertStall = db.prepare(`
-    INSERT OR IGNORE INTO player_stalls (uuid, hangar, number, rented_at, expires_at)
-    VALUES (?, ?, ?, ?, ?)
-  `);
+    // Add name column if it doesn't exist (for existing DBs)
+    try {
+      db.exec(`ALTER TABLE player_stalls ADD COLUMN name TEXT`);
+    } catch (err) {
+      // Column already exists, ignore
+    }
+
+    const stmtGetMyStall = db.prepare('SELECT * FROM player_stalls WHERE uuid = ?');
+    const stmtGetStall = db.prepare('SELECT * FROM player_stalls WHERE hangar = ? AND number = ?');
+    const stmtGetAllStalls = db.prepare('SELECT hangar, number, name FROM player_stalls');
+    const stmtInsertStall = db.prepare(`
+      INSERT OR REPLACE INTO player_stalls (uuid, hangar, number, name, rented_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
 
   io.on('connection', (socket) => {
     const uuid = socket.handshake.auth?.uuid;
@@ -67,13 +77,20 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
     });
 
     // Rent a stall
-    socket.on('rentStall', ({ hangar, number }) => {
+    socket.on('rentStall', ({ hangar, number, name }) => {
       try {
         // Validate stall number
         if (!VALID_HANGARS.includes(hangar) || number < 1 || number > STALLS_PER_HANGAR) {
           socket.emit('rentResult', { success: false, reason: 'invalid_number' });
           return;
         }
+
+        // Validate name
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+          socket.emit('rentResult', { success: false, reason: 'invalid_name' });
+          return;
+        }
+        const shopName = name.trim().substring(0, 30); // Max 30 chars
 
         // Check if player already owns a stall
         const myStall = stmtGetMyStall.get(uuid);
@@ -104,8 +121,8 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
         const rentedAt = Date.now();
         const expiresAt = rentedAt + (RENTAL_DURATION_DAYS * 24 * 60 * 60 * 1000);
 
-        // Insert stall rental (INSERT OR IGNORE prevents race conditions)
-        const info = stmtInsertStall.run(uuid, hangar, number, rentedAt, expiresAt);
+        // Insert stall rental (INSERT OR REPLACE to handle name)
+        const info = stmtInsertStall.run(uuid, hangar, number, shopName, rentedAt, expiresAt);
 
         if (info.changes === 0) {
           // Race condition: someone else got it first
@@ -116,17 +133,20 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
           return;
         }
 
-        // Success
+        // Success - broadcast to all clients that this stall is now taken
+        io.emit('stallUpdated', { hangar, number, name: shopName, taken: true });
+
         socket.emit('rentResult', {
           success: true,
           hangar,
           number,
+          name: shopName,
           expiresAt
         });
 
         socket.emit('coinsUpdated', { coins: newBalance });
 
-        console.log(`[stalls-server] ${uuid} rented ${hangar} #${number} for ${STALL_PRICE} coins`);
+        console.log(`[stalls-server] ${uuid} rented ${hangar} #${number} "${shopName}" for ${STALL_PRICE} coins`);
       } catch (err) {
         console.error('[stalls-server] rentStall error:', err);
         socket.emit('rentResult', { success: false, reason: 'server_error' });
@@ -147,6 +167,7 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
           myStall: {
             hangar: myStall.hangar,
             number: myStall.number,
+            name: myStall.name,
             expiresAt: myStall.expires_at
           }
         });
@@ -154,7 +175,25 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
         console.error('[stalls-server] loadStallData error:', err);
       }
     });
+
+    // Load all stalls (for signs)
+    socket.on('loadAllStalls', () => {
+      try {
+        const allStalls = stmtGetAllStalls.all();
+        const stallsMap = {};
+        allStalls.forEach(s => {
+          const key = `${s.hangar}-${s.number}`;
+          stallsMap[key] = { name: s.name, taken: true };
+        });
+        socket.emit('allStallsLoaded', { stalls: stallsMap });
+      } catch (err) {
+        console.error('[stalls-server] loadAllStalls error:', err);
+      }
+    });
   });
 
   console.log('[stalls-server] Socket handlers registered');
+  } catch (err) {
+    console.error('[stalls-server] Init error:', err);
+  }
 }
