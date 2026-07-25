@@ -662,18 +662,25 @@ function _renderNameScreen() {
       transition: all 0.2s ease;
     `;
     confirmBtn.onclick = () => {
-      const name = nameInput.value.trim();
-      if (!name) {
-        alert('יש להזין שם לדוכן');
-        return;
+      try {
+        console.log('[stallShop] 🟡 NAME-CONFIRM CLICKED');
+        const name = nameInput.value.trim();
+        console.log('[stallShop] Name input value:', name);
+        if (!name) {
+          console.log('[stallShop] Name is empty, showing alert');
+          alert('יש להזין שם לדוכן');
+          return;
+        }
+        console.log('[stallShop] Emitting rentStall:', _pendingRent.hangar, _pendingRent.number, 'name:', name);
+        _socket.emit('rentStall', {
+          hangar: _pendingRent.hangar,
+          number: _pendingRent.number,
+          name: name
+        });
+        _pendingRent = null;
+      } catch (err) {
+        console.error('[stallShop] ✗ NAME-CONFIRM ERROR:', err);
       }
-      console.log('[stallShop] Renting stall:', _pendingRent.hangar, _pendingRent.number, 'name:', name);
-      _socket.emit('rentStall', {
-        hangar: _pendingRent.hangar,
-        number: _pendingRent.number,
-        name: name
-      });
-      _pendingRent = null;
     };
     buttonsDiv.appendChild(confirmBtn);
 
@@ -1077,8 +1084,14 @@ function _renderSellConfirmScreen() {
       transition: all 0.2s ease;
     `;
     confirmBtn.onclick = () => {
-      console.log('[stallShop] 🔴 SELL CLICKED - emitting sellStall event');
-      _socket.emit('sellStall');
+      try {
+        console.log('[stallShop] 🟡 SELL-CONFIRM CLICKED');
+        console.log('[stallShop] Socket state:', _socket ? 'connected' : 'NULL');
+        console.log('[stallShop] 🔴 Emitting sellStall event');
+        _socket.emit('sellStall');
+      } catch (err) {
+        console.error('[stallShop] ✗ SELL-CONFIRM ERROR:', err);
+      }
     };
     buttonsDiv.appendChild(confirmBtn);
 
