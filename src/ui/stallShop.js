@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { updateStallSigns } from '../world/hangars.js';
+import { setStallsData } from '../systems/stores.js';
 
 let _socket = null;
 let _shopPanel = null;
@@ -40,6 +41,8 @@ export function initStallShop(socket, onCoinUpdate) {
     _socket.on('stallDataLoaded', _handleStallDataLoaded);
     _socket.on('allStallsLoaded', _handleAllStallsLoaded);
     _socket.on('stallUpdated', _handleStallUpdated);
+    _socket.on('nameUpdateResult', _handleNameUpdateResult);
+    _socket.on('sellResult', _handleSellResult);
     _socket.on('coinsUpdated', (data) => {
       if (_onCoinUpdate) _onCoinUpdate(data.coins);
     });
@@ -152,6 +155,7 @@ function _handleAllStallsLoaded(data) {
   try {
     console.log('[stallShop] All stalls loaded:', Object.keys(data.stalls).length, 'stalls');
     updateStallSigns(data.stalls);
+    setStallsData(data.stalls);  // Update ground labels too
   } catch (err) {
     console.error('[stallShop] Handle all stalls error:', err);
   }
@@ -164,6 +168,47 @@ function _handleStallUpdated(data) {
     _socket.emit('loadAllStalls');
   } catch (err) {
     console.error('[stallShop] Handle stall updated error:', err);
+  }
+}
+
+function _handleNameUpdateResult(data) {
+  try {
+    console.log('[stallShop] Name update result:', data);
+
+    if (data.success) {
+      alert(`✓ שם הדוכן עודכן בהצלחה ל-"${data.name}"`);
+      // The stallDataLoaded event will come separately and update _myStall
+      _renderOwnerScreen();
+    } else {
+      const reasons = {
+        invalid_name: 'יש להזין שם תקין',
+        no_stall: 'אין לך דוכן',
+        server_error: 'שגיאת שרת, נסה שוב'
+      };
+      alert(reasons[data.reason] || 'שגיאה לא ידועה');
+    }
+  } catch (err) {
+    console.error('[stallShop] Handle name update result error:', err);
+  }
+}
+
+function _handleSellResult(data) {
+  try {
+    console.log('[stallShop] Sell result:', data);
+
+    if (data.success) {
+      alert(`✓ הדוכן נמכר בהצלחה!\nקיבלת החזר של ${data.refund} מטבעות.`);
+      _myStall = null;
+      _renderRentalScreen();
+    } else {
+      const reasons = {
+        no_stall: 'אין לך דוכן למכירה',
+        server_error: 'שגיאת שרת, נסה שוב'
+      };
+      alert(reasons[data.reason] || 'שגיאה לא ידועה');
+    }
+  } catch (err) {
+    console.error('[stallShop] Handle sell result error:', err);
   }
 }
 
@@ -699,17 +744,335 @@ function _renderOwnerScreen() {
 
     content.appendChild(stallInfo);
 
+    // Management options
+    const optionsTitle = document.createElement('div');
+    optionsTitle.textContent = 'ניהול דוכן';
+    optionsTitle.style.cssText = `
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFD700;
+      margin-bottom: 16px;
+      text-align: center;
+    `;
+    content.appendChild(optionsTitle);
+
+    // Change name button
+    const changeNameBtn = document.createElement('button');
+    changeNameBtn.textContent = 'החלף שם';
+    changeNameBtn.style.cssText = `
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(66, 165, 245, 0.3);
+      border: 2px solid #42A5F5;
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+    `;
+    changeNameBtn.onclick = () => {
+      _renderChangeNameScreen();
+    };
+    content.appendChild(changeNameBtn);
+
+    // Sell stall button
+    const sellBtn = document.createElement('button');
+    sellBtn.textContent = 'מכור דוכן בחזרה';
+    sellBtn.style.cssText = `
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(255, 107, 74, 0.2);
+      border: 2px solid rgba(255, 107, 74, 0.5);
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+    `;
+    sellBtn.onclick = () => {
+      _renderSellConfirmScreen();
+    };
+    content.appendChild(sellBtn);
+
     // Placeholder for future features
     const placeholder = document.createElement('div');
     placeholder.textContent = 'בקרוב: ציוד וקישוטים לדוכן';
     placeholder.style.cssText = `
       text-align: center;
-      font-size: 16px;
-      color: rgba(244, 231, 195, 0.6);
-      padding: 40px 20px;
+      font-size: 14px;
+      color: rgba(244, 231, 195, 0.5);
+      padding: 20px;
     `;
     content.appendChild(placeholder);
   } catch (err) {
     console.error('[stallShop] Render owner screen error:', err);
+  }
+}
+
+function _renderChangeNameScreen() {
+  try {
+    if (!_myStall) return;
+
+    const content = document.getElementById('stall-shop-content');
+    if (!content) return;
+
+    // Clear except close button
+    const closeBtn = content.querySelector('button');
+    content.innerHTML = '';
+    if (closeBtn) content.appendChild(closeBtn);
+
+    const stallId = getStallId(_myStall.hangar, _myStall.number);
+
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = 'החלפת שם דוכן';
+    title.style.cssText = `
+      margin: 40px 0 20px 0;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      color: #FFD700;
+    `;
+    content.appendChild(title);
+
+    // Stall ID
+    const stallInfo = document.createElement('div');
+    stallInfo.textContent = `דוכן ${stallId}`;
+    stallInfo.style.cssText = `
+      text-align: center;
+      font-size: 18px;
+      color: #F4E7C3;
+      margin-bottom: 30px;
+    `;
+    content.appendChild(stallInfo);
+
+    // Current name
+    const currentName = document.createElement('div');
+    currentName.textContent = `שם נוכחי: ${_myStall.name || 'לא הוגדר'}`;
+    currentName.style.cssText = `
+      text-align: center;
+      font-size: 16px;
+      color: rgba(244, 231, 195, 0.7);
+      margin-bottom: 20px;
+    `;
+    content.appendChild(currentName);
+
+    // Name input label
+    const inputLabel = document.createElement('div');
+    inputLabel.textContent = 'שם חדש (עד 30 תווים):';
+    inputLabel.style.cssText = `
+      font-size: 16px;
+      margin-bottom: 8px;
+      color: #F4E7C3;
+    `;
+    content.appendChild(inputLabel);
+
+    // Name input
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.maxLength = '30';
+    nameInput.value = _myStall.name || '';
+    nameInput.placeholder = 'הזן שם חדש';
+    nameInput.style.cssText = `
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      font-family: Heebo, sans-serif;
+      background: rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(244, 231, 195, 0.3);
+      border-radius: 8px;
+      color: #F4E7C3;
+      margin-bottom: 20px;
+      text-align: right;
+      direction: rtl;
+    `;
+    content.appendChild(nameInput);
+
+    // Buttons container
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.style.cssText = `
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    `;
+
+    // Cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'ביטול';
+    cancelBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(100, 100, 100, 0.2);
+      border: 2px solid rgba(244, 231, 195, 0.3);
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    cancelBtn.onclick = () => {
+      _renderOwnerScreen();
+    };
+    buttonsDiv.appendChild(cancelBtn);
+
+    // Confirm button
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = 'אשר שינוי';
+    confirmBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(66, 165, 245, 0.3);
+      border: 2px solid #42A5F5;
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    confirmBtn.onclick = () => {
+      const newName = nameInput.value.trim();
+      if (!newName) {
+        alert('יש להזין שם לדוכן');
+        return;
+      }
+      console.log('[stallShop] Updating stall name to:', newName);
+      _socket.emit('updateStallName', { name: newName });
+    };
+    buttonsDiv.appendChild(confirmBtn);
+
+    content.appendChild(buttonsDiv);
+
+    // Focus the input
+    setTimeout(() => nameInput.focus(), 100);
+  } catch (err) {
+    console.error('[stallShop] Render change name screen error:', err);
+  }
+}
+
+function _renderSellConfirmScreen() {
+  try {
+    if (!_myStall) return;
+
+    const content = document.getElementById('stall-shop-content');
+    if (!content) return;
+
+    // Clear except close button
+    const closeBtn = content.querySelector('button');
+    content.innerHTML = '';
+    if (closeBtn) content.appendChild(closeBtn);
+
+    const stallId = getStallId(_myStall.hangar, _myStall.number);
+    const hangarName = HANGARS[_myStall.hangar]?.name || _myStall.hangar;
+
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = 'מכירת דוכן';
+    title.style.cssText = `
+      margin: 40px 0 30px 0;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      color: #FF6B4A;
+    `;
+    content.appendChild(title);
+
+    // Warning message
+    const message = document.createElement('div');
+    message.textContent = `האם אתה בטוח שברצונך למכור את הדוכן ${stallId} באנגר ${hangarName} בחזרה למערכת?`;
+    message.style.cssText = `
+      text-align: center;
+      font-size: 20px;
+      color: #F4E7C3;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    `;
+    content.appendChild(message);
+
+    // Refund info
+    const refundInfo = document.createElement('div');
+    refundInfo.textContent = 'תקבל החזר של 500 מטבעות (50% מהמחיר המקורי)';
+    refundInfo.style.cssText = `
+      text-align: center;
+      font-size: 18px;
+      color: #7ACB5E;
+      margin-bottom: 30px;
+    `;
+    content.appendChild(refundInfo);
+
+    // Warning
+    const warning = document.createElement('div');
+    warning.textContent = '⚠️ פעולה זו תמחק את הדוכן שלך ולא ניתן לבטל אותה';
+    warning.style.cssText = `
+      text-align: center;
+      font-size: 16px;
+      color: #FF6B4A;
+      margin-bottom: 30px;
+    `;
+    content.appendChild(warning);
+
+    // Buttons container
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.style.cssText = `
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    `;
+
+    // Cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'ביטול';
+    cancelBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(122, 203, 94, 0.3);
+      border: 2px solid #7ACB5E;
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    cancelBtn.onclick = () => {
+      _renderOwnerScreen();
+    };
+    buttonsDiv.appendChild(cancelBtn);
+
+    // Confirm sell button
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = 'אשר מכירה';
+    confirmBtn.style.cssText = `
+      flex: 1;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Heebo, sans-serif;
+      background: rgba(255, 107, 74, 0.3);
+      border: 2px solid #FF6B4A;
+      border-radius: 12px;
+      color: #F4E7C3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    confirmBtn.onclick = () => {
+      console.log('[stallShop] Selling stall back');
+      _socket.emit('sellStall');
+    };
+    buttonsDiv.appendChild(confirmBtn);
+
+    content.appendChild(buttonsDiv);
+  } catch (err) {
+    console.error('[stallShop] Render sell confirm screen error:', err);
   }
 }

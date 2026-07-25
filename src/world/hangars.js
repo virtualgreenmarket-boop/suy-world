@@ -973,9 +973,9 @@ function _buildStallSign(hangarIndex, number) {
       return _stallSignCache.get(cacheKey).mesh.clone();
     }
 
-    // Create canvas
+    // Create canvas (wider for rented signs - we'll resize later if needed)
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
+    canvas.width = 512;  // 2× wider to accommodate shop names
     canvas.height = 128;
     const ctx = canvas.getContext('2d');
 
@@ -984,7 +984,7 @@ function _buildStallSign(hangarIndex, number) {
       return new THREE.Mesh(new THREE.PlaneGeometry(2, 1));
     }
 
-    // Draw initial state (FREE / green)
+    // Draw initial state (FREE / green) - normal width
     _drawStallSign(ctx, stallId, true, null);
 
     // Create material and texture
@@ -1001,7 +1001,9 @@ function _buildStallSign(hangarIndex, number) {
     mat.map = tex;
     mat.needsUpdate = true;
 
+    // Start with normal width (will be scaled to 4× when rented)
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), mat);
+    mesh.userData.isFree = true;  // Track state for width scaling
 
     // Cache it
     _stallSignCache.set(cacheKey, { mesh, material: mat, canvas, ctx, texture: tex });
@@ -1015,27 +1017,39 @@ function _buildStallSign(hangarIndex, number) {
 
 function _drawStallSign(ctx, text, isFree, shopName) {
   try {
+    // Canvas is 512×128 (wide enough for shop names)
+    const width = ctx.canvas.width;
+    const height = ctx.canvas.height;
+
     // Clear canvas
-    ctx.clearRect(0, 0, 256, 128);
+    ctx.clearRect(0, 0, width, height);
 
     // Background color
     const bgColor = isFree ? '#4CAF50' : '#5D4E37';  // Green if free, brown if taken
     ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, 256, 128);
+    ctx.fillRect(0, 0, width, height);
 
     // Border
     ctx.strokeStyle = isFree ? '#2E7D32' : '#3E2F1F';
     ctx.lineWidth = 6;
-    ctx.strokeRect(3, 3, 250, 122);
+    ctx.strokeRect(3, 3, width - 6, height - 6);
 
     // Text
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = isFree ? 'bold 60px Arial, sans-serif' : 'bold 40px Heebo, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const displayText = isFree ? text : (shopName || text);
-    ctx.fillText(displayText, 128, 64);
+    if (isFree) {
+      // Free sign: large text, centered in left half
+      ctx.font = 'bold 60px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, width / 4, height / 2);  // Left quarter
+    } else {
+      // Rented sign: use full width for shop name
+      ctx.font = 'bold 40px Heebo, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const displayText = shopName || text;
+      ctx.fillText(displayText, width / 2, height / 2);  // Center of full width
+    }
   } catch (err) {
     console.error('[hangars] Error drawing stall sign:', err);
   }
@@ -1058,6 +1072,19 @@ function updateStallSigns(stallsData) {
       // Redraw sign
       _drawStallSign(cache.ctx, stallId, isFree, shopName);
       cache.texture.needsUpdate = true;
+
+      // Scale sign width: 4× wider when rented (to fit shop name)
+      if (cache.mesh) {
+        if (isFree) {
+          // Free: normal width
+          cache.mesh.scale.set(1, 1, 1);
+          cache.mesh.userData.isFree = true;
+        } else {
+          // Rented: 4× wider
+          cache.mesh.scale.set(4, 1, 1);
+          cache.mesh.userData.isFree = false;
+        }
+      }
     });
   } catch (err) {
     console.error('[hangars] Error updating stall signs:', err);
@@ -1185,6 +1212,7 @@ function buildKiosks(group, hangarIndex, hangarCenterX, hangarCenterZ, hangarRot
     // Stall sign with number/name
     const numSign = _buildStallSign(hangarIndex, kioskNumber);
     numSign.position.set(0, KIOSK_HEIGHT - 0.5, -KIOSK_DEPTH/2 - 0.1);
+    numSign.rotation.y = Math.PI; // Rotate 180° so text faces outward (not mirrored)
     numSign.castShadow = true;
     numSign.userData.stallNumber = kioskNumber;
     numSign.userData.hangarIndex = hangarIndex;

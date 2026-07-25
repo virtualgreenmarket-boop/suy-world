@@ -190,6 +190,84 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
         console.error('[stalls-server] loadAllStalls error:', err);
       }
     });
+
+    // Update stall name (owner only)
+    socket.on('updateStallName', ({ name }) => {
+      try {
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+          socket.emit('nameUpdateResult', { success: false, reason: 'invalid_name' });
+          return;
+        }
+
+        const shopName = name.trim().substring(0, 30); // Max 30 chars
+
+        // Check if player owns a stall
+        const myStall = stmtGetMyStall.get(uuid);
+        if (!myStall) {
+          socket.emit('nameUpdateResult', { success: false, reason: 'no_stall' });
+          return;
+        }
+
+        // Update name
+        const stmtUpdateName = db.prepare('UPDATE player_stalls SET name = ? WHERE uuid = ?');
+        stmtUpdateName.run(shopName, uuid);
+
+        // Broadcast update
+        io.emit('stallUpdated', { hangar: myStall.hangar, number: myStall.number, name: shopName, taken: true });
+
+        socket.emit('nameUpdateResult', { success: true, name: shopName });
+
+        // Reload stall data
+        socket.emit('stallDataLoaded', {
+          myStall: {
+            hangar: myStall.hangar,
+            number: myStall.number,
+            name: shopName,
+            expiresAt: myStall.expires_at
+          }
+        });
+
+        console.log(`[stalls-server] ${uuid} updated stall name to "${shopName}"`);
+      } catch (err) {
+        console.error('[stalls-server] updateStallName error:', err);
+        socket.emit('nameUpdateResult', { success: false, reason: 'server_error' });
+      }
+    });
+
+    // Sell stall back (owner only)
+    socket.on('sellStall', () => {
+      try {
+        // Check if player owns a stall
+        const myStall = stmtGetMyStall.get(uuid);
+        if (!myStall) {
+          socket.emit('sellResult', { success: false, reason: 'no_stall' });
+          return;
+        }
+
+        // Delete stall
+        const stmtDeleteStall = db.prepare('DELETE FROM player_stalls WHERE uuid = ?');
+        stmtDeleteStall.run(uuid);
+
+        // Refund 50% (500 coins)
+        const REFUND_AMOUNT = 500;
+        adjustCoinsFunc(uuid, REFUND_AMOUNT);
+        const newBalance = getCoinsFunc(uuid);
+
+        // Broadcast update (stall is now free)
+        io.emit('stallUpdated', { hangar: myStall.hangar, number: myStall.number, taken: false });
+
+        socket.emit('sellResult', { success: true, refund: REFUND_AMOUNT });
+        socket.emit('coinsUpdated', { coins: newBalance });
+
+        // Clear player's stall data
+        socket.emit('stallDataLoaded', { myStall: null });
+
+        console.log(`[stalls-server] ${uuid} sold ${myStall.hangar} #${myStall.number} for ${REFUND_AMOUNT} refund`);
+      } catch (err) {
+        console.error('[stalls-server] sellStall error:', err);
+        socket.emit('sellResult', { success: false, reason: 'server_error' });
+      }
+    });
   });
 
   console.log('[stalls-server] Socket handlers registered');
