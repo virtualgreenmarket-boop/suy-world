@@ -20,6 +20,7 @@ const HANGARS = {
 // ── Initialization ────────────────────────────────────────────────────
 
 export function initStallShop(socket, onCoinUpdate) {
+  console.log('[stallShop] Initializing with socket:', socket ? 'OK' : 'MISSING');
   _socket = socket;
   _onCoinUpdate = onCoinUpdate;
 
@@ -43,7 +44,7 @@ export function initStallShop(socket, onCoinUpdate) {
 
 export function openStallShop(hangarId) {
   try {
-    console.log('[stallShop] Opening shop for hangar:', hangarId);
+    console.log('[stallShop] Opening shop for hangar:', hangarId, 'socket:', _socket ? 'connected' : 'missing');
     if (_isOpen) return;
     _isOpen = true;
     _currentHangar = hangarId;
@@ -265,6 +266,7 @@ function _renderRentalScreen() {
     numberInput.oninput = () => {
       const num = parseInt(numberInput.value);
       if (num >= 1 && num <= 40) {
+        console.log('[stallShop] Checking stall:', _currentHangar, num, 'socket:', _socket ? 'OK' : 'NULL');
         _socket.emit('checkStall', { hangar: _currentHangar, number: num });
       } else {
         _currentStallCheck = { number: null, available: false, ownedByMe: false };
@@ -330,6 +332,7 @@ function _renderRentalScreen() {
     `;
     if (canRent) {
       confirmBtn.onclick = () => {
+        console.log('[stallShop] Renting stall:', _currentHangar, _currentStallCheck.number);
         _socket.emit('rentStall', { hangar: _currentHangar, number: _currentStallCheck.number });
       };
     }

@@ -45,6 +45,7 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
     // Check stall availability
     socket.on('checkStall', ({ hangar, number }) => {
       try {
+        console.log(`[stalls-server] checkStall request: ${hangar} #${number} from ${uuid}`);
         if (!VALID_HANGARS.includes(hangar) || number < 1 || number > STALLS_PER_HANGAR) {
           socket.emit('stallStatus', { hangar, number, available: false, ownedByMe: false });
           return;
@@ -53,6 +54,7 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
         const stall = stmtGetStall.get(hangar, number);
         const ownedByMe = stall && stall.uuid === uuid;
 
+        console.log(`[stalls-server] Stall ${hangar} #${number}: ${!stall ? 'available' : 'taken'}`);
         socket.emit('stallStatus', {
           hangar,
           number,

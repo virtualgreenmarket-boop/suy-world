@@ -19,7 +19,9 @@ let onReadyCb    = null;
 export function initMultiplayer(onReady) {
   onReadyCb = onReady;
 
-  socket = io({
+  // Connect to game server (default: port 3001, fallback to same-origin in production)
+  const serverUrl = import.meta.env.DEV ? 'http://localhost:3001' : undefined;
+  socket = io(serverUrl, {
     auth: { uuid: getUuid() },
     transports: ['websocket', 'polling'],
   });
