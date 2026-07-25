@@ -237,21 +237,28 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
     // Sell stall back (owner only)
     socket.on('sellStall', () => {
       try {
+        console.log('[stalls-server] 🔴 sellStall received from', uuid);
+
         // Check if player owns a stall
         const myStall = stmtGetMyStall.get(uuid);
         if (!myStall) {
+          console.log('[stalls-server] ✗ Sell rejected: player has no stall');
           socket.emit('sellResult', { success: false, reason: 'no_stall' });
           return;
         }
 
+        console.log('[stalls-server] Player owns stall:', myStall.hangar, '#', myStall.number);
+
         // Delete stall
         const stmtDeleteStall = db.prepare('DELETE FROM player_stalls WHERE uuid = ?');
-        stmtDeleteStall.run(uuid);
+        const deleteInfo = stmtDeleteStall.run(uuid);
+        console.log('[stalls-server] Deleted stall, rows affected:', deleteInfo.changes);
 
         // Refund 50% (500 coins)
         const REFUND_AMOUNT = 500;
         adjustCoinsFunc(uuid, REFUND_AMOUNT);
         const newBalance = getCoinsFunc(uuid);
+        console.log('[stalls-server] Refunded', REFUND_AMOUNT, 'coins, new balance:', newBalance);
 
         // Broadcast update (stall is now free)
         io.emit('stallUpdated', { hangar: myStall.hangar, number: myStall.number, taken: false });
@@ -262,9 +269,9 @@ export function initStalls(io, db, getCoinsFunc, adjustCoinsFunc) {
         // Clear player's stall data
         socket.emit('stallDataLoaded', { myStall: null });
 
-        console.log(`[stalls-server] ${uuid} sold ${myStall.hangar} #${myStall.number} for ${REFUND_AMOUNT} refund`);
+        console.log(`[stalls-server] 🟢 ${uuid} sold ${myStall.hangar} #${myStall.number} for ${REFUND_AMOUNT} refund - SUCCESS`);
       } catch (err) {
-        console.error('[stalls-server] sellStall error:', err);
+        console.error('[stalls-server] ✗ sellStall error:', err);
         socket.emit('sellResult', { success: false, reason: 'server_error' });
       }
     });

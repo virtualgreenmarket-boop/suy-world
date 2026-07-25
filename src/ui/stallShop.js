@@ -194,13 +194,15 @@ function _handleNameUpdateResult(data) {
 
 function _handleSellResult(data) {
   try {
-    console.log('[stallShop] Sell result:', data);
+    console.log('[stallShop] 🟢 SELL RESULT RECEIVED:', data);
 
     if (data.success) {
+      console.log('[stallShop] ✓ Sell successful, refund:', data.refund);
       alert(`✓ הדוכן נמכר בהצלחה!\nקיבלת החזר של ${data.refund} מטבעות.`);
       _myStall = null;
       _renderRentalScreen();
     } else {
+      console.log('[stallShop] ✗ Sell rejected, reason:', data.reason);
       const reasons = {
         no_stall: 'אין לך דוכן למכירה',
         server_error: 'שגיאת שרת, נסה שוב'
@@ -1075,7 +1077,7 @@ function _renderSellConfirmScreen() {
       transition: all 0.2s ease;
     `;
     confirmBtn.onclick = () => {
-      console.log('[stallShop] Selling stall back');
+      console.log('[stallShop] 🔴 SELL CLICKED - emitting sellStall event');
       _socket.emit('sellStall');
     };
     buttonsDiv.appendChild(confirmBtn);
