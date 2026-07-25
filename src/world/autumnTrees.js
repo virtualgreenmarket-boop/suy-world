@@ -1,33 +1,36 @@
 /**
  * autumnTrees.js
  * Red/orange autumn trees — procedural, low-poly, MeshLambertMaterial only.
+ *
+ * A gnarled branching trunk with bark texture, and a canopy of maple-shaped leaves
+ * in ten autumn tones. Leaves use InstancedMesh (one draw call per colour per tree)
+ * so a cluster of them stays cheap.
+ *
+ * Placement: the trees are arranged in a circle around a chosen centre point on the
+ * grass. Tweak RING_CENTER / RING_RADIUS / RING_COUNT below.
  */
 
 import * as THREE from 'three';
 
-// ── Avenue layout ────────────────────────────────────────────────────────────
-// West path (runs along -X, walkway spans Z in [-5, +5]).
-// Trees at X -296..-256, both sides at Z = +/-12.
-//
-// NOTE: this stretch lies inside mapZones' "Marina" avoid-zone (centre -230, radius 140),
-// so isValidGrassPosition() would reject it. That zone exists to keep RANDOM scatter
-// (plants, animals) away from the marina — but these positions are chosen deliberately
-// and sit on open grass beside the path, so we use a simple guard instead.
-const AVENUE_SEGMENTS = [
-  { from: -296, to: -256, step: 8 },
-];
-const SIDE_OFFSET = 12;
+// ── Ring layout ──────────────────────────────────────────────────────────────
+// The autumn trees are arranged in a circle around a chosen centre point on the
+// grass (north of the beach). Radius and count are easy to tweak below.
+const RING_CENTER = { x: -175, z: -120 };   // centre of the circle
+const RING_RADIUS = 40;                     // metres
+const RING_COUNT  = 12;                     // number of trees around the ring
 
-// Keeps trees off the walkway and out of the sea.
+// Guard: keep trees inside the grass (grass ends ~255 from the island centre; beyond
+// that is beach sand) and off the two main walkways.
 function _isPlantable(x, z) {
-  if (Math.abs(z) < 8) return false;
   const r = Math.hypot(x, z);
-  if (r > 340) return false;
+  if (r > 252) return false;                                  // past grass -> beach
+  if (Math.abs(x) < 8 && Math.abs(z) > 40) return false;      // N-S walkway
+  if (Math.abs(z) < 8 && Math.abs(x) > 40) return false;      // E-W walkway
   return true;
 }
 
 // ── Look ─────────────────────────────────────────────────────────────────────
-const LEAVES_PER_TREE = 700;
+const LEAVES_PER_TREE = 700;   // dense enough to read as full foliage, cheap enough
 const AUTUMN_PALETTE = [
   0x6d1414, 0x831c18, 0x9b2820, 0xae3324, 0xc04329,
   0xcf5a24, 0xb8481f, 0x8f2a1c, 0xd97327, 0x74180f,
@@ -35,11 +38,13 @@ const AUTUMN_PALETTE = [
 
 let _autumnGroup = null;
 
+// Deterministic RNG so the ring looks identical on every load.
 function seededRng(seed) {
   let s = seed;
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 }
 
+// ── Shared resources (built once, reused by every tree) ──────────────────────
 let _barkMat = null;
 let _leafGeom = null;
 const _leafMats = new Map();
@@ -88,6 +93,9 @@ function _getLeafMaterial(color) {
   return _leafMats.get(color);
 }
 
+/**
+ * Build one autumn tree (trunk + branches + leaf canopy), origin at its base.
+ */
 export function buildAutumnTree(seed = 1, scale = 1) {
   const tree = new THREE.Group();
   const rng = seededRng(seed);
@@ -96,6 +104,7 @@ export function buildAutumnTree(seed = 1, scale = 1) {
 
   function limb(from, dir, len, rad, depth) {
     const to = from.clone().add(dir.clone().multiplyScalar(len));
+
     const geo = new THREE.CylinderGeometry(rad * 0.66, rad, len, 7, 2);
     const p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) {
@@ -113,7 +122,10 @@ export function buildAutumnTree(seed = 1, scale = 1) {
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
     tree.add(m);
 
-    if (depth <= 0 || rad < 0.075) { tips.push(to.clone()); return; }
+    if (depth <= 0 || rad < 0.075) {
+      tips.push(to.clone());
+      return;
+    }
 
     const n = depth > 2 ? 2 : (rng() < 0.5 ? 3 : 2);
     for (let i = 0; i < n; i++) {
@@ -137,6 +149,7 @@ export function buildAutumnTree(seed = 1, scale = 1) {
     for (let i = 0; i < perTip; i++) {
       const color = AUTUMN_PALETTE[Math.floor(rng() * AUTUMN_PALETTE.length)];
       if (!byColor.has(color)) byColor.set(color, []);
+
       const spread = 1.4 + rng() * 1.1;
       dummy.position.copy(tip).add(new THREE.Vector3(
         (rng() - 0.5) * spread * 2,
@@ -163,32 +176,46 @@ export function buildAutumnTree(seed = 1, scale = 1) {
   return tree;
 }
 
+/**
+ * Plant a ring of autumn trees around RING_CENTER.
+ */
 export function initAutumnTrees(scene) {
   _autumnGroup = new THREE.Group();
+
   let planted = 0;
   const rejected = [];
   let seed = 1001;
 
-  AVENUE_SEGMENTS.forEach(seg => {
-    for (let x = seg.from; x <= seg.to; x += seg.step) {
-      [SIDE_OFFSET, -SIDE_OFFSET].forEach(z => {
-        if (!_isPlantable(x, z)) { rejected.push(`(${x}, ${z})`); return; }
-        const rng = seededRng(seed);
-        const scale = 0.85 + rng() * 0.3;
-        const tree = buildAutumnTree(seed, scale);
-        tree.position.set(x, 0, z);
-        tree.rotation.y = rng() * Math.PI * 2;
-        _autumnGroup.add(tree);
-        planted++;
-        seed += 137;
-      });
+  for (let i = 0; i < RING_COUNT; i++) {
+    const angle = (i / RING_COUNT) * Math.PI * 2;
+    const x = RING_CENTER.x + Math.cos(angle) * RING_RADIUS;
+    const z = RING_CENTER.z + Math.sin(angle) * RING_RADIUS;
+
+    if (!_isPlantable(x, z)) {
+      rejected.push(`(${x.toFixed(1)}, ${z.toFixed(1)})`);
+      continue;
     }
-  });
+
+    const rng = seededRng(seed);
+    const scale = 0.85 + rng() * 0.3;         // gentle size variation
+    const tree = buildAutumnTree(seed, scale);
+    tree.position.set(x, 0, z);
+    tree.rotation.y = rng() * Math.PI * 2;    // vary facing so they don't look cloned
+
+    _autumnGroup.add(tree);
+    planted++;
+    seed += 137;
+  }
 
   scene.add(_autumnGroup);
-  console.log(`[autumnTrees] Planted ${planted} red autumn trees along the west path`);
-  if (rejected.length) console.log(`[autumnTrees] ${rejected.length} spots rejected:`, rejected.join(' '));
-  if (planted === 0) console.warn('[autumnTrees] NO trees planted — check AVENUE_SEGMENTS.');
+
+  console.log(`[autumnTrees] Planted ${planted} red autumn trees in a ring`);
+  if (rejected.length) {
+    console.log(`[autumnTrees] ${rejected.length} ring spots rejected as invalid grass:`, rejected.join(' '));
+  }
+  if (planted === 0) {
+    console.warn('[autumnTrees] NO trees planted — every candidate failed _isPlantable(). Check RING_CENTER / RING_RADIUS.');
+  }
 }
 
 export function getAutumnTreeGroup() {
