@@ -132,12 +132,10 @@ export function initCoordinatesDisplay() {
 
   // Keyboard shortcut (C key)
   window.addEventListener('keydown', (e) => {
+    // Don't toggle coordinates while typing in ANY input
+    if (window.isInputFocused && window.isInputFocused()) return;
     if (e.code === 'KeyC' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-      // Only if chat is not open
-      const chatInput = document.querySelector('#chat-input');
-      if (!chatInput || chatInput !== document.activeElement) {
-        toggleVisibility();
-      }
+      toggleVisibility();
     }
   });
 

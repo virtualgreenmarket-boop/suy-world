@@ -5,6 +5,16 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
 import { initSkateboard } from './world/skateboard.js';
 
+// ── Global Input Guard ────────────────────────────────────────────────
+// Checks if a text input/textarea is currently focused
+// Use at the top of ALL keydown/keyup handlers to prevent game actions while typing
+window.isInputFocused = function() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+};
+
 import { initIsland, updateWater }   from './world/island.js';
 import { initPlaza,  updatePlaza }   from './world/plaza.js';
 import { initPaths }                 from './world/paths.js';
@@ -271,6 +281,7 @@ try {
 
   // Register space key for pulling rod
   window.addEventListener('keydown', (e) => {
+    if (window.isInputFocused && window.isInputFocused()) return;  // Don't pull rod while typing
     if (e.code === 'Space' && !isChatOpen()) {
       pullRod(scene);
     }

@@ -338,6 +338,8 @@ export function initChatUI() {
 
   // Keyboard handler — Enter toggles chat open/closed (when input is not focused)
   window.addEventListener('keydown', e => {
+    // Don't toggle chat if typing in OTHER inputs (stall shop, etc.)
+    if (window.isInputFocused && window.isInputFocused() && document.activeElement !== inputEl) return;
     if (e.code === 'Enter' && document.activeElement !== inputEl) {
       e.preventDefault();
       _isExpanded ? collapseChat() : expandChat();

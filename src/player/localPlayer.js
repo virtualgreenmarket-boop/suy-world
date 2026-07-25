@@ -102,6 +102,8 @@ export function initLocalPlayer(scene, camera, name, characterId) {
   };
 
   window.addEventListener('keydown', e => {
+    // CRITICAL: Ignore ALL game keys while typing in text inputs (stall shop, etc.)
+    if (window.isInputFocused && window.isInputFocused()) return;
     if (isChatOpen()) return;
     keys[e.code] = true;
     if (e.code === 'Space') {
@@ -113,7 +115,11 @@ export function initLocalPlayer(scene, camera, name, characterId) {
     if (e.code === 'KeyR') _triggerDance();
     if (e.code === 'KeyV' && !_isSitting) toggleRide(playerGroup);
   });
-  window.addEventListener('keyup', e => { keys[e.code] = false; });
+  window.addEventListener('keyup', e => {
+    // Don't clear keys if typing (prevents race conditions)
+    if (window.isInputFocused && window.isInputFocused()) return;
+    keys[e.code] = false;
+  });
 
   // ── Stuck-key guard ──────────────────────────────────────────────
   // If the window loses focus while a movement key is held (Alt-Tab, clicking the

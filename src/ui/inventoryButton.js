@@ -608,6 +608,8 @@ export function initInventoryButton() {
 
   // Close on ESC
   window.addEventListener('keydown', (e) => {
+    // Don't close inventory if typing in a text input (e.g. stall shop)
+    if (window.isInputFocused && window.isInputFocused()) return;
     if (e.code === 'Escape' && panel.classList.contains('open')) {
       panel.classList.remove('open');
     }

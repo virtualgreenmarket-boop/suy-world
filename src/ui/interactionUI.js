@@ -17,6 +17,8 @@ const _v = new THREE.Vector3();
 export function initInteractionUI() {
   _buildDom();
   window.addEventListener('keydown', e => {
+    // Don't trigger interactions while typing in text inputs
+    if (window.isInputFocused && window.isInputFocused()) return;
     if (isChatOpen()) return;
     if (e.code === 'KeyE' && _activeTarget?.callback) {
       e.preventDefault();

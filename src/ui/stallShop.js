@@ -354,6 +354,9 @@ function _renderRentalScreen() {
         _currentStallCheck = { number: null, available: false, ownedByMe: false };
       }
     };
+    // CRITICAL: Stop key events from bubbling to game handlers while typing
+    numberInput.addEventListener('keydown', (e) => e.stopPropagation());
+    numberInput.addEventListener('keyup', (e) => e.stopPropagation());
     content.appendChild(numberInput);
 
     // Status display
@@ -606,6 +609,9 @@ function _renderNameScreen() {
       text-align: right;
       direction: rtl;
     `;
+    // CRITICAL: Stop key events from bubbling to game handlers while typing
+    nameInput.addEventListener('keydown', (e) => e.stopPropagation());
+    nameInput.addEventListener('keyup', (e) => e.stopPropagation());
     content.appendChild(nameInput);
 
     // Buttons container
@@ -892,6 +898,9 @@ function _renderChangeNameScreen() {
       text-align: right;
       direction: rtl;
     `;
+    // CRITICAL: Stop key events from bubbling to game handlers while typing
+    nameInput.addEventListener('keydown', (e) => e.stopPropagation());
+    nameInput.addEventListener('keyup', (e) => e.stopPropagation());
     content.appendChild(nameInput);
 
     // Buttons container
