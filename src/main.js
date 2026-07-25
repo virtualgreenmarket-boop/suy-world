@@ -744,6 +744,43 @@ function animate() {
     }
   }
 
+  // ONE-TIME DIAGNOSTIC: Find textures with needsUpdate=true but no valid image data
+  if (!window._textureDiagnosticDone) {
+    window._textureDiagnosticDone = true;
+    const brokenTextures = [];
+    scene.traverse((obj) => {
+      if (obj.material) {
+        const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+        materials.forEach((mat) => {
+          const textureProps = ['map', 'normalMap', 'roughnessMap', 'emissiveMap', 'alphaMap', 'aoMap', 'bumpMap', 'displacementMap', 'lightMap', 'metalnessMap'];
+          textureProps.forEach((prop) => {
+            const tex = mat[prop];
+            if (tex && tex.needsUpdate) {
+              const hasValidImage = tex.image && tex.image.width > 0 && tex.image.height > 0;
+              if (!hasValidImage) {
+                brokenTextures.push({
+                  mesh: obj.name || 'unnamed',
+                  prop,
+                  hasImage: !!tex.image,
+                  width: tex.image?.width || 0,
+                  height: tex.image?.height || 0
+                });
+              }
+            }
+          });
+        });
+      }
+    });
+    if (brokenTextures.length > 0) {
+      console.warn('[main] Found', brokenTextures.length, 'textures with needsUpdate=true but no valid image:');
+      brokenTextures.forEach((t, i) => {
+        console.warn(`  ${i+1}. mesh="${t.mesh}" ${t.prop}: image=${t.hasImage} ${t.width}×${t.height}`);
+      });
+    } else {
+      console.log('[main] ✓ No broken textures found');
+    }
+  }
+
   composer.render();
 }
 

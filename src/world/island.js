@@ -333,7 +333,7 @@ function addShallowSeabed(scene) {
   // East: 1.4x, North/South: 2.38x
   const flatTex = tex.clone();
   flatTex.repeat.set(10, 80);
-  flatTex.needsUpdate = true;
+  // NOTE: Do NOT set needsUpdate on cloned textures - THREE.js handles it automatically
   const flatMesh = new THREE.Mesh(
     createAsymmetricRing(367.64, 560.15, 1.4, 2.38, 128),
     new THREE.MeshStandardMaterial({ map: flatTex, roughness: 0.95, metalness: 0.0,

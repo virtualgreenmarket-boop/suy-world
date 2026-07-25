@@ -33,9 +33,11 @@ function _loadWoodTextures() {
 
 function woodMat(repeatX, repeatZ) {
   const { col, norm, rgh } = _loadWoodTextures();
-  const c = col.clone();  c.repeat.set(repeatX, repeatZ); c.needsUpdate = true;
-  const n = norm.clone(); n.repeat.set(repeatX, repeatZ); n.needsUpdate = true;
-  const r = rgh.clone();  r.repeat.set(repeatX, repeatZ); r.needsUpdate = true;
+  const c = col.clone();  c.repeat.set(repeatX, repeatZ);
+  const n = norm.clone(); n.repeat.set(repeatX, repeatZ);
+  const r = rgh.clone();  r.repeat.set(repeatX, repeatZ);
+  // NOTE: Do NOT set needsUpdate on cloned textures - THREE.js handles it automatically
+  // when the source texture loads. Setting it before load causes "no image data" spam.
   return new THREE.MeshStandardMaterial({ map: c, normalMap: n, roughnessMap: r,
     roughness: 1.0, metalness: 0.0 });
 }

@@ -336,15 +336,15 @@ export async function spawnAllPlazaNpcs(scene) {
               // Improve texture sharpness with anisotropic filtering
               if (m.map) {
                 m.map.anisotropy = 16; // Max sharpness
-                m.map.needsUpdate = true;
+                // NOTE: Do NOT set needsUpdate - GLTF textures already loaded
               }
               if (m.normalMap) {
                 m.normalMap.anisotropy = 16;
-                m.normalMap.needsUpdate = true;
+                // NOTE: Do NOT set needsUpdate - GLTF textures already loaded
               }
               if (m.roughnessMap) {
                 m.roughnessMap.anisotropy = 16;
-                m.roughnessMap.needsUpdate = true;
+                // NOTE: Do NOT set needsUpdate - GLTF textures already loaded
               }
 
               // Reduce roughness slightly for more reflectivity

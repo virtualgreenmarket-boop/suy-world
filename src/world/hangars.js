@@ -33,7 +33,9 @@ function enhanceModelQuality(model) {
                 m[key].colorSpace = THREE.SRGBColorSpace;
               }
 
-              m[key].needsUpdate = true;
+              // NOTE: Do NOT set needsUpdate on GLTF textures - they're already loaded
+              // and don't change. Setting it causes "no image data" spam if called before
+              // the texture fully loads (GLTFLoader returns model before all textures ready).
             }
           });
 

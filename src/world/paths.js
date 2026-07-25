@@ -138,7 +138,7 @@ function addPath(scene, ax, az, bx, bz) {
   // Scale UV along path length
   pathMat.map = getStoneTex().clone();
   pathMat.map.repeat.set(1, length / 10);
-  pathMat.map.needsUpdate = true;
+  // NOTE: Do NOT set needsUpdate on cloned CanvasTexture - handled automatically
 
   const path = new THREE.Mesh(new THREE.BoxGeometry(9, 0.20, length), pathMat);
   path.position.set(cx, 0.10, cz);
