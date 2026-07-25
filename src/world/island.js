@@ -247,15 +247,38 @@ function addTerrain(scene) {
 // ── Water (Three.js built-in Water shader) ────────────────────────────
 
 function addWater(scene) {
-  const waterNormals = new THREE.TextureLoader().load('textures/waternormals.jpg');
+  // CRITICAL FIX: Create a 1×1 blue fallback texture FIRST to prevent Water uniform crashes
+  // The Water shader needs normalSampler.value to be a valid texture immediately, or it throws
+  // "Cannot read properties of undefined (reading 'value')" every frame.
+  const canvas = document.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#8080ff'; // Normal map neutral color (128,128,255)
+  ctx.fillRect(0, 0, 1, 1);
+  const fallbackNormals = new THREE.CanvasTexture(canvas);
+  fallbackNormals.wrapS = fallbackNormals.wrapT = THREE.RepeatWrapping;
+
+  // Load actual water normals texture (async)
+  const waterNormals = new THREE.TextureLoader().load('textures/waternormals.jpg', (texture) => {
+    console.log('[island] Water normals texture loaded:', texture.image.width, '×', texture.image.height);
+    // Once loaded, update the Water material uniform to use the real texture
+    if (_water && _water.material && _water.material.uniforms && _water.material.uniforms.normalSampler) {
+      _water.material.uniforms.normalSampler.value = texture;
+      console.log('[island] Updated Water normalSampler to loaded texture');
+    }
+  }, undefined, (err) => {
+    console.error('[island] Failed to load water normals:', err);
+  });
   waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
 
   // Animated deep-water shader — starts beyond the shallow wading zone
   // Asymmetric: east 396→554m (1.4x), north/south 396→942m (2.38x), west stays 396m
+  // CRITICAL: Pass fallbackNormals initially so normalSampler.value is never undefined
   _water = new Water(createAsymmetricRing(560.15, 1164.15, 1.4, 2.38, 80), {
     textureWidth:   512,
     textureHeight:  512,
-    waterNormals,
+    waterNormals:   fallbackNormals,  // Start with fallback to prevent undefined crash
     sunDirection:   new THREE.Vector3(120, 220, 80).normalize(),
     sunColor:       0xffffff,
     waterColor:     0x006994,
@@ -264,6 +287,12 @@ function addWater(scene) {
   });
   _water.rotation.x = -Math.PI / 2;
   _water.position.y = -0.5;
+
+  // Verify the fix worked
+  if (_water.material && _water.material.uniforms && _water.material.uniforms.normalSampler) {
+    console.log('[island] Water normalSampler.value after init:', _water.material.uniforms.normalSampler.value ? 'OK' : 'UNDEFINED');
+  }
+
   scene.add(_water);
 
   // Simple water fill between island edge and shallow zone (r=120→246)
