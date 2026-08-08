@@ -392,7 +392,6 @@ export function equipLocalPlayerItem(cat, file) {
         }
       });
     });
-    console.log('[equip] shirt →', bare ? 'bare' : (isColor ? file : 'default'));
   }
 }
 
@@ -416,8 +415,6 @@ function updatePlayerAppearance(changes) {
   // Update materials by traversing the character model
   charModel.traverse(child => {
     if (!child.isMesh || !child.material) return;
-    console.log('[MESH]', child.name, '| parent:', child.parent?.name, '| color:', child.material.color?.getHexString());
-  
 
     // Get the material - handle both single material and material arrays
     const materials = Array.isArray(child.material) ? child.material : [child.material];

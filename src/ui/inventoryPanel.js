@@ -1108,37 +1108,6 @@ function _renderGrid() {
   noneSlot.addEventListener('click', () => { _equip(_activeCategory, null); _afterEquip(); });
   grid.appendChild(noneSlot);
 
-// ── Shirt colour swatches ──────────────────────────────────────────────
-    if (_activeCategory === 'Shirt') {
-      const SHIRT_COLORS = [
-        { he: 'אדום',  hex: '#E53935' },
-        { he: 'כחול',  hex: '#1E88E5' },
-        { he: 'ירוק',  hex: '#43A047' },
-        { he: 'שחור',  hex: '#212121' },
-        { he: 'לבן',   hex: '#FAFAFA' },
-      ];
-      // A T-shirt SVG icon tinted to the swatch colour
-      const shirtSVG = (hex) =>
-        '<svg viewBox="0 0 48 44" width="42" height="38" style="display:block;margin:0 auto">' +
-        '<path d="M16 4 L20 8 Q24 11 28 8 L32 4 L44 12 L39 20 L34 17 L34 40 L14 40 L14 17 L9 20 L4 12 Z" ' +
-        'fill="' + hex + '" stroke="rgba(0,0,0,0.35)" stroke-width="1.5" stroke-linejoin="round"/></svg>';
-
-      SHIRT_COLORS.forEach(col => {
-        const sw = document.createElement('div');
-        sw.className = 'inv-slot';
-        sw.style.cursor = 'pointer';
-        sw.innerHTML =
-          shirtSVG(col.hex) +
-          '<div class="inv-slot-label" style="text-align:center;margin-top:4px">' + col.he + '</div>';
-        // Bind the click with capture so nothing swallows it
-        sw.addEventListener('click', (e) => {
-          e.stopPropagation();
-          _equip(_activeCategory, col.hex);
-        });
-        grid.appendChild(sw);
-      });
-    }
-
   for (const file of items) grid.appendChild(_makeSlot(_activeCategory, file, icon));
 
   _gridArea.appendChild(grid);
