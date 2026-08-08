@@ -76,6 +76,7 @@ export function buildCharacter(type, overrideColors = {}) {
 
   const skin=M(c.skin), shirt=M(c.shirt), pants=M(c.pants),
         shoes=M(c.shoes,0.9,0), hairM=M(c.hair), eyeM=M(c.eyeColor), white=M('#fff');
+  shirt.userData.isShirt = true;   // tag so equip can find/hide shirt meshes
 
   const group = new THREE.Group();
   const parts = {};

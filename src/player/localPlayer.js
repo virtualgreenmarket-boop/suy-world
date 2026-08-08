@@ -365,8 +365,35 @@ export function getLocalPlayerPosition() { return playerGroup?.position; }
 export function getLocalPlayerRotY() { return playerGroup?.rotation.y ?? 0; }
 export function getCameraYaw() { return cameraYaw; }
 
-export function equipLocalPlayerItem() {
-  // No equipment system for now
+export function equipLocalPlayerItem(cat, file) {
+  const cm = playerGroup?.userData?._charModel;
+  if (!cm) return;
+
+  if (cat === 'Shirt') {
+    const isColor = typeof file === 'string' && file.startsWith('#');
+    const bare = file == null;
+
+    cm.traverse(ch => {
+      if (!ch.isMesh) return;
+      const mats = Array.isArray(ch.material) ? ch.material : [ch.material];
+      mats.forEach(m => {
+        if (!m || !m.userData || !m.userData.isShirt) return;
+        if (m.userData._shirtColor === undefined) {
+          m.userData._shirtColor = m.color.getHex();
+        }
+        if (bare) {
+          const skinHex = playerGroup.userData._skinColor ?? 0xFFCC99;
+          m.color.setHex(skinHex);
+        } else if (isColor) {
+          m.color.set(file);              // apply chosen shirt colour
+          m.userData._shirtColor = m.color.getHex();  // remember as the new base
+        } else {
+          m.color.setHex(m.userData._shirtColor);
+        }
+      });
+    });
+    console.log('[equip] shirt →', bare ? 'bare' : (isColor ? file : 'default'));
+  }
 }
 
 export function savePlayerPosition() {
@@ -389,6 +416,8 @@ function updatePlayerAppearance(changes) {
   // Update materials by traversing the character model
   charModel.traverse(child => {
     if (!child.isMesh || !child.material) return;
+    console.log('[MESH]', child.name, '| parent:', child.parent?.name, '| color:', child.material.color?.getHexString());
+  
 
     // Get the material - handle both single material and material arrays
     const materials = Array.isArray(child.material) ? child.material : [child.material];

@@ -38,7 +38,7 @@ const SECTIONS = {
   Outfit: {
     label: 'ביגוד', icon: '👕', accent: '#7ACB5E',
     categories: {
-      'Shirt':    { icon: '👕', items: ['T-Shirt_009.glb'] },
+     'Shirt': { icon: '👕', items: [],},
       'Outwear':  { icon: '🧥', items: ['Outwear_029.glb', 'Outwear_036.glb'] },
       'Costume':  { icon: '🎭', items: ['Costume_6_001.glb', 'Costume_10_001.glb'] },
       'Pants':    { icon: '👖', items: ['Pants_010.glb', 'Pants_014.glb'] },
@@ -1041,6 +1041,46 @@ function _renderGrid() {
     <span class="inv-cat-header-count">${items.length} פריטים</span>`;
   _gridArea.appendChild(catHeader);
 
+  // ── Shirt colour swatches (self-contained, before the empty-items guard) ──
+  if (_activeCategory === 'Shirt') {
+    const grid = document.createElement('div');
+    grid.className = 'inv-grid';
+
+    const noneSlot = document.createElement('div');
+    noneSlot.className = 'inv-slot';
+    noneSlot.style.cursor = 'pointer';
+    noneSlot.innerHTML =
+      '<div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;' +
+      'font-size:22px;color:#888">✕</div>' +
+      '<div class="inv-slot-label" style="text-align:center;margin-top:4px">בלי</div>';
+    noneSlot.addEventListener('click', () => _equip('Shirt', null));
+    grid.appendChild(noneSlot);
+
+    const SHIRT_COLORS = [
+      { he: 'אדום',  hex: '#E53935' },
+      { he: 'כחול',  hex: '#1E88E5' },
+      { he: 'ירוק',  hex: '#43A047' },
+      { he: 'שחור',  hex: '#212121' },
+      { he: 'לבן',   hex: '#FAFAFA' },
+    ];
+    const shirtSVG = (hex) =>
+      '<svg viewBox="0 0 48 44" width="42" height="38" style="display:block;margin:0 auto">' +
+      '<path d="M16 4 L20 8 Q24 11 28 8 L32 4 L44 12 L39 20 L34 17 L34 40 L14 40 L14 17 L9 20 L4 12 Z" ' +
+      'fill="' + hex + '" stroke="rgba(0,0,0,0.35)" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+    SHIRT_COLORS.forEach(col => {
+      const sw = document.createElement('div');
+      sw.className = 'inv-slot';
+      sw.style.cursor = 'pointer';
+      sw.innerHTML = shirtSVG(col.hex) +
+        '<div class="inv-slot-label" style="text-align:center;margin-top:4px">' + col.he + '</div>';
+      sw.addEventListener('click', () => _equip('Shirt', col.hex));
+      grid.appendChild(sw);
+    });
+
+    _gridArea.appendChild(grid);
+    return;
+  }
   if (items.length === 0) {
     if (placeholders?.length) {
       const grid = document.createElement('div');
@@ -1067,6 +1107,37 @@ function _renderGrid() {
   noneSlot.innerHTML = `<span style="font-size:18px;opacity:.5">✕</span><span>בלי</span>`;
   noneSlot.addEventListener('click', () => { _equip(_activeCategory, null); _afterEquip(); });
   grid.appendChild(noneSlot);
+
+// ── Shirt colour swatches ──────────────────────────────────────────────
+    if (_activeCategory === 'Shirt') {
+      const SHIRT_COLORS = [
+        { he: 'אדום',  hex: '#E53935' },
+        { he: 'כחול',  hex: '#1E88E5' },
+        { he: 'ירוק',  hex: '#43A047' },
+        { he: 'שחור',  hex: '#212121' },
+        { he: 'לבן',   hex: '#FAFAFA' },
+      ];
+      // A T-shirt SVG icon tinted to the swatch colour
+      const shirtSVG = (hex) =>
+        '<svg viewBox="0 0 48 44" width="42" height="38" style="display:block;margin:0 auto">' +
+        '<path d="M16 4 L20 8 Q24 11 28 8 L32 4 L44 12 L39 20 L34 17 L34 40 L14 40 L14 17 L9 20 L4 12 Z" ' +
+        'fill="' + hex + '" stroke="rgba(0,0,0,0.35)" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+      SHIRT_COLORS.forEach(col => {
+        const sw = document.createElement('div');
+        sw.className = 'inv-slot';
+        sw.style.cursor = 'pointer';
+        sw.innerHTML =
+          shirtSVG(col.hex) +
+          '<div class="inv-slot-label" style="text-align:center;margin-top:4px">' + col.he + '</div>';
+        // Bind the click with capture so nothing swallows it
+        sw.addEventListener('click', (e) => {
+          e.stopPropagation();
+          _equip(_activeCategory, col.hex);
+        });
+        grid.appendChild(sw);
+      });
+    }
 
   for (const file of items) grid.appendChild(_makeSlot(_activeCategory, file, icon));
 
