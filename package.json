@@ -6,22 +6,28 @@
     "dev": "concurrently -n client,server -c cyan,green \"vite\" \"node server/index.js\"",
     "build": "vite build",
     "start": "node server/index.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mcp": "tsx src/mcp/server.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^12.10.0",
     "express": "^4.19.2",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.7.5",
-    "three": "^0.176.0"
+    "three": "^0.176.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.4.0",
+    "@types/node": "^26.2.0",
     "concurrently": "^9.0.0",
     "gltf-pipeline": "^4.3.1",
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
     "sharp": "^0.34.5",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2",
     "vite": "^6.3.5"
   }
 }
